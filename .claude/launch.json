@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "satona", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev", "--port", "5191"], "port": 5191 }
+  ]
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calc, flow, n, num, pick, ref, text, type } from './catalog/kit'
 import { approvalInbox } from './approval'
-import { allowedTransitions, ancestors, descendants, rollup, computeValues, filterRecords, nextId, referencedBy, sortRecords, summarize, validate, type ErpRecord } from './records'
+import { allowedTransitions, ancestors, defaultsFor, descendants, monthBounds, rollup, computeValues, filterRecords, nextId, referencedBy, sortRecords, summarize, validate, type ErpRecord } from './records'
 
 const orders = type('x', 'orders', ['Orders', 'Order', 'ORD'], 'name', [
   text('name', 'Name', { required: true }),
@@ -85,5 +85,19 @@ describe('parent-child mapping', () => {
     const tree = descendants(wh, all['w.houses'][0]!, types, all)
     expect(tree.map((n) => [n.record.id, n.children.map((c) => c.record.id)])).toEqual([['BIN-1', ['LOT-1']], ['BIN-2', ['LOT-2']]])
     expect(rollup(tree).map((x) => [x.type.key, x.count, x.sum])).toEqual([['w.bins', 2, 0], ['w.lots', 2, 12]])
+  })
+})
+
+describe('form defaults', () => {
+  it('fills required dates with today and the entity with the user entity', () => {
+    const t = { fields: [{ key: 'due', label: 'Due', type: 'date', required: true }, { key: 'end', label: 'End', type: 'date' }, { key: 'entity', label: 'Entity', type: 'entity', options: ['holding', 'roasi'] }] } as unknown as Parameters<typeof defaultsFor>[0]
+    expect(defaultsFor(t, { entity: 'roasi', today: '2026-10-30' })).toEqual({ due: '2026-10-30', entity: 'roasi' })
+  })
+})
+
+describe('period helpers', () => {
+  it('gives month bounds, leap years included', () => {
+    expect(monthBounds('2026-10')).toEqual({ from: '2026-10-01', to: '2026-10-31' })
+    expect(monthBounds('2028-02').to).toBe('2028-02-29')
   })
 })

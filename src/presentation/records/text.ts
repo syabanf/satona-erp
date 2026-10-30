@@ -1,5 +1,5 @@
 import { typeOf } from '@/domain/catalog'
-import { display, type ErpRecord, type Field, type RecordType, type StateTone, type Value } from '@/domain/records'
+import { display, monthBounds, type ErpRecord, type Field, type RecordType, type StateTone, type Value } from '@/domain/records'
 
 export type AllRecords = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -41,4 +41,16 @@ export function fieldText(field: Field, value: Value | undefined, all?: AllRecor
   }
   if (field.type === 'entity' && value) return ENTITY_NAME[String(value)] ?? String(value)
   return display(field, value)
+}
+
+
+/** Query string that narrows a record list to a date range; either end may stay open. */
+export const rangeQuery = (from?: string, to?: string) => `?${[from && `from=${from}`, to && `to=${to}`].filter(Boolean).join('&')}`
+
+export const dayQuery = (day: string) => rangeQuery(day, day)
+
+/** One "YYYY-MM" month, for chart drill-downs. */
+export const monthQuery = (month: string) => {
+  const { from, to } = monthBounds(month)
+  return rangeQuery(from, to)
 }

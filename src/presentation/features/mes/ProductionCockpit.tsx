@@ -16,6 +16,7 @@ import { Tabs } from '../../ui/Tabs'
 import { StateBadge } from '../../records/StateBadge'
 import { recordPath, refTitle } from '../../records/text'
 import { KpiTile } from './KpiTile'
+import { NewButtons } from '../../records/NewButtons'
 
 const PlantLine3D = lazy(() => import('../../three/PlantLine3D'))
 const VIEWS = [
@@ -73,6 +74,7 @@ export default function ProductionCockpit() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['mes.downtime', 'mes.oee', 'mes.holds', 'mes.ncr']} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm text-muted">
           <Factory aria-hidden className="size-4" /> Rodame NPK plant Gresik · Lines A and B

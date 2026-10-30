@@ -175,3 +175,6 @@ export function aging(rows: readonly ErpRecord[], dueField: string, amountField:
   }
   return buckets
 }
+
+/** The ISO day `n` days from `today` (negative goes back). */
+export const shiftDay = (today: string, n: number) => isoDay(new Date(`${today}T00:00:00Z`).getTime() + n * dayMs)

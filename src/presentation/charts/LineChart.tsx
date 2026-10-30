@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { cn } from '@/lib/cn'
 import { useSize } from '../hooks/useSize'
 import { niceScale, smoothPath } from './geometry'
@@ -30,6 +30,8 @@ interface LineChartProps {
   ring?: string
   label: string
   className?: string
+  /** Drill-down: called with the point index on click or Enter. */
+  onPick?: (index: number) => void
 }
 
 const PAD = { top: 12, right: 10, bottom: 28, left: 40 }
@@ -46,6 +48,7 @@ export function LineChart({
   ring = 'var(--color-card)',
   label,
   className,
+  onPick,
 }: LineChartProps) {
   const [ref, { width }] = useSize<HTMLDivElement>()
   const [index, setIndex] = useState<number | null>(null)
@@ -60,13 +63,13 @@ export function LineChart({
   const y = (v: number) => PAD.top + (1 - v / top) * plotH
   const baseline = PAD.top + plotH
 
-  function onPointerMove(e: PointerEvent<SVGRectElement>) {
+  function indexAt(e: MouseEvent<SVGRectElement>) {
     const box = e.currentTarget.getBoundingClientRect()
-    const i = Math.round((e.clientX - box.left) / (stepX || 1))
-    setIndex(Math.max(0, Math.min(labels.length - 1, i)))
+    return Math.max(0, Math.min(labels.length - 1, Math.round((e.clientX - box.left) / (stepX || 1))))
   }
 
   function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && onPick && index !== null) return onPick(index)
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!step) return
     e.preventDefault()
@@ -173,7 +176,9 @@ export function LineChart({
             width={plotW + stepX}
             height={height}
             fill="transparent"
-            onPointerMove={onPointerMove}
+            className={onPick ? 'cursor-pointer' : undefined}
+            onClick={(e) => onPick?.(indexAt(e))}
+            onPointerMove={(e) => setIndex(indexAt(e))}
             onPointerLeave={() => setIndex(null)}
           />
         </svg>
@@ -194,6 +199,7 @@ export function LineChart({
               <span className="font-semibold text-fg tabular">{format(s.values[index] ?? 0)}</span>
             </p>
           ))}
+          {onPick && <p className="mt-1 text-[11px] text-accent-text">Click to open the records</p>}
         </div>
       )}
       <p aria-live="polite" className="sr-only">

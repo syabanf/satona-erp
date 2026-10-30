@@ -13,6 +13,8 @@ import { Dot } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Entrance } from '../ui/Motion'
 import { menuItem, Popover } from '../ui/Popover'
+import { RecordDrawerProvider } from '../records/RecordDrawer'
+import { CommandPalette } from './dashboard/CommandPalette'
 import { BottomNav } from './dashboard/BottomNav'
 import { Sidebar, SidebarContent } from './dashboard/Sidebar'
 
@@ -178,32 +180,36 @@ export function DashboardShell() {
   if (!signedIn) return <Navigate to="/login" replace />
 
   return (
-    <div className="flex h-dvh bg-canvas">
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-full bg-invert px-4 py-2 text-on-invert focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        Skip to content
-      </a>
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header alerts={alerts} />
-        <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
-          <Entrance key={pathname}>
-            <Outlet />
-          </Entrance>
-        </main>
-      </div>
-      <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />
-      {drawer && (
-        <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
-          <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />
-          <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 animate-slide-up overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
-            <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 rounded-full bg-line-strong" />
-            <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
+    <RecordDrawerProvider>
+      <CommandPalette>
+        <div className="flex h-dvh bg-canvas">
+          <a
+            href="#main"
+            className="sr-only z-50 rounded-full bg-invert px-4 py-2 text-on-invert focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+          >
+            Skip to content
+          </a>
+          <Sidebar collapsed={collapsed} onToggle={toggle} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Header alerts={alerts} />
+            <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
+              <Entrance key={pathname}>
+                <Outlet />
+              </Entrance>
+            </main>
           </div>
+          <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />
+          {drawer && (
+            <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
+              <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />
+              <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 animate-slide-up overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
+                <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 rounded-full bg-line-strong" />
+                <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </CommandPalette>
+    </RecordDrawerProvider>
   )
 }

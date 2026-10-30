@@ -8,6 +8,8 @@ export function useSize<T extends HTMLElement>() {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    // Measure once now so the first paint has real pixels; the observer only follows later resizes.
+    setSize({ width: el.clientWidth, height: el.clientHeight })
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
       const { width, height } = entry.contentRect

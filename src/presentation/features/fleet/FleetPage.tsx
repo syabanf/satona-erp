@@ -22,6 +22,7 @@ import { FactGrid } from '../../ui/Headline'
 import { Meter } from '../../ui/Meter'
 import { Skeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
+import { NewButtons } from '../../records/NewButtons'
 
 const STATE_TONE: Record<TruckState, Tone> = { moving: 'success', loading: 'neutral', alert: 'danger' }
 const STATES = (Object.keys(TRUCK_LABEL) as TruckState[]).map((value) => ({ value, label: TRUCK_LABEL[value] }))
@@ -74,164 +75,168 @@ export default function FleetPage() {
   const depots = useMemo(() => (sites.data ?? []).filter((s) => s.entity === 'rotama' || s.entity === 'roasi'), [sites.data])
 
   return (
-    <div className="grid gap-4 xl:grid-cols-3">
-      <Card className="p-3 xl:col-span-2">
-        {trucks.data && entities.data ? (
-          <BaseMap
-            center={[-6.6, 109.2]}
-            zoom={6}
-            focus={routeMid ? { at: routeMid, zoom: 8 } : { at: [-6.6, 109.2], zoom: 6 }}
-            className="h-[460px] xl:h-[640px]"
-            label="Live fleet map"
-          >
-            <SiteMarkers sites={depots} entities={entities.data} onSelect={(id) => navigate(`/entities/${depots.find((d) => d.id === id)?.entity ?? ''}`)} />
-            {rows.map((t) => (
-              <Polyline
-                key={`r-${t.id}`}
-                positions={t.route.map((p) => [p[0], p[1]] as [number, number])}
-                pathOptions={{ className: t.id === query.truck ? 'mark-route-active' : 'mark-route', weight: t.id === query.truck ? 4 : 3 }}
-              />
-            ))}
-            {rows.map((t) => {
-              const i = all.indexOf(t)
-              const at = pointAlong(t.route, live(t, elapsed, i).progress)
-              return (
-                <Marker
-                  key={t.id}
-                  position={[at[0], at[1]]}
-                  icon={truckIcon(t.state, t.id === query.truck)}
-                  zIndexOffset={t.id === query.truck ? 1000 : t.state === 'alert' ? 500 : 0}
-                  eventHandlers={{ click: () => setQuery({ truck: t.id === query.truck ? undefined : t.id }) }}
-                >
-                  <Tooltip direction="top" offset={[0, -14]}>
-                    {t.plate} · {t.cargo}
-                  </Tooltip>
-                </Marker>
-              )
-            })}
-          </BaseMap>
-        ) : (
-          <Skeleton className="h-[460px] rounded-panel xl:h-[640px]" />
-        )}
-      </Card>
-
-      {picked && now ? (
-        <Card key={picked.id} className="animate-rise">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <Button variant="soft" size="sm" onClick={() => setQuery({ truck: undefined })}>
-              <ArrowLeft aria-hidden className="size-3.5" /> All trucks
-            </Button>
-            <StatusPill tone={STATE_TONE[picked.state]}>{TRUCK_LABEL[picked.state]}</StatusPill>
-          </div>
-          <p className="font-mono text-xs text-muted">{picked.manifest}</p>
-          <h2 className="text-2xl font-bold tracking-tight">
-            {picked.plate}
-            <span className="text-accent">.</span>
-          </h2>
-          <p className="text-sm text-body">
-            {picked.from} → {picked.to} · {picked.driver}
-          </p>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {[
-              { icon: Gauge, label: 'Speed', value: `${now.speed}`, unit: 'km/h', bad: now.speed > SPEED_LIMIT },
-              { icon: Thermometer, label: 'Tank temp', value: `${picked.tankTemp}`, unit: '°C', bad: picked.state === 'alert' && picked.tankTemp > 45 },
-              { icon: Gauge, label: 'Pressure', value: picked.tankPressure.toFixed(1), unit: 'bar', bad: false },
-            ].map((m) => (
-              <div key={m.label} className={cn('rounded-panel p-3', m.bad ? 'bg-accent-soft text-accent-text' : 'bg-raised')}>
-                <m.icon aria-hidden className="size-4 opacity-60" />
-                <p className="mt-2 text-xl font-semibold tabular">{m.value}</p>
-                <p className="text-[11px] opacity-70">
-                  {m.label}, {m.unit}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4">
-            <div className="mb-1 flex justify-between text-xs text-muted">
-              <span>{picked.from}</span>
-              <span className="tabular">{Math.round(now.progress * 100)}%</span>
-              <span>{picked.to}</span>
-            </div>
-            <Meter value={now.progress} tone="accent" label="Trip progress" />
-          </div>
-
-          <p className="mt-5 mb-2 text-sm font-semibold">Speed, last 12 readings</p>
-          <LineChart
-            labels={picked.speedTrace.map((_, i) => `-${(11 - i) * 5}m`)}
-            series={[
-              { id: 'speed', label: 'Speed', values: picked.speedTrace, color: 'var(--color-series-1)', area: true },
-              { id: 'limit', label: 'Limit', values: picked.speedTrace.map(() => SPEED_LIMIT), color: 'var(--color-series-other)', muted: true },
-            ]}
-            format={(v) => `${v} km/h`}
-            max={110}
-            height={150}
-            label={`${picked.plate} speed trace`}
-          />
-
-          <FactGrid
-            className="mt-4 grid-cols-2"
-            facts={[
-              ['Cargo', picked.cargo],
-              ['Hazard', picked.hazard],
-              ['DG certificate', picked.certExpiry],
-              ['Manifest', picked.manifest],
-            ]}
-          />
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="solid" size="sm" onClick={() => toast({ title: `Call placed to ${picked.driver}`, description: 'Demo: no phone line is connected.' })}>
-              <PhoneCall aria-hidden className="size-3.5" /> Call driver
-            </Button>
-            <Button variant="soft" size="sm" onClick={() => toast({ title: `Manifest ${picked.manifest} sent`, description: 'Demo: KLHK and Kemenhub submission is simulated.' })}>
-              <FileText aria-hidden className="size-3.5" /> Send B3 manifest
-            </Button>
-          </div>
+    <div className="space-y-4">
+      <NewButtons types={['tms.trips', 'tms.checkins', 'tms.safety']} />
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="p-3 xl:col-span-2">
+          {trucks.data && entities.data ? (
+            <BaseMap
+              center={[-6.6, 109.2]}
+              zoom={6}
+              focus={routeMid ? { at: routeMid, zoom: 8 } : { at: [-6.6, 109.2], zoom: 6 }}
+              className="h-[460px] xl:h-[640px]"
+              label="Live fleet map"
+            >
+              <SiteMarkers sites={depots} entities={entities.data} onSelect={(id) => navigate(`/entities/${depots.find((d) => d.id === id)?.entity ?? ''}`)} />
+              {rows.map((t) => (
+                <Polyline
+                  key={`r-${t.id}`}
+                  positions={t.route.map((p) => [p[0], p[1]] as [number, number])}
+                  pathOptions={{ className: t.id === query.truck ? 'mark-route-active' : 'mark-route', weight: t.id === query.truck ? 4 : 3 }}
+                />
+              ))}
+              {rows.map((t) => {
+                const i = all.indexOf(t)
+                const at = pointAlong(t.route, live(t, elapsed, i).progress)
+                return (
+                  <Marker
+                    key={t.id}
+                    position={[at[0], at[1]]}
+                    icon={truckIcon(t.state, t.id === query.truck)}
+                    zIndexOffset={t.id === query.truck ? 1000 : t.state === 'alert' ? 500 : 0}
+                    eventHandlers={{ click: () => setQuery({ truck: t.id === query.truck ? undefined : t.id }) }}
+                  >
+                    <Tooltip direction="top" offset={[0, -14]}>
+                      {t.plate} · {t.cargo}
+                    </Tooltip>
+                  </Marker>
+                )
+              })}
+            </BaseMap>
+          ) : (
+            <Skeleton className="h-[460px] rounded-panel xl:h-[640px]" />
+          )}
         </Card>
-      ) : (
-        <Card className="p-0">
-          <div className="space-y-3 border-b border-line p-4">
-            <CardHeader title="Tankers" className="mb-0" />
-            <FilterChips label="Filter by state" options={STATES} value={state} counts={countBy(bySearch, (t) => t.state)} total={bySearch.length} onChange={(v) => setQuery({ state: v })} />
-            <Input
-              className="h-10 w-full"
-              icon={<Search className="size-4" />}
-              placeholder="Plate, driver, cargo, destination"
-              aria-label="Search trucks"
-              value={query.q ?? ''}
-              onChange={(e) => setQuery({ q: e.target.value })}
+
+        {picked && now ? (
+          <Card key={picked.id} className="animate-rise">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <Button variant="soft" size="sm" onClick={() => setQuery({ truck: undefined })}>
+                <ArrowLeft aria-hidden className="size-3.5" /> All trucks
+              </Button>
+              <StatusPill tone={STATE_TONE[picked.state]}>{TRUCK_LABEL[picked.state]}</StatusPill>
+            </div>
+            <p className="font-mono text-xs text-muted">{picked.manifest}</p>
+            <h2 className="text-2xl font-bold tracking-tight">
+              {picked.plate}
+              <span className="text-accent">.</span>
+            </h2>
+            <p className="text-sm text-body">
+              {picked.from} → {picked.to} · {picked.driver}
+            </p>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                { icon: Gauge, label: 'Speed', value: `${now.speed}`, unit: 'km/h', bad: now.speed > SPEED_LIMIT },
+                { icon: Thermometer, label: 'Tank temp', value: `${picked.tankTemp}`, unit: '°C', bad: picked.state === 'alert' && picked.tankTemp > 45 },
+                { icon: Gauge, label: 'Pressure', value: picked.tankPressure.toFixed(1), unit: 'bar', bad: false },
+              ].map((m) => (
+                <div key={m.label} className={cn('rounded-panel p-3', m.bad ? 'bg-accent-soft text-accent-text' : 'bg-raised')}>
+                  <m.icon aria-hidden className="size-4 opacity-60" />
+                  <p className="mt-2 text-xl font-semibold tabular">{m.value}</p>
+                  <p className="text-[11px] opacity-70">
+                    {m.label}, {m.unit}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-1 flex justify-between text-xs text-muted">
+                <span>{picked.from}</span>
+                <span className="tabular">{Math.round(now.progress * 100)}%</span>
+                <span>{picked.to}</span>
+              </div>
+              <Meter value={now.progress} tone="accent" label="Trip progress" />
+            </div>
+
+            <p className="mt-5 mb-2 text-sm font-semibold">Speed, last 12 readings</p>
+            <LineChart
+              labels={picked.speedTrace.map((_, i) => `-${(11 - i) * 5}m`)}
+              series={[
+                { id: 'speed', label: 'Speed', values: picked.speedTrace, color: 'var(--color-series-1)', area: true },
+                { id: 'limit', label: 'Limit', values: picked.speedTrace.map(() => SPEED_LIMIT), color: 'var(--color-series-other)', muted: true },
+              ]}
+              format={(v) => `${v} km/h`}
+              max={110}
+              height={150}
+              onPick={() => navigate(`/modules/tms/trips?q=${encodeURIComponent(picked.plate)}`)}
+              label={`${picked.plate} speed trace`}
             />
-          </div>
-          <ul className="divide-y divide-line">
-            {rows.map((t) => {
-              const i = all.indexOf(t)
-              const n = live(t, elapsed, i)
-              return (
-                <li key={t.id} data-motion="row">
-                  <button type="button" onClick={() => setQuery({ truck: t.id })} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-raised">
-                    <span className={cn('size-2.5 shrink-0 rounded-full', t.state === 'alert' ? 'bg-accent' : t.state === 'loading' ? 'bg-subtle' : 'bg-fg')} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">{t.plate}</span>
-                      <span className="block truncate text-xs text-muted">
-                        {t.cargo} · to {t.to}
+
+            <FactGrid
+              className="mt-4 grid-cols-2"
+              facts={[
+                ['Cargo', picked.cargo],
+                ['Hazard', picked.hazard],
+                ['DG certificate', picked.certExpiry],
+                ['Manifest', picked.manifest],
+              ]}
+            />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button variant="solid" size="sm" onClick={() => toast({ title: `Call placed to ${picked.driver}`, description: 'Demo: no phone line is connected.' })}>
+                <PhoneCall aria-hidden className="size-3.5" /> Call driver
+              </Button>
+              <Button variant="soft" size="sm" onClick={() => toast({ title: `Manifest ${picked.manifest} sent`, description: 'Demo: KLHK and Kemenhub submission is simulated.' })}>
+                <FileText aria-hidden className="size-3.5" /> Send B3 manifest
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-0">
+            <div className="space-y-3 border-b border-line p-4">
+              <CardHeader title="Tankers" className="mb-0" />
+              <FilterChips label="Filter by state" options={STATES} value={state} counts={countBy(bySearch, (t) => t.state)} total={bySearch.length} onChange={(v) => setQuery({ state: v })} />
+              <Input
+                className="h-10 w-full"
+                icon={<Search className="size-4" />}
+                placeholder="Plate, driver, cargo, destination"
+                aria-label="Search trucks"
+                value={query.q ?? ''}
+                onChange={(e) => setQuery({ q: e.target.value })}
+              />
+            </div>
+            <ul className="divide-y divide-line">
+              {rows.map((t) => {
+                const i = all.indexOf(t)
+                const n = live(t, elapsed, i)
+                return (
+                  <li key={t.id} data-motion="row">
+                    <button type="button" onClick={() => setQuery({ truck: t.id })} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-raised">
+                      <span className={cn('size-2.5 shrink-0 rounded-full', t.state === 'alert' ? 'bg-accent' : t.state === 'loading' ? 'bg-subtle' : 'bg-fg')} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{t.plate}</span>
+                        <span className="block truncate text-xs text-muted">
+                          {t.cargo} · to {t.to}
+                        </span>
                       </span>
-                    </span>
-                    <span className={cn('text-sm font-medium tabular', n.speed > SPEED_LIMIT && 'text-accent-text')}>{n.speed} km/h</span>
+                      <span className={cn('text-sm font-medium tabular', n.speed > SPEED_LIMIT && 'text-accent-text')}>{n.speed} km/h</span>
+                    </button>
+                  </li>
+                )
+              })}
+              {rows.length === 0 && (
+                <li className="p-6 text-center text-sm text-muted">
+                  No truck matches.{' '}
+                  <button type="button" className="cursor-pointer font-semibold text-fg underline" onClick={() => setQuery({ state: undefined, q: undefined })}>
+                    Clear filters
                   </button>
                 </li>
-              )
-            })}
-            {rows.length === 0 && (
-              <li className="p-6 text-center text-sm text-muted">
-                No truck matches.{' '}
-                <button type="button" className="cursor-pointer font-semibold text-fg underline" onClick={() => setQuery({ state: undefined, q: undefined })}>
-                  Clear filters
-                </button>
-              </li>
-            )}
-          </ul>
-        </Card>
-      )}
+              )}
+            </ul>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

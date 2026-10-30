@@ -282,3 +282,22 @@ export function rollup(nodes: readonly TreeNode[]) {
   visit(nodes)
   return [...out.values()]
 }
+
+/** Starting values for a new record: today in required date fields and the user's entity, so most forms need fewer clicks. */
+export function defaultsFor(type: RecordType, { entity, today }: { entity: string; today: string }): Values {
+  const out: Values = {}
+  for (const f of type.fields) {
+    if (f.type === 'date' && f.required) out[f.key] = today
+    if (f.type === 'entity' && f.options?.includes(entity)) out[f.key] = entity
+  }
+  return out
+}
+
+/** The date a record counts under in charts and period filters: its insight date field, else when it was created. */
+export const recordDate = (type: Pick<RecordType, 'insight'>, r: ErpRecord) => String((type.insight.dateField ? r.values[type.insight.dateField] : undefined) ?? r.createdAt).slice(0, 10)
+
+/** First and last day of a "YYYY-MM" month. */
+export function monthBounds(month: string) {
+  const [y, m] = month.split('-').map(Number) as [number, number]
+  return { from: `${month}-01`, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) }
+}

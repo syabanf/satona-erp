@@ -14,6 +14,8 @@ interface DonutProps {
   slices: readonly DonutSlice[]
   active: string | null
   onActive: (id: string | null) => void
+  /** Drill-down: called with the slice id on click. */
+  onPick?: (id: string) => void
   /** Text of the chip that floats beside the active slice. */
   chip?: (slice: DonutSlice) => ReactNode
   children?: ReactNode
@@ -27,7 +29,7 @@ interface DonutProps {
  * Ring of rounded segments separated by a surface gap. Hovering a segment (or focusing
  * its legend row, which the caller wires to `onActive`) lifts it and shows a chip.
  */
-export function Donut({ slices, active, onActive, chip, children, size = 200, stroke = 24, className, label }: DonutProps) {
+export function Donut({ slices, active, onActive, onPick, chip, children, size = 200, stroke = 24, className, label }: DonutProps) {
   const c = size / 2
   const r = c - stroke / 2 - 4
   const segments = ringSegments(
@@ -60,6 +62,7 @@ export function Donut({ slices, active, onActive, chip, children, size = 200, st
               className="cursor-pointer transition-[opacity,stroke-width] duration-200"
               onPointerEnter={() => onActive(slice.id)}
               onPointerLeave={() => onActive(null)}
+              onClick={() => onPick?.(slice.id)}
             />
           )
         })}

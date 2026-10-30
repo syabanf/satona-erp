@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { AlertTriangle, ArrowUpRight, Wrench } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { backlog, pareto, perMonth, pmCompliance, reliability, workMix } from '@/domain/kpi'
@@ -13,13 +13,16 @@ import { Card, CardHeader } from '../../ui/Card'
 import { Meter } from '../../ui/Meter'
 import { CardSkeleton } from '../../ui/States'
 import { StateBadge } from '../../records/StateBadge'
-import { recordPath, refTitle } from '../../records/text'
+import { recordPath, refTitle, monthQuery } from '../../records/text'
 import { KpiTile } from './KpiTile'
+import { NewButtons } from '../../records/NewButtons'
+import { RecordControls } from '../../records/RecordControls'
 
 const WO_KINDS = ['Preventive', 'Corrective', 'Emergency', 'Inspection', 'Calibration', 'Improvement']
 
 /** Maintenance and reliability cockpit, ported from the WIT CMMS and fed by Rodame's EAM records. */
 export default function ReliabilityCockpit() {
+  const navigate = useNavigate()
   const { clock } = useServices()
   const all = useAllRecords()
   const [slice, setSlice] = useState<string | null>(null)
@@ -61,6 +64,7 @@ export default function ReliabilityCockpit() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['eam.workorders', 'eam.requests', 'eam.rca', 'eam.calibrations']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="MTBF, 90 days" value={k.rel.mtbf} format={(v) => `${count(Math.round(v))} h`} to={`${recordPath(wo)}?f=Corrective`} accent note={`${k.rel.failures} breakdowns`} />
         <KpiTile label="MTTR" value={k.rel.mttr} format={(v) => `${v.toFixed(1)} h`} to={`${recordPath(wo)}?f=Corrective`} note="hands-on repair time" />
@@ -80,6 +84,7 @@ export default function ReliabilityCockpit() {
           ]}
           format={(v) => `${v} orders`}
           height={220}
+          onPick={(i) => navigate(`${recordPath(wo)}${monthQuery(k.trend.planned[i]!.month)}`)}
           label="Planned and breakdown work orders per month"
         />
         <p className="mt-2 flex gap-4 text-xs text-muted">
@@ -131,7 +136,7 @@ export default function ReliabilityCockpit() {
         <Card>
           <CardHeader title="Maintenance cost by type" />
           <div className="flex flex-col items-center gap-3">
-            <Donut slices={k.cost} active={slice} onActive={setSlice} size={170} stroke={20} chip={(s) => `${s.label}, ${moneyCompact(s.value)}`} label="Maintenance cost by work type">
+            <Donut slices={k.cost} active={slice} onActive={setSlice} size={170} stroke={20} chip={(s) => `${s.label}, ${moneyCompact(s.value)}`} onPick={(id) => navigate(`${recordPath(wo)}?q=${encodeURIComponent(id)}`)} label="Maintenance cost by work type">
               <p className="text-xs text-muted">Total</p>
               <p className="text-sm font-semibold tabular">{moneyCompact(totalCost)}</p>
             </Donut>
@@ -193,6 +198,7 @@ export default function ReliabilityCockpit() {
                   <StateBadge type={typeOf('eam.rca')!} status={r.status} />
                   <ArrowUpRight aria-hidden className="size-4 shrink-0 text-subtle" />
                 </Link>
+                <RecordControls type={typeOf('eam.rca')!} record={r} className="pb-2.5" />
               </li>
             ))}
           </ul>

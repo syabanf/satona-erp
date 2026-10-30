@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router'
 import { can } from '@/domain/erp'
-import { canCreate } from '@/domain/records'
+import { canCreate, defaultsFor } from '@/domain/records'
 import { useAllRecords, useRecordList } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
@@ -19,7 +19,7 @@ import { useRecordType } from './useRecordType'
 export default function RecordFormPage() {
   const { type, rid } = useRecordType()
   const { access } = useModule()
-  const { records } = useServices()
+  const { records, clock } = useServices()
   const { role } = useSession()
   const navigate = useNavigate()
   const toast = useToast()
@@ -44,7 +44,7 @@ export default function RecordFormPage() {
         <RecordForm
           type={type}
           all={all.data}
-          initial={existing?.values ?? Object.fromEntries(type.fields.filter((f) => params.get(f.key)).map((f) => [f.key, params.get(f.key) ?? '']))}
+          initial={existing?.values ?? { ...defaultsFor(type, { entity: role.entity, today: clock.today() }), ...Object.fromEntries(type.fields.filter((f) => params.get(f.key)).map((f) => [f.key, params.get(f.key) ?? ''])) }}
           submitLabel={existing ? 'Save changes' : `Create ${type.singular.toLowerCase()}`}
           onCancel={() => navigate(back)}
           onSubmit={async (values) => {

@@ -1,26 +1,34 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import { filterRecords, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
+import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Eye, Search, X } from 'lucide-react'
+import { filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
+import { toCsv } from '@/lib/csv'
 import { useQueryState } from '../hooks/useParams'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Field'
 import { FilterChips } from '../ui/FilterChips'
 import { EmptyState } from '../ui/States'
+import { BulkBar } from './BulkBar'
+import { useRecordDrawer } from './drawer'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
 
 const PAGE = 20
-const KEYS = ['status', 'q', 'f', 'sort', 'dir', 'page'] as const
+const KEYS = ['status', 'q', 'f', 'sort', 'dir', 'page', 'from', 'to'] as const
 
 /** Every record list: status chips with counts, a picker for the main category field, search, sort and pages, all in the URL. */
 export function RecordTable({ type, rows, all }: { type: RecordType; rows: readonly ErpRecord[]; all?: AllRecords }) {
   const navigate = useNavigate()
+  const open = useRecordDrawer()
   const [query, setQuery] = useQueryState(KEYS)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const columns = type.fields.filter((f) => f.list).slice(0, 5)
   const picker = type.fields.find((f) => f.key === type.insight.groupBy && (f.type === 'select' || f.type === 'entity')) ?? type.fields.find((f) => f.type === 'select' || f.type === 'entity')
-  const base = useMemo(() => filterRecords(rows, { q: query.q, where: picker ? { [picker.key]: query.f } : {} }), [rows, query.q, query.f, picker])
+  const base = useMemo(() => {
+    const inPeriod = query.from || query.to ? rows.filter((r) => (!query.from || recordDate(type, r) >= query.from) && (!query.to || recordDate(type, r) <= query.to)) : rows
+    return filterRecords(inPeriod, { q: query.q, where: picker ? { [picker.key]: query.f } : {} })
+  }, [rows, query.q, query.f, query.from, query.to, picker, type])
   const shown = useMemo(
     () => sortRecords(filterRecords(base, { status: query.status }), query.sort ?? 'id', query.dir === 'asc' ? 'asc' : query.sort ? 'asc' : 'desc'),
     [base, query.status, query.sort, query.dir],
@@ -29,8 +37,31 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   const pages = Math.max(1, Math.ceil(shown.length / PAGE))
   const page = Math.min(pages, Math.max(1, Number(query.page) || 1))
   const slice = shown.slice((page - 1) * PAGE, page * PAGE)
-  const active = Boolean(query.status || query.q || query.f)
-  const clear = () => setQuery({ status: undefined, q: undefined, f: undefined, page: undefined })
+  const active = Boolean(query.status || query.q || query.f || query.from || query.to)
+  const clear = () => setQuery({ status: undefined, q: undefined, f: undefined, from: undefined, to: undefined, page: undefined })
+  // Selection only keeps rows still on screen, so a filter change drops what it hides.
+  const selected = shown.filter((r) => picked.has(r.id))
+  const allOnPage = slice.length > 0 && slice.every((r) => picked.has(r.id))
+  const toggle = (ids: readonly string[], on: boolean) =>
+    setPicked((p) => {
+      const next = new Set(p)
+      for (const id of ids) {
+        if (on) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+
+  function exportCsv(list: readonly ErpRecord[]) {
+    const head = ['ID', 'Status', ...type.fields.map((f) => f.label)]
+    const body = list.map((r) => [r.id, type.workflow.states.find((s) => s.id === r.status)?.label ?? r.status, ...type.fields.map((f) => fieldText(f, r.values[f.key], all))])
+    const url = URL.createObjectURL(new Blob([`\uFEFF${toCsv([head, ...body])}`], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${type.key.replace('.', '-')}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   function sortBy(key: string) {
     const same = query.sort === key
@@ -51,7 +82,7 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   }
 
   return (
-    <div>
+    <div id="record-table" className="scroll-mt-4">
       <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
         <FilterChips
           label="Filter by status"
@@ -78,6 +109,15 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
           value={query.q ?? ''}
           onChange={(e) => setQuery({ q: e.target.value, page: undefined })}
         />
+        {(query.from || query.to) && (
+          <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-invert pr-1 pl-3 text-xs font-medium text-on-invert tabular">
+            <CalendarRange aria-hidden className="size-3.5" />
+            {query.from === query.to ? query.from : `${query.from ?? '…'} to ${query.to ?? '…'}`}
+            <button type="button" aria-label="Clear period" onClick={() => setQuery({ from: undefined, to: undefined, page: undefined })} className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-white/15">
+              <X aria-hidden className="size-3.5" />
+            </button>
+          </span>
+        )}
         {active && (
           <>
             <span className="text-xs text-muted tabular">
@@ -88,10 +128,15 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
             </Button>
           </>
         )}
+        <Button variant="card" size="sm" className="ml-auto" onClick={() => exportCsv(shown)} disabled={!shown.length}>
+          <Download aria-hidden className="size-4" /> Export CSV
+        </Button>
         <p className="sr-only" aria-live="polite">
           {shown.length} results
         </p>
       </div>
+
+      {selected.length > 0 && <BulkBar type={type} rows={selected} onExport={() => exportCsv(selected)} onClear={() => setPicked(new Set())} />}
 
       {shown.length === 0 ? (
         <div className="p-6">
@@ -109,15 +154,22 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
-                  {header('id', 'ID', 'pl-5')}
+                  <th className="w-10 py-3 pl-5">
+                    <input type="checkbox" aria-label="Select every row on this page" checked={allOnPage} onChange={(e) => toggle(slice.map((r) => r.id), e.target.checked)} className="size-4 cursor-pointer accent-[var(--color-accent)]" />
+                  </th>
+                  {header('id', 'ID')}
                   {columns.map((f) => header(f.key, f.label))}
-                  {header('status', 'Status', 'pr-5')}
+                  {header('status', 'Status')}
+                  <th className="pr-5"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {slice.map((r) => (
-                  <tr key={r.id} data-motion="row" onClick={() => navigate(recordPath(type, r.id))} className="cursor-pointer transition-colors hover:bg-raised">
-                    <td className="py-3 pr-3 pl-5 whitespace-nowrap">
+                  <tr key={r.id} data-motion="row" onClick={() => navigate(recordPath(type, r.id))} className={cn('cursor-pointer transition-colors hover:bg-raised', picked.has(r.id) && 'bg-accent-soft/60')}>
+                    <td className="py-3 pl-5" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" aria-label={`Select ${r.id}`} checked={picked.has(r.id)} onChange={(e) => toggle([r.id], e.target.checked)} className="size-4 cursor-pointer accent-[var(--color-accent)]" />
+                    </td>
+                    <td className="py-3 pr-3 pl-3 whitespace-nowrap">
                       <Link to={recordPath(type, r.id)} onClick={(e) => e.stopPropagation()} className="font-mono text-xs font-semibold hover:underline">
                         {r.id}
                       </Link>
@@ -127,8 +179,21 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
                         {fieldText(f, r.values[f.key], all)}
                       </td>
                     ))}
-                    <td className="py-3 pr-5 pl-3">
+                    <td className="py-3 pl-3">
                       <StateBadge type={type} status={r.status} />
+                    </td>
+                    <td className="py-3 pr-5 pl-2 text-right">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Quick view ${r.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          open({ mode: 'view', type: type.key, id: r.id })
+                        }}
+                      >
+                        <Eye aria-hidden className="size-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}

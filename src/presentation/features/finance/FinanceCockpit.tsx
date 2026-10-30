@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Landmark } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { aging, perMonth } from '@/domain/kpi'
+import { aging, perMonth, shiftDay } from '@/domain/kpi'
 import { cn } from '@/lib/cn'
 import { moneyCompact, monthLabel } from '@/lib/format'
 import { ColumnChart } from '../../charts/ColumnChart'
 import { LineChart } from '../../charts/LineChart'
-import { recordPath, refTitle } from '../../records/text'
+import { recordPath, refTitle, monthQuery, rangeQuery } from '../../records/text'
 import { useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { BarList } from '../../ui/BarList'
@@ -16,6 +16,8 @@ import { Meter } from '../../ui/Meter'
 import { CardSkeleton } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { KpiTile } from '../mes/KpiTile'
+import { NewButtons } from '../../records/NewButtons'
+import { RecordControls } from '../../records/RecordControls'
 
 const t = (key: string) => typeOf(key)!
 const SIDES = [
@@ -23,9 +25,12 @@ const SIDES = [
   { value: 'ar', label: 'Receivables' },
 ] as const
 const short = (v: number) => moneyCompact(v).replace('Rp', '').trim()
+/** Due-date offsets from today for each aging bucket, so a bucket opens exactly its invoices. */
+const AGING_DAYS: ReadonlyArray<[number | undefined, number | undefined]> = [[0, undefined], [-30, -1], [-60, -31], [undefined, -61]]
 
 /** Finance and accounting cockpit, carried over from the Habitat accounting dashboard. */
 export default function FinanceCockpit() {
+  const navigate = useNavigate()
   const { clock } = useServices()
   const all = useAllRecords()
   const [side, setSide] = useState<(typeof SIDES)[number]['value']>('ap')
@@ -64,9 +69,14 @@ export default function FinanceCockpit() {
   const list = (key: string, query = '') => `${recordPath(t(key))}${query}`
   const book = side === 'ap' ? k.ap : k.ar
   const picked = book.aging[Number(bucket ?? 0)]
+  const bucketQuery = (i: number) => {
+    const [from, to] = AGING_DAYS[i] ?? []
+    return rangeQuery(from === undefined ? undefined : shiftDay(today, from), to === undefined ? undefined : shiftDay(today, to))
+  }
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['fin.journals', 'fin.payables', 'fin.receivables', 'fin.payments', 'fin.pettycash']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="Open payables" value={k.ap.open} format={moneyCompact} to={list('fin.payables')} accent note={`${moneyCompact(k.ap.overdue)} overdue`} />
         <KpiTile label="Open receivables" value={k.ar.open} format={moneyCompact} to={list('fin.receivables')} note={`${moneyCompact(k.ar.overdue)} overdue`} />
@@ -91,8 +101,8 @@ export default function FinanceCockpit() {
           {picked && (
             <p className="mt-2 text-xs text-muted">
               {picked.label}: {picked.count} invoices, {moneyCompact(picked.amount)}.{' '}
-              <Link to={list(side === 'ap' ? 'fin.payables' : 'fin.receivables')} className="font-medium text-accent-text hover:underline">
-                Open the ledger
+              <Link to={list(side === 'ap' ? 'fin.payables' : 'fin.receivables', bucketQuery(Number(bucket ?? 0)))} className="font-medium text-accent-text hover:underline">
+                Open these invoices
               </Link>
             </p>
           )}
@@ -102,6 +112,26 @@ export default function FinanceCockpit() {
           <BarList items={k.vendors.map(([id, value], i) => ({ key: id, label: refTitle('mdm.partners', id, all.data).split(' · ')[0] ?? id, value, text: moneyCompact(value), alert: i === 0, to: recordPath(t('mdm.partners'), id) }))} />
         </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Journals waiting for approval" action={<span className="text-xs text-muted">approve, reject or edit in place</span>} />
+        <ul className="divide-y divide-line">
+          {(all.data['fin.journals'] ?? [])
+            .filter((j) => j.status === 'submitted')
+            .slice(0, 6)
+            .map((j) => (
+              <li key={j.id} data-motion="row" className="flex flex-wrap items-center gap-3 py-2.5">
+                <Link to={recordPath(t('fin.journals'), j.id)} className="min-w-0 flex-1 basis-56 text-sm hover:underline">
+                  <span className="block truncate font-medium">{String(j.values.description)}</span>
+                  <span className="block text-xs text-muted">
+                    <span className="font-mono">{j.id}</span> · {moneyCompact(Number(j.values.amount))} · {String(j.values.date)}
+                  </span>
+                </Link>
+                <RecordControls type={t('fin.journals')} record={j} view />
+              </li>
+            ))}
+        </ul>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -114,6 +144,7 @@ export default function FinanceCockpit() {
             ]}
             format={(v) => `${v} journals`}
             height={200}
+            onPick={(i) => navigate(list('fin.journals', monthQuery(k.trend.all[i]!.month)))}
             label="Journals entered and posted per month"
           />
         </Card>

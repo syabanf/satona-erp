@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Eye, Radar, Zap } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { byHour, pareto, perDay, safetyScores } from '@/domain/kpi'
+import { byHour, pareto, perDay, safetyScores, shiftDay } from '@/domain/kpi'
 import { allowedTransitions, canCreate, type ErpRecord } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { LineChart } from '../../charts/LineChart'
@@ -15,9 +15,10 @@ import { CardSkeleton } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../records/StateBadge'
-import { recordPath, refTitle } from '../../records/text'
+import { recordPath, refTitle, dayQuery } from '../../records/text'
 import { KpiTile } from '../mes/KpiTile'
 import { ScoreRing } from './ScoreRing'
+import { NewButtons } from '../../records/NewButtons'
 
 const SOURCES = [
   { value: 'all', label: 'All events' },
@@ -69,6 +70,7 @@ function CameraFrame({ e }: { e: ErpRecord }) {
 
 /** Fleet safety from in-cab ADAS and DSM cameras: event stream, hot hours, driver scores and the review workflow. */
 export default function SafetyPage() {
+  const navigate = useNavigate()
   const { records, clock } = useServices()
   const today = clock.today()
   const { role } = useSession()
@@ -144,6 +146,7 @@ export default function SafetyPage() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['tms.safety']} />
       <div className="flex flex-wrap items-center gap-3">
         <Tabs label="Event source" options={SOURCES} value={source} onChange={setSource} />
         <Tabs label="Period" options={PERIODS} value={period} onChange={setPeriod} />
@@ -253,6 +256,7 @@ export default function SafetyPage() {
             color: i ? 'var(--color-series-1)' : 'var(--color-series-2)',
             area: i === 1,
           }))}
+          onPick={(i) => navigate(`/modules/tms/safety${dayQuery(shiftDay(today, i - 29))}`)}
           format={(v) => `${v} events`}
           height={190}
           label="ADAS and DSM events per day"

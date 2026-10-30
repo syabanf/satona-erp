@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ArrowRight, ArrowUpRight, MapPinned, Siren } from 'lucide-react'
 import { RECORD_TYPES } from '@/domain/catalog'
 import { moduleProgress, moduleStatus, type EntityId } from '@/domain/erp'
@@ -30,6 +30,7 @@ const tile =
   'block rounded-card border border-line bg-card p-5 shadow-card transition-[color,background-color,translate,scale] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] active:scale-[0.97] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1'
 
 export default function OverviewPage() {
+  const navigate = useNavigate()
   const { erp, ops, clock } = useServices()
   const entities = useResource('erp.entities', () => erp.entities())
   const modules = useResource('erp.modules', () => erp.modules())
@@ -215,6 +216,7 @@ export default function OverviewPage() {
                 active={slice}
                 onActive={setSlice}
                 chip={(s) => `${s.label}, ${percent(s.value / (monthTotal || 1), { digits: 0 })}`}
+                onPick={(id) => navigate(`/entities/${id}`)}
                 label={`Revenue by entity in ${labels[m]}`}
               >
                 <p className="text-xs text-muted">Total</p>

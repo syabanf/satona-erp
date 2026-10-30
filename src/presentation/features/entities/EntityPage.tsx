@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useNavigate } from 'react-router'
 import { ArrowRight, ArrowUpRight, MapPin, UsersRound } from 'lucide-react'
 import { moduleProgress, moduleStatus, SCOPE_LABEL, type EntityId } from '@/domain/erp'
 import { cn } from '@/lib/cn'
@@ -23,6 +23,7 @@ const lift =
   'transition-[color,background-color,translate,scale] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] active:scale-[0.97] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1'
 
 export default function EntityPage() {
+  const navigate = useNavigate()
   const { id = '' } = useParams()
   const { erp, ops, clock } = useServices()
   const entity = useResource(`erp.entity:${id}`, () => erp.entity(id as EntityId), { keepPrevious: false })
@@ -79,6 +80,7 @@ export default function EntityPage() {
             series={[{ id: e.id, label: e.short, values: e.revenue.map((v) => Math.round(v / 1e8) / 10), color: seriesColor(e.slot), area: true }]}
             format={(v) => `Rp ${v.toFixed(1)} M`}
             height={230}
+            onPick={() => navigate('/modules/epm/consolidations')}
             label={`${e.short} monthly revenue`}
           />
         </Card>

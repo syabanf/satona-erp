@@ -2,22 +2,26 @@ import { cn } from '@/lib/cn'
 
 /**
  * Twelve weeks of daily counts as a week-by-week grid, darker red for busier days.
- * Columns are weeks, rows Monday to Sunday; hover a cell for its date and count.
+ * Columns are weeks, rows Monday to Sunday; hover a cell for its date and count, click it to open that day.
  */
-export function ActivityHeatmap({ days, label, className }: { days: ReadonlyArray<{ day: string; count: number }>; label: string; className?: string }) {
+export function ActivityHeatmap({ days, label, className, onDay }: { days: ReadonlyArray<{ day: string; count: number }>; label: string; className?: string; onDay?: (day: string) => void }) {
   const max = Math.max(1, ...days.map((d) => d.count))
   const lead = (new Date(`${days[0]?.day ?? '2026-01-01'}T00:00:00Z`).getUTCDay() + 6) % 7
   const cells = [...Array.from({ length: lead }, () => null), ...days]
   const weeks = Math.ceil(cells.length / 7)
   return (
     <div className={cn('overflow-x-auto', className)}>
-      <div role="img" aria-label={label} className="grid w-max grid-flow-col grid-rows-7 gap-1" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}>
+      <div role="group" aria-label={label} className="grid w-max grid-flow-col grid-rows-7 gap-1" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}>
         {cells.map((d, i) =>
           d ? (
-            <span
+            <button
+              type="button"
               key={d.day}
               title={`${d.day}: ${d.count}`}
-              className="size-3.5 rounded-[4px] transition-transform hover:scale-125 sm:size-4"
+              aria-label={`${d.day}: ${d.count}`}
+              disabled={!onDay || !d.count}
+              onClick={() => onDay?.(d.day)}
+              className="size-3.5 rounded-[4px] transition-transform enabled:cursor-pointer hover:scale-125 sm:size-4"
               style={{ background: d.count ? `color-mix(in oklab, var(--color-accent) ${20 + (d.count / max) * 80}%, var(--color-raised))` : 'var(--color-control)' }}
             />
           ) : (

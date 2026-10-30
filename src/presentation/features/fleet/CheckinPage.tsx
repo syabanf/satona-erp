@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { CheckCircle2, ScanFace, ShieldAlert, Wine, XCircle } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { perDay } from '@/domain/kpi'
+import { perDay, shiftDay } from '@/domain/kpi'
 import { allowedTransitions, canCreate, type ErpRecord } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { LineChart } from '../../charts/LineChart'
@@ -16,7 +16,7 @@ import { CardSkeleton } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../records/StateBadge'
-import { recordPath, refTitle } from '../../records/text'
+import { recordPath, refTitle, dayQuery } from '../../records/text'
 import { KpiTile } from '../mes/KpiTile'
 import { ScoreRing } from './ScoreRing'
 
@@ -54,6 +54,7 @@ function FaceScan({ scanning, score }: { scanning: boolean; score: number | null
 
 /** P2H and gate check-in: a driver-side form with a DSM fatigue scan and breath test, then the gate log. */
 export default function CheckinPage() {
+  const navigate = useNavigate()
   const { records } = useServices()
   const { role } = useSession()
   const accessFor = useAccess()
@@ -160,6 +161,7 @@ export default function CheckinPage() {
           ]}
           format={(v) => `${v}`}
           height={180}
+          onPick={(i) => navigate(`/modules/tms/checkins${dayQuery(shiftDay(today, i - 20))}`)}
           label="Check-ins and holds per day"
         />
       </Card>

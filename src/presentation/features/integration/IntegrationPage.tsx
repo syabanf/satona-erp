@@ -191,6 +191,7 @@ export default function IntegrationPage() {
               series={[{ id: picked.id, label: picked.unit, values: picked.throughput, color: 'var(--color-series-2)', area: true }]}
               format={(v) => `${count(v)} ${picked.unit}`}
               height={160}
+              onPick={() => navigate(`/modules/occ/sources?q=${encodeURIComponent(picked.name)}`)}
               label={`${picked.name} throughput`}
             />
             <FactGrid

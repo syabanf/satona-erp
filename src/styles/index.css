@@ -118,3 +118,11 @@
   to { transform: none; }
 }
 .animate-slide-up { animation: slide-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes slide-left {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-left { animation: slide-left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-left { animation: none; }
+}

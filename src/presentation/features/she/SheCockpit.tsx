@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useSearchParams, useNavigate } from 'react-router'
 import { ArrowUpRight, FlaskConical, ShieldAlert } from 'lucide-react'
 import { approvalChain, matrixOf, pendingStep } from '@/domain/approval'
 import { typeOf } from '@/domain/catalog'
@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn'
 import { count, monthLabel } from '@/lib/format'
 import { Donut } from '../../charts/Donut'
 import { LineChart } from '../../charts/LineChart'
-import { TONE_COLOR, recordPath, refTitle } from '../../records/text'
+import { TONE_COLOR, recordPath, refTitle, monthQuery } from '../../records/text'
 import { StateBadge } from '../../records/StateBadge'
 import { useAllRecords } from '../../hooks/useRecords'
 import { useResource } from '../../hooks/useResource'
@@ -21,6 +21,8 @@ import { Meter } from '../../ui/Meter'
 import { CardSkeleton } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { KpiTile } from '../mes/KpiTile'
+import { NewButtons } from '../../records/NewButtons'
+import { RecordControls } from '../../records/RecordControls'
 
 const VIEWS = [
   { value: 'overview', label: 'Overview' },
@@ -35,6 +37,7 @@ const t = (key: string) => typeOf(key)!
 
 /** Group SHE / K3 cockpit: lagging and leading indicators, the permit board, health and environment. */
 export default function SheCockpit() {
+  const navigate = useNavigate()
   const { clock, erp } = useServices()
   const all = useAllRecords()
   const entities = useResource('erp.entities', () => erp.entities())
@@ -84,6 +87,7 @@ export default function SheCockpit() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['she.permits', 'she.incidents', 'she.observations', 'she.inspections', 'she.capa', 'she.toolbox']} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs label="View" options={VIEWS} value={view} onChange={(v) => setParams(v === 'overview' ? {} : { view: v }, { replace: true })} />
         <p className="text-xs text-muted tabular">{count(Math.round(k.manHours / 1e3))}k hours worked in 180 days</p>
@@ -130,6 +134,7 @@ export default function SheCockpit() {
                 ]}
                 format={(v) => `${v} reports`}
                 height={230}
+                onPick={(i) => navigate(list('she.incidents', monthQuery(k.trend.incidents[i]!.month)))}
                 label="Incidents, near misses and safety observations per month"
               />
               <p className="mt-2 flex flex-wrap gap-4 text-xs text-muted">
@@ -199,6 +204,7 @@ export default function SheCockpit() {
                           {p.values.gasTest === 'Fail' && <span className="mt-1 block text-xs font-semibold text-accent-text">Gas test failed: LEL {String(p.values.lel)}%</span>}
                           {step && <span className="mt-1 block text-xs text-muted">Level {step.level} of {chain.length}: {step.role}</span>}
                         </Link>
+                        <RecordControls type={t('she.permits')} record={p} view className="mt-1.5" />
                       </li>
                     )
                   })}
@@ -227,6 +233,7 @@ export default function SheCockpit() {
                 active={null}
                 onActive={() => {}}
                 chip={(s) => `${s.label}, ${s.value}`}
+                onPick={(id) => navigate(list('she.mcu', `?f=${encodeURIComponent(id)}`))}
                 label="Medical check-up results"
               >
                 <p className="text-xs text-muted">Examined</p>

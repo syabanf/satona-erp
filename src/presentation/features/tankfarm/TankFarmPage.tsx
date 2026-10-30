@@ -1,5 +1,5 @@
 import { lazy, Suspense, useId, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Pencil, ShoppingCart, X } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { tankStatus, type Tank, type TankStatus } from '@/domain/ops'
@@ -22,6 +22,7 @@ import { CardSkeleton, Skeleton } from '../../ui/States'
 import { Tabs } from '../../ui/Tabs'
 import { useToast } from '../../ui/useToast'
 import { recordPath } from '../../records/text'
+import { NewButtons } from '../../records/NewButtons'
 
 const TankFarm3D = lazy(() => import('../../three/TankFarm3D'))
 const VIEWS = [
@@ -64,6 +65,7 @@ function TankGraphic({ level, reorderAt, status }: { level: number; reorderAt: n
 }
 
 export default function TankFarmPage() {
+  const navigate = useNavigate()
   const { ops, records } = useServices()
   const { role } = useSession()
   const toast = useToast()
@@ -111,6 +113,7 @@ export default function TankFarmPage() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['tfm.recons', 'vms.requisitions']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { label: 'Stock on hand', value: stock, fmt: (v: number) => `${count(Math.round(v))} m³` },
@@ -193,6 +196,7 @@ export default function TankFarmPage() {
               format={(v) => `${v}%`}
               max={100}
               height={180}
+              onPick={() => navigate(`/modules/tfm/tanks?q=${encodeURIComponent(picked.id)}`)}
               label={`${picked.product} level trend`}
             />
             <FactGrid

@@ -134,7 +134,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
 
       <div className="space-y-3 px-3">
         <WorkspaceSwitcher collapsed={collapsed} onNavigate={onNavigate} />
-        {!collapsed && <CommandField tree={tree} onNavigate={onNavigate} />}
+        {!collapsed && <CommandField />}
       </div>
 
       <nav aria-label="Main" className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-3 pb-4">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ChevronRight, Network } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { dueWithin } from '@/domain/kpi'
@@ -17,6 +17,8 @@ import { BarList } from '../../ui/BarList'
 import { Card, CardHeader } from '../../ui/Card'
 import { CardSkeleton } from '../../ui/States'
 import { KpiTile } from '../mes/KpiTile'
+import { NewButtons } from '../../records/NewButtons'
+import { RecordControls } from '../../records/RecordControls'
 
 const t = (key: string) => typeOf(key)!
 
@@ -53,6 +55,7 @@ function OrgNode({ unit, units, staff, depth = 0 }: { unit: ErpRecord; units: re
 
 /** Human capital cockpit, carried over from the Habitat HRIS dashboard and fed by the HRS records. */
 export default function HrCockpit() {
+  const navigate = useNavigate()
   const { clock, erp } = useServices()
   const all = useAllRecords()
   const entities = useResource('erp.entities', () => erp.entities())
@@ -101,6 +104,7 @@ export default function HrCockpit() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['hrs.leaves', 'hrs.overtime', 'hrs.attendance', 'hrs.candidates', 'hrs.trainings']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="Attendance today" value={k.attendance.rate * 100} format={(v) => `${Math.round(v)}%`} to={list('hrs.attendance', '?status=recorded')} accent note={`${k.attendance.total} clock-ins recorded`} />
         <KpiTile label="Late today" value={k.attendance.late} format={(v) => String(Math.round(v))} to={list('hrs.attendance', '?f=Late')} note={`${k.attendance.absent} absent`} />
@@ -118,13 +122,14 @@ export default function HrCockpit() {
             series={[{ id: 'gross', label: 'Gross pay', values: k.payroll.map((p) => p.gross), color: 'var(--color-series-1)', area: true }]}
             format={(v) => moneyCompact(v)}
             height={220}
+            onPick={(i) => navigate(list('hrs.payroll', `?q=${k.payroll[i]?.period ?? ''}`))}
             label="Gross payroll per month"
           />
         </Card>
         <Card>
           <CardHeader title="Headcount by entity" />
           <div className="flex flex-col items-center gap-3">
-            <Donut slices={k.headcount} active={slice} onActive={setSlice} size={170} stroke={20} chip={(s) => `${s.label}, ${count(s.value)} (${percent(s.value / totalHeadcount, { digits: 0 })})`} label="Headcount by entity">
+            <Donut slices={k.headcount} active={slice} onActive={setSlice} size={170} stroke={20} chip={(s) => `${s.label}, ${count(s.value)} (${percent(s.value / totalHeadcount, { digits: 0 })})`} onPick={(id) => navigate(list('mdm.employees', `?f=${id}`))} label="Headcount by entity">
               <p className="text-xs text-muted">People</p>
               <p className="text-lg font-semibold tabular">{count(totalHeadcount)}</p>
             </Donut>
@@ -160,6 +165,7 @@ export default function HrCockpit() {
                   </span>
                   <span className={cn('text-xs tabular', String(c.values.end) < today ? 'font-semibold text-accent-text' : 'text-muted')}>{String(c.values.end)}</span>
                 </Link>
+                <RecordControls type={t('hrs.contracts')} record={c} className="pb-2.5" />
               </li>
             ))}
             {k.contracts.length === 0 && <li className="py-2 text-sm text-muted">No contract ends in the next 60 days.</li>}

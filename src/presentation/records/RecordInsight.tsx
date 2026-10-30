@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { perDay, perMonth } from '@/domain/kpi'
-import { summarize, type ErpRecord, type RecordType } from '@/domain/records'
+import { monthBounds, recordDate, summarize, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { count, moneyCompact } from '@/lib/format'
 import { ColumnChart } from '../charts/ColumnChart'
@@ -26,7 +26,7 @@ const short = (v: number) => (Math.abs(v) >= 1e6 ? moneyCompact(v).replace('Rp',
 /** Tiles, a status donut, a monthly column chart and the top groups. Clicking a mark filters the table below. */
 export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; rows: readonly ErpRecord[]; all?: AllRecords }) {
   const { clock } = useServices()
-  const [query, setQuery] = useQueryState(['status', 'f', 'q', 'page'] as const)
+  const [query, setQuery] = useQueryState(['status', 'f', 'q', 'page', 'from', 'to'] as const)
   const [slice, setSlice] = useState<string | null>(null)
   const [period, setPeriod] = useState<(typeof PERIODS)[number]['value']>('all')
   const groupable = type.fields.filter((f) => f.type === 'select' || f.type === 'entity' || f.type === 'ref' || (f.type === 'computed' && !f.unit)).slice(0, 4)
@@ -35,10 +35,16 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
   const rows = useMemo(() => {
     if (period === 'all') return allRows
     const from = new Date(new Date(`${today}T00:00:00Z`).getTime() - Number(period) * 86_400_000).toISOString().slice(0, 10)
-    return allRows.filter((r) => String((type.insight.dateField ? r.values[type.insight.dateField] : undefined) ?? r.createdAt).slice(0, 10) >= from)
+    return allRows.filter((r) => recordDate(type, r) >= from)
   }, [allRows, period, today, type.insight.dateField])
   const s = useMemo(() => summarize({ ...type, insight: { ...type.insight, groupBy: groupKey } }, rows, today), [type, rows, today, groupKey])
-  const dateOf = (r: ErpRecord) => String((type.insight.dateField ? r.values[type.insight.dateField] : undefined) ?? r.createdAt)
+  const dateOf = (r: ErpRecord) => recordDate(type, r)
+  /** Drill-down: narrow the table below to a period or status and bring it into view. */
+  const drill = (patch: Parameters<typeof setQuery>[0]) => {
+    setQuery({ ...patch, page: undefined })
+    document.getElementById('record-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const drillMonth = (month: string | undefined) => month && drill(monthBounds(month))
   // A final state has no way out; reaching one counts as finished.
   const finals = type.workflow.states.filter((st) => !type.workflow.transitions.some((t) => t.from === st.id)).map((st) => st.id)
   const finalLabel = type.workflow.states.filter((st) => finals.includes(st.id)).map((st) => st.label.toLowerCase()).join(' or ') || 'a final state'
@@ -108,6 +114,7 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
               slices={type.workflow.states.map((st) => ({ id: st.id, label: st.label, value: s.byStatus[st.id] ?? 0, color: TONE_COLOR[st.tone] })).filter((x) => x.value > 0)}
               active={slice}
               onActive={setSlice}
+              onPick={(id) => drill({ status: query.status === id ? undefined : id })}
               chip={(x) => `${x.label}, ${x.value}`}
               label={`${type.name} by status`}
             >
@@ -139,7 +146,10 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
           <ColumnChart
             data={s.monthly.map((m, i) => ({ key: String(i), label: new Date(`${m.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }), value: useSum ? m.sum : m.count }))}
             selected={month}
-            onSelect={setMonth}
+            onSelect={(k) => {
+              setMonth(k)
+              drillMonth(s.monthly[Number(k)]?.month)
+            }}
             format={useSum ? short : (v) => String(Math.round(v))}
             showAxis={false}
             label={`${type.name} per month`}
@@ -197,6 +207,7 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
         <Card className="lg:col-span-3">
           <CardHeader title="Created and finished, 6 months" />
           <LineChart
+            onPick={(i) => drillMonth(trend[i]?.month)}
             labels={trend.map((m) => new Date(`${m.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }))}
             series={[
               { id: 'created', label: 'Created', values: trend.map((m) => m.count), color: 'var(--color-series-1)', area: true },
@@ -213,7 +224,7 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader title="Activity, last 12 weeks" />
-          <ActivityHeatmap days={activity} label={`${type.name} per day over 12 weeks`} />
+          <ActivityHeatmap days={activity} label={`${type.name} per day over 12 weeks`} onDay={(day) => drill({ from: day, to: day })} />
         </Card>
       </div>
     </div>

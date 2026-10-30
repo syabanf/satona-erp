@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Check, ChevronRight, Clock3, Pencil, Trash2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
-import { approvalMoves, isRejection, matrixOf, moveBlocker } from '@/domain/approval'
+import { isRejection } from '@/domain/approval'
 import { can } from '@/domain/erp'
-import { allowedTransitions, ancestors, childTypes, referencedBy, stateOf } from '@/domain/records'
+import { ancestors, childTypes, referencedBy, stateOf } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
@@ -19,6 +19,7 @@ import { CardSkeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { RecordChildren } from '../../records/RecordChildren'
 import { StateBadge } from '../../records/StateBadge'
+import { useRecordActions } from '../../records/useRecordActions'
 import { fieldText, recordPath, recordTitle } from '../../records/text'
 import { NotFound } from '../NotFound'
 import { useModule } from '../modules/context'
@@ -27,7 +28,8 @@ import { useRecordType } from './useRecordType'
 export default function RecordPage() {
   const { type, rid } = useRecordType()
   const { access } = useModule()
-  const { records, clock } = useServices()
+  const { records } = useServices()
+  const actions = useRecordActions()
   const { role } = useSession()
   const navigate = useNavigate()
   const toast = useToast()
@@ -40,10 +42,7 @@ export default function RecordPage() {
   const record = all.data[type.key]?.find((r) => r.id === rid)
   if (!record) return <NotFound />
 
-  const approval = approvalMoves(type, record, access, role, matrixOf(all.data), clock.today())
-  const allowed = [...allowedTransitions(type, record.status, access).filter((t) => t.needs !== 'approve'), ...approval.moves]
-  const blocker = allowed.map((m) => moveBlocker(type, record, m.to)).find(Boolean)
-  const moves = allowed.filter((m) => !moveBlocker(type, record, m.to))
+  const { approval, blocker, moves } = actions.controls(type, record)
   const waiting = type.workflow.transitions.filter((t) => t.from === record.status && !moves.some((m) => m.to === t.to))
   const signed = record.approvals ?? []
   const children = new Set(childTypes(type.key, RECORD_TYPES).map((c) => c.type.key))

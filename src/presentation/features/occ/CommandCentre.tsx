@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { divIcon } from 'leaflet'
 import { Marker, Tooltip } from 'react-leaflet'
 import { Radio, Siren } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { perDay } from '@/domain/kpi'
+import { perDay, shiftDay } from '@/domain/kpi'
 import { allowedTransitions, type ErpRecord } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { count } from '@/lib/format'
@@ -19,8 +19,9 @@ import { Card, CardHeader } from '../../ui/Card'
 import { CardSkeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../records/StateBadge'
-import { recordPath, refTitle } from '../../records/text'
+import { recordPath, refTitle, dayQuery } from '../../records/text'
 import { KpiTile } from '../mes/KpiTile'
+import { NewButtons } from '../../records/NewButtons'
 
 const RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
 const OPEN = new Set(['new', 'acknowledged', 'assigned'])
@@ -35,6 +36,7 @@ const pin = (n: number, worst?: string) =>
 
 /** Group operations command centre, ported from the WIT GPI Command Center onto Satona's plants, depots and fleet. */
 export default function CommandCentre() {
+  const navigate = useNavigate()
   const { ops, records, clock } = useServices()
   const today = clock.today()
   const { role } = useSession()
@@ -87,6 +89,7 @@ export default function CommandCentre() {
 
   return (
     <div className="space-y-4">
+      <NewButtons types={['occ.alarms', 'occ.energy', 'occ.projects']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <KpiTile label="Open alarms" value={d.open.length} format={(v) => String(Math.round(v))} to={`${recordPath(alarmType)}?status=new`} accent />
         <KpiTile label="Critical" value={critical} format={(v) => String(Math.round(v))} to={`${recordPath(alarmType)}?f=Critical`} />
@@ -169,6 +172,7 @@ export default function CommandCentre() {
             color: ['var(--color-series-1)', 'var(--color-series-3)', 'var(--color-series-2)', 'var(--color-series-other)'][i] ?? '',
             area: i === 0,
           }))}
+          onPick={(i) => navigate(`${recordPath(alarmType)}${dayQuery(shiftDay(today, i - 13))}`)}
           format={(v) => `${v} alarms`}
           height={200}
           label="Alarms raised per day by priority"

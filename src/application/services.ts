@@ -1,5 +1,6 @@
 import { typeOf } from '@/domain/catalog'
-import { accessOf, can, type Access, type Action, type ErpModule, type Role } from '@/domain/erp'
+import { approvalMoves, isRejection, moveBlocker, overridesFrom, type Matrix } from '@/domain/approval'
+import { can, effectiveAccess, type Access, type Action, type ErpModule, type Role } from '@/domain/erp'
 import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors'
 import { allowedTransitions, canCreate, computeValues, nextId, validate, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import type { Ports } from './ports'
@@ -14,7 +15,14 @@ export function createServices(ports: Ports) {
 
   async function accessFor(role: Role, type: RecordType): Promise<Access> {
     const m = (await moduleList()).find((x) => x.id === type.module)
-    return m ? accessOf(role, m) : 'none'
+    if (!m) return 'none'
+    const [permissions, roles] = await Promise.all([records.list('sys.permissions'), records.list('sys.roles')])
+    return effectiveAccess(role, m, overridesFrom(permissions, roles))
+  }
+
+  async function matrix(): Promise<Matrix> {
+    const [rules, levels, delegations] = await Promise.all([records.list('sys.matrix'), records.list('sys.levels'), records.list('sys.delegations')])
+    return { rules, levels, delegations }
   }
 
   async function guard(role: Role, typeKey: string, action: Action) {
@@ -66,12 +74,26 @@ export function createServices(ports: Ports) {
         return records.remove(typeKey, id, role.name)
       },
       async transition(role: Role, typeKey: string, id: string, to: string): Promise<ErpRecord> {
-        const { type, access } = await guard(role, typeKey, 'read')
-        const current = await records.get(typeKey, id)
-        const move = allowedTransitions(type, current.status, access).find((t) => t.to === to)
-        if (!move) throw new ForbiddenError(`${role.name} cannot move this ${type.singular.toLowerCase()} to ${to}`)
+        const [{ type, access }, current, m] = await Promise.all([guard(role, typeKey, 'read'), records.get(typeKey, id), matrix()])
+        const gate = type.workflow.transitions.find((t) => t.from === current.status && t.to === to)
+        const blocker = moveBlocker(type, current, to)
+        if (blocker) throw new ForbiddenError(blocker)
         const at = stamp()
-        const record = { ...current, status: to, updatedAt: at, history: [...current.history, { at, by: role.name, action: move.label }] }
+        if (gate?.needs === 'approve') {
+          const { chain, step, moves } = approvalMoves(type, current, access, role, m, ports.clock.today())
+          if (!moves.some((t) => t.to === to)) throw new ForbiddenError(step ? `Level ${step.level} of ${chain.length} waits for ${step.role}` : `${role.name} cannot approve ${type.name.toLowerCase()}`)
+          if (step && !isRejection(type, to)) {
+            const approvals = [...(current.approvals ?? []), { level: step.level, role: step.role, by: role.name, at }]
+            const done = approvals.length >= chain.length
+            const action = done ? `${gate.label} (level ${step.level} of ${chain.length}, final)` : `Approved level ${step.level} of ${chain.length}`
+            const record = { ...current, status: done ? to : current.status, approvals, updatedAt: at, history: [...current.history, { at, by: role.name, action }] }
+            return records.save(record, { action, by: role.name })
+          }
+        }
+        const move = gate?.needs === 'approve' ? gate : allowedTransitions(type, current.status, access).find((t) => t.to === to)
+        if (!move) throw new ForbiddenError(`${role.name} cannot move this ${type.singular.toLowerCase()} to ${to}`)
+        // A rejection or a return to the first state starts the approval round again.
+        const record = { ...current, status: to, approvals: isRejection(type, to) || to === type.workflow.initial ? undefined : current.approvals, updatedAt: at, history: [...current.history, { at, by: role.name, action: move.label }] }
         return records.save(record, { action: move.label, by: role.name })
       },
     },

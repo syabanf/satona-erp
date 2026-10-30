@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { RECORD_TYPES } from '@/domain/catalog'
-import { accessOf, type Access } from '@/domain/erp'
-import { awaitingApproval } from '@/domain/records'
+import { approvalInbox, overridesFrom } from '@/domain/approval'
+import { effectiveAccess, type Access } from '@/domain/erp'
 import { useResource } from './useResource'
 import { useServices } from './useServices'
 import { useSession } from './useSession'
@@ -29,18 +29,23 @@ export function useAccess() {
   const { erp } = useServices()
   const { role } = useSession()
   const modules = useResource('erp.modules', () => erp.modules())
+  const permissions = useRecordList('sys.permissions')
+  const roles = useRecordList('sys.roles')
+  const overrides = useMemo(() => overridesFrom(permissions.data ?? [], roles.data ?? []), [permissions.data, roles.data])
   return useCallback(
     (moduleId: string): Access => {
       const m = modules.data?.find((x) => x.id === moduleId)
-      return m ? accessOf(role, m) : 'none'
+      return m ? effectiveAccess(role, m, overrides) : 'none'
     },
-    [modules.data, role],
+    [modules.data, role, overrides],
   )
 }
 
 /** Everything the session role can approve right now. */
 export function useApprovals() {
+  const { clock } = useServices()
+  const { role } = useSession()
   const all = useAllRecords()
   const accessFor = useAccess()
-  return useMemo(() => (all.data ? awaitingApproval(RECORD_TYPES, all.data, accessFor) : []), [all.data, accessFor])
+  return useMemo(() => (all.data ? approvalInbox(RECORD_TYPES, all.data, accessFor, role, clock.today()) : []), [all.data, accessFor, role, clock])
 }

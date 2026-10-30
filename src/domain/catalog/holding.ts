@@ -27,7 +27,10 @@ export const HOLDING: readonly RecordType[] = [
     text('name', 'Name', { required: true, list: true }),
     entity('entity', 'Entity', { required: true, list: true }),
     text('department', 'Department', { required: true, list: true }),
-    text('position', 'Position'),
+    ref('orgunit', 'Org unit', 'hrs.orgunits', { parent: true }),
+    ref('position', 'Position', 'hrs.positions'),
+    pick('employment', 'Employment', ['Permanent', 'Fixed term', 'Outsourced'], { list: true }),
+    date('joined', 'Joined'),
   ], ACTIVE, { groupBy: 'entity' }),
 
   type('epm', 'consolidations', ['Consolidation runs', 'Consolidation run', 'CON'], 'period', [

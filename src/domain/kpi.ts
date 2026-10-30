@@ -125,3 +125,53 @@ export function perDay(rows: readonly ErpRecord[], today: string, days: number, 
     return { day, count: counts.get(day) ?? 0 }
   })
 }
+
+const RECORDABLE = ['Fatality', 'Lost time injury', 'Medical treatment']
+
+/** SHE lagging indicators: LTIFR per 1,000,000 and TRIR per 200,000 hours worked, days since the last lost-time injury. */
+export function safetyRates(incidents: readonly ErpRecord[], manHours: number, today: string) {
+  const lti = incidents.filter((r) => r.values.kind === 'Lost time injury' || r.values.kind === 'Fatality')
+  const recordable = incidents.filter((r) => RECORDABLE.includes(String(r.values.kind)))
+  const last = lti.map((r) => String(r.values.date)).sort().at(-1)
+  const lostDays = incidents.reduce((s, r) => s + num(r, 'lostDays'), 0)
+  return {
+    lti: lti.length,
+    recordable: recordable.length,
+    ltifr: manHours ? (lti.length * 1e6) / manHours : 0,
+    trir: manHours ? (recordable.length * 2e5) / manHours : 0,
+    severity: manHours ? (lostDays * 1e6) / manHours : 0,
+    daysSinceLti: last ? Math.round((new Date(`${today}T00:00:00Z`).getTime() - new Date(`${last}T00:00:00Z`).getTime()) / dayMs) : null,
+  }
+}
+
+/** Counts per level of the safety pyramid, worst first, with unsafe acts and conditions from observations at the base. */
+export function safetyPyramid(incidents: readonly ErpRecord[], observations: readonly ErpRecord[], kinds: readonly string[]) {
+  return [
+    ...kinds.map((kind) => ({ kind, count: incidents.filter((r) => r.values.kind === kind).length })),
+    { kind: 'Unsafe acts & conditions', count: observations.filter((o) => o.values.kind !== 'Safe behaviour').length },
+  ]
+}
+
+/** Rows whose date field falls within `days` of today (already past counts as due), soonest first. */
+export function dueWithin(rows: readonly ErpRecord[], field: string, today: string, days: number) {
+  const limit = isoDay(new Date(`${today}T00:00:00Z`).getTime() + days * dayMs)
+  return rows.filter((r) => r.values[field] && String(r.values[field]) <= limit).sort((a, b) => String(a.values[field]).localeCompare(String(b.values[field])))
+}
+
+/** Open items by days past due: not yet due, 1-30, 31-60 and over 60, with the summed amount. */
+export function aging(rows: readonly ErpRecord[], dueField: string, amountField: string, today: string) {
+  const buckets = [
+    { label: 'Not due', count: 0, amount: 0 },
+    { label: '1-30 days', count: 0, amount: 0 },
+    { label: '31-60 days', count: 0, amount: 0 },
+    { label: 'Over 60 days', count: 0, amount: 0 },
+  ]
+  const now = new Date(`${today}T00:00:00Z`).getTime()
+  for (const r of rows) {
+    const late = Math.floor((now - new Date(`${String(r.values[dueField])}T00:00:00Z`).getTime()) / dayMs)
+    const b = buckets[late <= 0 ? 0 : late <= 30 ? 1 : late <= 60 ? 2 : 3]!
+    b.count += 1
+    b.amount += num(r, amountField)
+  }
+  return buckets
+}

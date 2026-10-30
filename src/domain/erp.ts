@@ -86,6 +86,18 @@ export function accessOf(role: Role, module: Pick<ErpModule, 'id' | 'entity'>): 
 }
 
 /** The demo's default session: the group IT lead who administers every module. */
+export interface AccessOverride {
+  role: string
+  module: string
+  access: Access
+}
+
+/** The matrix access unless an administrator set an override for this role and module; the admin role is never overridden. */
+export function effectiveAccess(role: Role, module: Pick<ErpModule, 'id' | 'entity'>, overrides: readonly AccessOverride[] = []): Access {
+  const o = role.id === ADMIN_ROLE.id ? undefined : overrides.find((x) => x.role === role.name && x.module.toLowerCase() === module.id)
+  return o ? o.access : accessOf(role, module)
+}
+
 export const ADMIN_ROLE: Role = {
   id: 'admin',
   name: 'Group IT Program Lead',

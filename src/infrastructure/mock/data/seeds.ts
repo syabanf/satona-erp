@@ -3,8 +3,9 @@ import { RECORD_TYPES } from '@/domain/catalog'
 import { PROVINCES } from '@/domain/catalog/kit'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
+import { SUPPORT_SEEDS } from './seedsSupport'
 
-interface Ctx {
+export interface Ctx {
   i: number
   r: () => number
   pick: <T>(xs: readonly T[]) => T
@@ -14,7 +15,7 @@ interface Ctx {
   ref: (type: string) => string
 }
 
-type Make = (c: Ctx) => Values
+export type Make = (c: Ctx) => Values
 const ENTITIES = ['holding', 'rotama', 'rodame', 'roasi']
 const DRIVERS = TRUCKS.map((t) => t.driver)
 const LANES = ['Cilegon → Cikampek', 'Gresik → Malang', 'Cilegon → Bandar Lampung', 'Gresik → Semarang', 'Cikampek → Semarang', 'Palembang → Bandar Lampung', 'Jakarta → Bandung', 'Surabaya → Banyuwangi']
@@ -54,6 +55,7 @@ const FORMULAS: ReadonlyArray<[string, number, number, number]> = [
 ]
 
 const SEEDS: Record<string, { count: number; make: Make }> = {
+  ...SUPPORT_SEEDS,
   'tms.p2h': {
     count: 16,
     make: ({ i }) => {
@@ -522,14 +524,21 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     },
   },
   'mdm.employees': {
-    count: 30,
-    make: ({ i, pick }) => ({
-      nik: `SAT-${String(10230 + i * 13)}`,
-      name: `${pick(['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina'])} ${pick(['Saputra', 'Wijaya', 'Lestari', 'Pratama', 'Hidayat', 'Kusuma', 'Siregar', 'Nugroho'])}`,
-      entity: pick(ENTITIES),
-      department: pick(['Finance', 'HR', 'Production', 'Logistics', 'QC', 'HSE', 'Procurement', 'IT']),
-      position: pick(['Staff', 'Supervisor', 'Manager', 'Officer', 'Analyst']),
-    }),
+    count: 60,
+    make: ({ i, pick, day }) => {
+      // Spread people over the org sections and departments so every unit page has staff.
+      const unit = [12, 13, 14, 15, 9, 10, 11, 4, 5, 6, 7, 8][i % 12]!
+      return {
+        nik: `SAT-${String(10230 + i * 13)}`,
+        name: `${pick(['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina'])} ${pick(['Saputra', 'Wijaya', 'Lestari', 'Pratama', 'Hidayat', 'Kusuma', 'Siregar', 'Nugroho'])}`,
+        entity: unit >= 12 ? (unit === 14 ? 'rodame' : unit === 15 ? 'rotama' : 'roasi') : ENTITIES[i % 4],
+        department: pick(['Finance', 'HR', 'Production', 'Logistics', 'QC', 'HSE', 'Procurement', 'IT']),
+        orgunit: `ORG-${String(unit + 1).padStart(4, '0')}`,
+        position: `JOB-${String((i % 24) + 1).padStart(4, '0')}`,
+        employment: pick(['Permanent', 'Permanent', 'Permanent', 'Fixed term', 'Outsourced']),
+        joined: day(-3600, -60),
+      }
+    },
   },
   'epm.consolidations': {
     count: 8,
@@ -990,6 +999,22 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
 
 /** Fixed status for seeded rows whose state the other screens rely on. */
 const PINNED: Record<string, (values: Values) => string | undefined> = {
+  // Administration rows stay in force, except the delegation that already ended.
+  'sys.matrix': () => 'active',
+  'sys.levels': () => 'active',
+  'sys.permissions': () => 'active',
+  'sys.roles': () => 'active',
+  'sys.delegations': (v) => (String(v.to) < '2026-10-30' ? 'revoked' : 'active'),
+  // Only the newest permits still have JSA steps waiting for review.
+  'she.jsa': (v) => (Number(String(v.permit).slice(-4)) >= 11 ? undefined : 'reviewed'),
+  'she.licences': (v) => (String(v.expiry) < '2026-10-30' ? 'expired' : String(v.expiry) < '2026-12-30' ? 'renewal' : 'valid'),
+  // Recent work still sits in the approval round, so every approver level has something to sign.
+  'she.permits': (v) => (String(v.start) >= '2026-10-29' ? 'requested' : String(v.start) >= '2026-10-27' ? 'active' : undefined),
+  'hrs.leaves': (v) => (String(v.from) >= '2026-10-25' ? 'submitted' : undefined),
+  'vms.orders': (v) => (String(v.delivery) >= '2026-11-20' ? 'submitted' : undefined),
+  'hrs.payroll': (v) => (v.period === '2026-10' ? 'calculated' : 'paid'),
+  'hrs.attendance': (v) => (v.date === '2026-10-30' ? 'recorded' : 'verified'),
+  'she.incidents': (v) => (String(v.date) >= '2026-10-15' ? 'reported' : undefined),
   'gtr.lots': (v) => LOTS.find((l) => l.id === v.lotNo)?.state,
   'tfm.tanks': () => 'online',
   'gtr.recalls': () => 'notified',

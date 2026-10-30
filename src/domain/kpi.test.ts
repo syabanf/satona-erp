@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { backlog, byHour, oeeBy, oeeSummary, pareto, perDay, perMonth, pmCompliance, reliability, safetyScores, workMix } from './kpi'
+import { aging, backlog, byHour, dueWithin, oeeBy, oeeSummary, pareto, perDay, perMonth, pmCompliance, reliability, safetyPyramid, safetyRates, safetyScores, workMix } from './kpi'
 import type { ErpRecord } from './records'
 
 const r = (values: ErpRecord['values'], status = 'completed'): ErpRecord => ({ id: String(Math.random()), type: 't', status, values, createdAt: '2026-10-01T00:00:00Z', updatedAt: '', history: [] })
@@ -49,5 +49,28 @@ describe('time buckets', () => {
   it('counts per month and per day ending today', () => {
     expect(perMonth(rows, '2026-10-30', 2, (x) => String(x.values.d))).toEqual([{ month: '2026-09', count: 1 }, { month: '2026-10', count: 2 }])
     expect(perDay(rows, '2026-10-30', 2, (x) => String(x.values.d))).toEqual([{ day: '2026-10-29', count: 0 }, { day: '2026-10-30', count: 1 }])
+  })
+})
+
+describe('SHE, HR and finance KPIs', () => {
+  it('computes LTIFR, TRIR and days since the last LTI', () => {
+    const rows = [r({ kind: 'Lost time injury', date: '2026-05-01', lostDays: 6 }), r({ kind: 'Medical treatment', date: '2026-09-01' }), r({ kind: 'Near miss', date: '2026-10-01' })]
+    const k = safetyRates(rows, 2e6, '2026-10-30')
+    expect(k.ltifr).toBeCloseTo(0.5)
+    expect(k.trir).toBeCloseTo(0.2)
+    expect(k.severity).toBeCloseTo(3)
+    expect(k.daysSinceLti).toBe(182)
+    expect(safetyRates([], 0, '2026-10-30').daysSinceLti).toBeNull()
+  })
+
+  it('builds the pyramid with observations at the base', () => {
+    const p = safetyPyramid([r({ kind: 'Near miss' }), r({ kind: 'Near miss' })], [r({ kind: 'Unsafe act' }), r({ kind: 'Safe behaviour' })], ['Lost time injury', 'Near miss'])
+    expect(p.map((x) => x.count)).toEqual([0, 2, 1])
+  })
+
+  it('finds rows due soon and buckets overdue amounts', () => {
+    const rows = [r({ expiry: '2026-11-05', due: '2026-10-30', amount: 1 }), r({ expiry: '2027-06-01', due: '2026-10-10', amount: 2 }), r({ expiry: '2026-10-01', due: '2026-08-01', amount: 4 })]
+    expect(dueWithin(rows, 'expiry', '2026-10-30', 30).map((x) => x.values.expiry)).toEqual(['2026-10-01', '2026-11-05'])
+    expect(aging(rows, 'due', 'amount', '2026-10-30').map((b) => b.amount)).toEqual([1, 2, 0, 4])
   })
 })

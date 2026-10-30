@@ -78,3 +78,40 @@ describe('record use cases', () => {
     expect(typeOf('grc.risks')).toBeDefined()
   })
 })
+
+describe('multilevel approval', { timeout: 20_000 }, () => {
+  const services = () => createServices({ ...createMockPorts(clock), clock })
+
+  it('walks a large PO through procurement, finance control and the CFO', async () => {
+    const s = services()
+    const buyer = role('Procurement Specialist', 'vms', 'holding')
+    const po = await s.records.create(buyer, 'vms.orders', { title: 'Sulfur Q1', vendor: 'BP-0001', material: 'MAT-0003', qty: 900, value: 1_800_000_000, delivery: '2026-12-01' })
+    await s.records.transition(buyer, 'vms.orders', po.id, 'submitted')
+    await expect(s.records.transition(role('CFO / Finance Director', 'epm', 'holding'), 'vms.orders', po.id, 'released')).rejects.toThrow('Level 1 of 3 waits for Head of Procurement')
+    const l1 = await s.records.transition(role('Head of Procurement', 'vms', 'holding'), 'vms.orders', po.id, 'released')
+    expect([l1.status, l1.approvals?.length]).toEqual(['submitted', 1])
+    // The CFO delegated to the Financial Controller, but level 2 belongs to the Finance Controller.
+    const l2 = await s.records.transition(role('Finance Controller', 'fin', 'holding'), 'vms.orders', po.id, 'released')
+    expect(l2.status).toBe('submitted')
+    const done = await s.records.transition(role('Financial Controller', 'epm', 'holding'), 'vms.orders', po.id, 'released')
+    expect([done.status, done.approvals?.map((a) => a.by)]).toEqual(['released', ['Head of Procurement', 'Finance Controller', 'Financial Controller']])
+  })
+
+  it('lets a level holder reject and clears the signatures', async () => {
+    const s = services()
+    const buyer = role('Procurement Specialist', 'vms', 'holding')
+    const po = await s.records.create(buyer, 'vms.orders', { title: 'Caustic', vendor: 'BP-0001', material: 'MAT-0005', qty: 50, value: 900_000_000, delivery: '2026-12-01' })
+    await s.records.transition(buyer, 'vms.orders', po.id, 'submitted')
+    await s.records.transition(role('Head of Procurement', 'vms', 'holding'), 'vms.orders', po.id, 'released')
+    const rejected = await s.records.transition(role('Finance Controller', 'fin', 'holding'), 'vms.orders', po.id, 'rejected')
+    expect([rejected.status, rejected.approvals]).toEqual(['rejected', undefined])
+  })
+
+  it('applies permission overrides from the administration module', async () => {
+    const s = services()
+    const analyst = role('Business Analyst', 'bi', 'holding')
+    const she = typeOf('she.permits')!
+    expect(await s.records.accessFor(analyst, she)).toBe('view')
+    expect(await s.records.accessFor(role('Plant Manager', 'cfp', 'roasi'), she)).toBe('full')
+  })
+})

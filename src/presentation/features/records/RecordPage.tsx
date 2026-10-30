@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Check, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Check, ChevronRight, Clock3, Pencil, Trash2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
+import { approvalMoves, isRejection, matrixOf, moveBlocker } from '@/domain/approval'
 import { can } from '@/domain/erp'
 import { allowedTransitions, ancestors, childTypes, referencedBy, stateOf } from '@/domain/records'
 import { cn } from '@/lib/cn'
@@ -26,7 +27,7 @@ import { useRecordType } from './useRecordType'
 export default function RecordPage() {
   const { type, rid } = useRecordType()
   const { access } = useModule()
-  const { records } = useServices()
+  const { records, clock } = useServices()
   const { role } = useSession()
   const navigate = useNavigate()
   const toast = useToast()
@@ -39,8 +40,12 @@ export default function RecordPage() {
   const record = all.data[type.key]?.find((r) => r.id === rid)
   if (!record) return <NotFound />
 
-  const moves = allowedTransitions(type, record.status, access)
+  const approval = approvalMoves(type, record, access, role, matrixOf(all.data), clock.today())
+  const allowed = [...allowedTransitions(type, record.status, access).filter((t) => t.needs !== 'approve'), ...approval.moves]
+  const blocker = allowed.map((m) => moveBlocker(type, record, m.to)).find(Boolean)
+  const moves = allowed.filter((m) => !moveBlocker(type, record, m.to))
   const waiting = type.workflow.transitions.filter((t) => t.from === record.status && !moves.some((m) => m.to === t.to))
+  const signed = record.approvals ?? []
   const children = new Set(childTypes(type.key, RECORD_TYPES).map((c) => c.type.key))
   const users = referencedBy(record.id, RECORD_TYPES, all.data).filter((u) => !children.has(u.type.key))
   const lineage = ancestors(type, record, RECORD_TYPES, all.data)
@@ -134,21 +139,49 @@ export default function RecordPage() {
                 )
               })}
             </ol>
-            {(moves.length > 0 || waiting.length > 0) && (
+            {(moves.length > 0 || waiting.length > 0 || blocker) && (
               <div className="mt-4 flex flex-wrap items-center gap-2 rounded-panel bg-raised p-3">
                 {moves.map((m) => (
                   <Button key={m.to} size="sm" variant={m.needs === 'approve' ? 'accent' : 'solid'} loading={busy === m.to} onClick={() => move(m.to)}>
                     {m.label}
+                    {approval.step && m.needs === 'approve' && !isRejection(type, m.to) && ` · level ${approval.step.level} of ${approval.chain.length}`}
                   </Button>
                 ))}
-                {waiting.length > 0 && (
+                {blocker && <p className="w-full text-xs font-semibold text-accent-text">{blocker}</p>}
+                {waiting.length > 0 && !blocker && (
                   <p className="text-xs text-muted">
-                    {waiting.map((w) => w.label).join(' or ')} needs {waiting.some((w) => w.needs === 'approve') ? 'an approver' : 'edit access'} for this module.
+                    {approval.step && waiting.some((w) => w.needs === 'approve')
+                      ? `Level ${approval.step.level} of ${approval.chain.length} waits for ${approval.step.role}.`
+                      : `${waiting.map((w) => w.label).join(' or ')} needs ${waiting.some((w) => w.needs === 'approve') ? 'an approver' : 'edit access'} for this module.`}
                   </p>
                 )}
               </div>
             )}
           </Card>
+
+          {(approval.chain.length > 0 || signed.length > 0) && (
+            <Card>
+              <CardHeader title="Approval chain" action={<span className="text-xs text-muted">from the approval matrix (SYS)</span>} />
+              <ol className="grid gap-2 sm:grid-cols-3">
+                {(approval.chain.length ? approval.chain : signed.map((x) => ({ level: x.level, role: x.role, sla: 0 }))).map((step) => {
+                  const sign = signed.find((x) => x.level === step.level)
+                  const current = approval.step?.level === step.level
+                  return (
+                    <li key={step.level} aria-current={current ? 'step' : undefined} className={cn('rounded-panel p-3', current ? 'bg-invert text-on-invert' : 'bg-raised')}>
+                      <p className={cn('flex items-center gap-1.5 text-xs', current ? 'opacity-70' : 'text-muted')}>
+                        {sign ? <Check aria-hidden className="size-3.5 text-success" /> : <Clock3 aria-hidden className="size-3.5" />} Level {step.level}
+                        {step.sla > 0 && ` · SLA ${step.sla} h`}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold">{step.role}</p>
+                      <p className={cn('mt-0.5 text-xs', current ? 'opacity-70' : 'text-muted')}>
+                        {sign ? `Signed by ${sign.by}, ${new Date(sign.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : current ? 'Waiting for a decision' : 'Not reached yet'}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ol>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Details" />

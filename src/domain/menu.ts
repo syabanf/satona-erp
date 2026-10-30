@@ -33,6 +33,10 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
   ],
   tfm: [{ label: 'Tank farm 3D', to: '/tank-farm?view=3d' }],
   mes: [{ label: 'Plant line 3D', to: '/mes/cockpit?view=3d' }],
+  she: [
+    { label: 'Permit to work board', to: '/she?view=permits' },
+    { label: 'Health & environment', to: '/she?view=health' },
+  ],
 }
 
 const path = (t: RecordType) => `/modules/${t.module}/${t.key.split('.')[1]}`
@@ -155,11 +159,17 @@ const MODULE_HOME: Record<string, string> = {
   tfm: '/tank-farm',
   dms: '/distribution',
   gtr: '/traceability',
+  she: '/she',
+  hrs: '/hris',
+  fin: '/finance',
 }
 
 /** Where a role lands after sign-in: executives on the overview, field roles on their working screen. */
 export function homeFor(role: Pick<Role, 'id' | 'name' | 'module' | 'external'>): string {
   if (role.id === 'admin' || /cfo|direksi|business analyst|general manager/i.test(role.name)) return '/'
   if (/driver/i.test(role.name)) return '/fleet/checkin'
+  // Other portal users land on the list they file into, not the module cockpit.
+  if (/employee \(ess\)/i.test(role.name)) return '/modules/hrs/leaves'
+  if (/contractor/i.test(role.name)) return '/modules/she/permits'
   return MODULE_HOME[role.module] ?? `/modules/${role.module}`
 }

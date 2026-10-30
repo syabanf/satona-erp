@@ -13,3 +13,6 @@ export function percent(ratio: number, { signed = false, digits = 1 } = {}): str
   if (!signed) return ratio < 0 ? `-${text}` : text
   return `${ratio < 0 ? '-' : '+'}${text}`
 }
+
+/** "2026-10" → "Oct". */
+export const monthLabel = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })

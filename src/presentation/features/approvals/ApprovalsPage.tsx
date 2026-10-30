@@ -60,12 +60,17 @@ export default function ApprovalsPage() {
         </div>
       ) : (
         <ul className="divide-y divide-line">
-          {shown.slice(0, 60).map(({ type, record, moves }) => (
+          {shown.slice(0, 60).map(({ type, record, moves, step, levels }) => (
             <li key={`${type.key}-${record.id}`} data-motion="row" className="flex flex-wrap items-center gap-3 px-5 py-3.5">
               <Link to={recordPath(type, record.id)} className="min-w-0 flex-1 basis-64 hover:underline">
                 <span className="flex items-center gap-2 text-xs text-muted">
                   <span className="rounded bg-raised px-1.5 py-0.5 font-mono font-semibold text-fg">{type.module.toUpperCase()}</span>
                   {type.singular} <span className="font-mono">{record.id}</span>
+                  {step && (
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent-text">
+                      Level {step.level} of {levels}
+                    </span>
+                  )}
                 </span>
                 <span className="mt-0.5 block truncate text-sm font-medium">{recordTitle(type, record, all.data)}</span>
               </Link>

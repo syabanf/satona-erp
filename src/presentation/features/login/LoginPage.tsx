@@ -14,9 +14,10 @@ import { Input } from '../../ui/Field'
 import { POP } from '../../ui/pop'
 import { useToast } from '../../ui/useToast'
 
-/** Personas for quick login, by role name from the user matrix, grouped the way a demo walks through them. */
+/** Personas for quick login, by role name (or role id where two modules share a name), grouped the way a demo walks through them. */
 const PERSONAS: ReadonlyArray<{ group: string; names: readonly string[] }> = [
   { group: 'Group', names: ['Group IT Program Lead', 'CFO / Finance Director', 'Head of Procurement', 'Operations Director'] },
+  { group: 'Shared services and SHE / K3', names: ['SHE Manager', 'she-k3-officer', 'Safety Inspector', 'Contractor Safety Rep', 'HR Director', 'hrs-hr-manager', 'Employee (ESS)', 'Finance Controller', 'Chief Accountant', 'System Administrator'] },
   { group: 'Rotama logistics', names: ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)', 'Warehouse Manager'] },
   { group: 'Rodame and Roasi plants', names: ['Production Manager', 'Plant Operator', 'Maintenance Head', 'QC Manager', 'Tank Farm Supervisor', 'Distributor'] },
 ]
@@ -35,7 +36,7 @@ export default function LoginPage() {
 
   if (signedIn) return <Navigate to={homeFor(current)} replace />
 
-  const find = (name: string): Role | undefined => (name === ADMIN_ROLE.name ? ADMIN_ROLE : roles.data?.find((r) => r.name === name))
+  const find = (name: string): Role | undefined => (name === ADMIN_ROLE.name ? ADMIN_ROLE : roles.data?.find((r) => r.id === name || r.name === name))
 
   function enter(role: Role) {
     setBusy(role.id)

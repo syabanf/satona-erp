@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calc, flow, n, num, pick, ref, text, type } from './catalog/kit'
-import { allowedTransitions, ancestors, awaitingApproval, descendants, rollup, computeValues, filterRecords, nextId, referencedBy, sortRecords, summarize, validate, type ErpRecord } from './records'
+import { approvalInbox } from './approval'
+import { allowedTransitions, ancestors, descendants, rollup, computeValues, filterRecords, nextId, referencedBy, sortRecords, summarize, validate, type ErpRecord } from './records'
 
 const orders = type('x', 'orders', ['Orders', 'Order', 'ORD'], 'name', [
   text('name', 'Name', { required: true }),
@@ -62,8 +63,8 @@ describe('record rules', () => {
   it('finds references and the approval queue', () => {
     const all = { 'x.orders': [rec('ORD-0001', { name: 'a' }, 'sent')], 'x.notes': [{ ...rec('NTE-0001', { order: 'ORD-0001' }), type: 'x.notes' }] }
     expect(referencedBy('ORD-0001', [orders, notes], all).map((x) => x.record.id)).toEqual(['NTE-0001'])
-    expect(awaitingApproval([orders, notes], all, () => 'approve').map((x) => x.record.id)).toEqual(['ORD-0001'])
-    expect(awaitingApproval([orders, notes], all, () => 'full')).toEqual([])
+    expect(approvalInbox([orders, notes], all, () => 'approve', { id: 'r', name: 'r' }, '2026-10-30').map((x) => x.record.id)).toEqual(['ORD-0001'])
+    expect(approvalInbox([orders, notes], all, () => 'full', { id: 'r', name: 'r' }, '2026-10-30')).toEqual([])
   })
 })
 

@@ -55,6 +55,14 @@ export interface HistoryEntry {
   action: string
 }
 
+/** One signed level of a multilevel approval. */
+export interface ApprovalSign {
+  level: number
+  role: string
+  by: string
+  at: string
+}
+
 export interface ErpRecord {
   id: string
   type: string
@@ -63,6 +71,8 @@ export interface ErpRecord {
   createdAt: string
   updatedAt: string
   history: readonly HistoryEntry[]
+  /** Levels signed so far in the current approval round; cleared when the record leaves it. */
+  approvals?: readonly ApprovalSign[]
 }
 
 export const canCreate = (type: Pick<RecordType, 'portalCreate'>, access: Access) => can(access, 'create') || (access === 'portal' && Boolean(type.portalCreate))
@@ -202,18 +212,6 @@ export function referencedBy(id: string, types: readonly RecordType[], all: Read
     const refs = t.fields.filter((f) => f.type === 'ref')
     if (!refs.length) return []
     return (all[t.key] ?? []).filter((r) => refs.some((f) => r.values[f.key] === id)).map((record) => ({ type: t, record }))
-  })
-}
-
-/** Records waiting on a step that needs approval, which `accessFor` lets the role take. */
-export function awaitingApproval(types: readonly RecordType[], all: Readonly<Record<string, readonly ErpRecord[]>>, accessFor: (module: string) => Access) {
-  return types.flatMap((type) => {
-    const access = accessFor(type.module)
-    if (!can(access, 'approve')) return []
-    return (all[type.key] ?? []).flatMap((record) => {
-      const moves = allowedTransitions(type, record.status, access).filter((t) => t.needs === 'approve')
-      return moves.length ? [{ type, record, moves }] : []
-    })
   })
 }
 

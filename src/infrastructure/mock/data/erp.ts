@@ -146,6 +146,61 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Open alarms', value: '9' },
     { label: 'Sources connected', value: '21 of 24' },
   ], { to: '/occ', label: 'Open command centre' }),
+  mod('holding', 'HRS', 'Human Capital (HRIS)', [
+    ['Organisation, positions and grades', 'live'],
+    ['Attendance by face recognition and gate RFID', 'live'],
+    ['Leave, overtime and shift rosters', 'live'],
+    ['Payroll with BPJS and PPh 21', 'build'],
+    ['Recruitment pipeline with psychotest and MCU', 'build'],
+    ['KPI scorecards with a safety behaviour weight', 'plan'],
+  ], ['Human Capital', 'Payroll', 'Talent Acquisition'], ['HR Director', 'HR Manager', 'Payroll Specialist', 'Recruiter', 'Employee (ESS)'], [
+    { label: 'Headcount', value: '2,562' },
+    { label: 'Attendance today', value: '96.4%' },
+  ], { to: '/hris', label: 'Open HR cockpit' }),
+  mod('holding', 'FIN', 'Finance & Accounting', [
+    ['General ledger journals with approval and posting', 'live'],
+    ['AP with 3-way match (PO, GRN, invoice)', 'live'],
+    ['AR, e-Faktur and collections', 'build'],
+    ['Bank reconciliation and period close', 'build'],
+    ['Fixed assets and depreciation', 'plan'],
+  ], ['Accounting', 'Treasury', 'Tax'], ['Finance Controller', 'Chief Accountant', 'AP Officer', 'AR Officer', 'Tax Officer'], [
+    { label: 'Open payables', value: 'Rp 41.8 B' },
+    { label: 'DSO', value: '38 days' },
+  ], { to: '/finance', label: 'Open finance cockpit' }),
+  mod('holding', 'INV', 'Inventory Control', [
+    ['Stock balances per plant with shelf life', 'live'],
+    ['Stock opname with variance approval', 'live'],
+    ['Transfers, adjustments and scrap with B3 flag', 'build'],
+  ], ['Inventory Control', 'Stores'], ['Inventory Controller', 'Storekeeper'], [
+    { label: 'Stock accuracy', value: '99.1%' },
+    { label: 'Items below minimum', value: '7' },
+  ]),
+  mod('holding', 'GAS', 'Service Desk & Document Control', [
+    ['IT and general affairs tickets with SLA', 'live'],
+    ['Controlled documents: SOP, SDS and permits', 'build'],
+  ], ['General Affairs', 'IT Service Desk', 'Document Control'], ['GA Manager', 'IT Helpdesk Agent', 'Document Controller'], [
+    { label: 'Tickets within SLA', value: '92%' },
+    { label: 'Documents due for review', value: '11' },
+  ]),
+  mod('holding', 'SHE', 'SHE / K3 Management', [
+    ['Permit to work with gas test and JSA', 'live'],
+    ['Incident reporting, investigation and CAPA', 'live'],
+    ['HIRADC risk register per work area', 'live'],
+    ['Inspections, observations and toolbox meetings', 'build'],
+    ['MCU, PPE issuance and K3 licences', 'build'],
+    ['B3 waste manifests', 'plan'],
+  ], ['Safety, Health & Environment', 'Occupational Health', 'Contractor Safety'], ['SHE Manager', 'K3 Officer', 'Safety Inspector', 'Occupational Health Doctor', 'Contractor Safety Rep'], [
+    { label: 'Days without LTI', value: '418' },
+    { label: 'Permits active', value: '9' },
+  ], { to: '/she', label: 'Open SHE cockpit' }),
+  mod('holding', 'SYS', 'System Administration', [
+    ['Roles and permission overrides', 'live'],
+    ['Multilevel approval matrix with delegations', 'live'],
+    ['Number ranges, holidays, settings and templates', 'live'],
+  ], ['IT Security'], ['System Administrator', 'IT Security Officer'], [
+    { label: 'Approval rules', value: '12' },
+    { label: 'Active delegations', value: '2' },
+  ]),
   mod('rotama', 'TMS', 'Transportation Management & Telematics', [
     ['Tanker route optimisation', 'live'],
     ['GPS tracking and driver behaviour (speed)', 'live'],
@@ -260,7 +315,7 @@ export const MODULES: readonly ErpModule[] = [
   ], { to: '/traceability', label: 'Open genealogy' }),
 ]
 
-const EXTERNAL = /vendor|supplier|distributor|driver|plant operator/i
+const EXTERNAL = /vendor|supplier|distributor|driver|plant operator|employee \(ess\)|contractor/i
 const slug = (s: string) =>
   s
     .toLowerCase()

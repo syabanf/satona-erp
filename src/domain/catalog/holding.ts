@@ -8,6 +8,7 @@ export const HOLDING: readonly RecordType[] = [
     text('name', 'Account name', { required: true, list: true }),
     pick('class', 'Class', ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'], { required: true, list: true }),
     entity('entity', 'Used by', { list: true }),
+    ref('groupAccount', 'Group account', 'mdm.groupcoa', { list: true }),
   ], ACTIVE, { groupBy: 'class' }),
   master('mdm', 'partners', ['Business partners', 'Partner', 'BP'], 'name', [
     text('name', 'Name', { required: true, list: true }),
@@ -21,6 +22,10 @@ export const HOLDING: readonly RecordType[] = [
     text('name', 'Name', { required: true, list: true }),
     pick('b3Class', 'B3 class', B3_CLASSES, { required: true, list: true }),
     pick('uom', 'Unit', ['t', 'm³', 'kg', 'L'], { required: true, list: true }),
+    text('unNumber', 'UN number', { list: true }),
+    text('cas', 'CAS number'),
+    pick('packingGroup', 'Packing group', ['I', 'II', 'III', 'None']),
+    pick('signalWord', 'GHS signal word', ['Danger', 'Warning', 'None']),
   ], ACTIVE, { groupBy: 'b3Class' }),
   master('mdm', 'employees', ['Employees', 'Employee', 'EMP'], 'name', [
     text('nik', 'NIK', { required: true, list: true }),
@@ -57,6 +62,8 @@ export const HOLDING: readonly RecordType[] = [
     text('description', 'Description', { required: true, list: true }),
     money('amount', 'Amount', { required: true, list: true }),
     date('date', 'Posting date', { required: true }),
+    money('counterAmount', 'Booked by receiver'),
+    calc('difference', 'IC difference', (v) => n(v, 'amount') - n(v, 'counterAmount'), { unit: 'Rp', list: true }),
   ], flow(
     [
       ['unmatched', 'Unmatched', 'warning'],
@@ -78,6 +85,7 @@ export const HOLDING: readonly RecordType[] = [
     text('name', 'Budget name', { required: true, list: true }),
     entity('entity', 'Entity', { required: true, list: true }),
     num('year', 'Fiscal year', undefined, { required: true, min: 2024, max: 2030 }),
+    pick('version', 'Version', ['Original', 'Revised', 'Forecast'], { list: true }),
     money('opex', 'Opex', { required: true }),
     money('capex', 'Capex', { required: true }),
     calc('total', 'Total', (v) => n(v, 'opex') + n(v, 'capex'), { unit: 'Rp', list: true }),

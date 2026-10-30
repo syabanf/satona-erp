@@ -86,5 +86,6 @@ export function approvalInbox(types: readonly RecordType[], all: Readonly<Record
 /** A safety rule that stops a move whatever the approver says, such as a permit with a failed gas test. */
 export function moveBlocker(type: RecordType, record: Pick<ErpRecord, 'values'>, to: string): string | undefined {
   if (type.key === 'she.permits' && (to === 'approved' || to === 'active') && record.values.gasTest === 'Fail') return `Gas test failed (LEL ${String(record.values.lel)}%). Ventilate and re-test before approving.`
+  if (type.key === 'wms.tasks' && to === 'done' && record.values.segregation !== 'Compatible') return `${String(record.values.materialClass)} cannot be stored in a ${String(record.values.zoneClass)} zone. Pick a bin in a compatible zone.`
   return undefined
 }

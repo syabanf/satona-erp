@@ -3,6 +3,7 @@ import { RECORD_TYPES } from '@/domain/catalog'
 import { PROVINCES } from '@/domain/catalog/kit'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
+import { MATERIAL_HAZARDS, SCOPE_SEEDS, groupAccountFor } from './seedsScope'
 import { SUPPORT_SEEDS } from './seedsSupport'
 
 export interface Ctx {
@@ -56,6 +57,7 @@ const FORMULAS: ReadonlyArray<[string, number, number, number]> = [
 
 const SEEDS: Record<string, { count: number; make: Make }> = {
   ...SUPPORT_SEEDS,
+  ...SCOPE_SEEDS,
   'tms.p2h': {
     count: 16,
     make: ({ i }) => {
@@ -506,7 +508,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         Revenue: ['Fertiliser sales', 'Chemical sales', 'Freight revenue', 'Intercompany freight'],
         Expense: ['Raw material cost', 'Fuel', 'Maintenance', 'Salaries', 'Depreciation'],
       }
-      return { code: `${base}${String(100 + i * 7).slice(0, 3)}0`, name: pick(names[cls] ?? []), class: cls, entity: pick(ENTITIES) }
+      const name = pick(names[cls] ?? [])
+      return { code: `${base}${String(100 + i * 7).slice(0, 3)}0`, name, class: cls, entity: pick(ENTITIES), groupAccount: groupAccountFor(name) }
     },
   },
   'mdm.partners': {
@@ -520,7 +523,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: MATERIALS.length,
     make: ({ i }) => {
       const [code, name, b3Class] = MATERIALS[i] ?? MATERIALS[0]!
-      return { code, name, b3Class, uom: b3Class === 'Non-B3' ? 't' : 'm³' }
+      return { code, name, b3Class, uom: b3Class === 'Non-B3' ? 't' : 'm³', ...(MATERIAL_HAZARDS[code] ?? { unNumber: '', cas: '', packingGroup: 'None', signalWord: 'None' }) }
     },
   },
   'mdm.employees': {
@@ -551,7 +554,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'epm.intercompany': {
     count: 26,
-    make: ({ pick, int, day }) => {
+    make: ({ i, pick, int, day }) => {
       const [from, to, description] = pick([
         ['rotama', 'rodame', 'Freight NPK Gresik'],
         ['rotama', 'roasi', 'Freight acid Cilegon'],
@@ -560,7 +563,9 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['holding', 'rodame', 'Shared service fee'],
         ['holding', 'roasi', 'Management fee'],
       ] as const)
-      return { from, to, description, amount: int(4, 90) * 1e8, date: day(-150, 0) }
+      const amount = int(4, 90) * 1e8
+      // A few receivers booked a different amount, so IC reconciliation has differences to clear.
+      return { from, to, description, amount, date: day(-150, 0), counterAmount: i % 6 === 2 ? amount - 35_000_000 : amount }
     },
   },
   'epm.fx': {
@@ -575,7 +580,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: 8,
     make: ({ i, int }) => {
       const e = ENTITIES[i % 4] ?? 'holding'
-      return { name: `${e === 'holding' ? 'Holding' : e[0]!.toUpperCase() + e.slice(1)} FY${i < 4 ? 2027 : 2026}`, entity: e, year: i < 4 ? 2027 : 2026, opex: int(80, 600) * 1e9, capex: int(20, 300) * 1e9 }
+      return { name: `${e === 'holding' ? 'Holding' : e[0]!.toUpperCase() + e.slice(1)} FY${i < 4 ? 2027 : 2026}`, entity: e, year: i < 4 ? 2027 : 2026, opex: int(80, 600) * 1e9, capex: int(20, 300) * 1e9, version: i < 4 ? 'Original' : i % 2 ? 'Revised' : 'Forecast' }
     },
   },
   'vms.requisitions': {
@@ -640,7 +645,10 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'tms.trips': {
     count: 36,
-    make: ({ int, day, ref }) => ({ route: ref('tms.lanes'), vehicle: ref('tms.vehicles'), driver: ref('tms.drivers'), cargo: ref('mdm.materials'), qty: int(14, 30), distance: int(90, 780), departure: day(-160, 7) }),
+    make: ({ i, int, day, ref }) => {
+      const trip = { route: ref('tms.lanes'), vehicle: ref('tms.vehicles'), driver: ref('tms.drivers'), cargo: ref('mdm.materials'), qty: int(14, 30), distance: int(90, 780), departure: day(-160, 7) }
+      return { ...trip, stops: 1 + (i % 3), tripCost: trip.distance * 12_400 }
+    },
   },
   'wms.zones': {
     count: 12,
@@ -661,7 +669,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'haz.manifests': {
     count: 28,
-    make: ({ pick, int, ref }) => {
+    make: ({ i, pick, int, ref }) => {
       const [unNumber, hazardClass] = pick([
         ['UN1830', 'Class 8 Corrosive'],
         ['UN1805', 'Class 8 Corrosive'],
@@ -669,7 +677,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['UN2448', 'Class 4.1 Flammable solid'],
         ['UN1824', 'Class 8 Corrosive'],
       ] as const)
-      return { trip: ref('tms.trips'), unNumber, hazardClass, qty: int(14, 30) }
+      return { trip: ref('tms.trips'), unNumber, hazardClass, qty: int(14, 30), festronik: `FST-2610-${String(4100 + i * 7)}`, generator: i % 2 ? 'PT Roasi Sinergi Industri' : 'PT Rodame Indonesia', transporter: 'PT Rotama Indonesia', receiver: ['PT Prasadha Pamunah Limbah', 'PT Petrokimia Mitra', 'PT Indo Detergent'][i % 3] }
     },
   },
   'haz.certificates': {
@@ -678,18 +686,22 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fbl.rates': {
     count: LANES.length,
-    make: ({ i, int }) => ({ route: LANES[i] ?? '', ratePerKm: int(118, 175) * 100, margin: int(8, 18) }),
+    make: ({ i, int }) => {
+      const cost = int(118, 175) * 100
+      const [fuel, toll, driverCost] = [Math.round(cost * 0.52), Math.round(cost * 0.18), Math.round(cost * 0.16)]
+      return { route: LANES[i] ?? '', fuel, toll, driverCost, overhead: cost - fuel - toll - driverCost, shrinkage: [0.5, 0.75, 1][i % 3], margin: int(8, 18) }
+    },
   },
   'fbl.invoices': {
     count: 32,
-    make: ({ pick, int, day, ref }) => ({ trip: ref('tms.trips'), billTo: pick(['PT Rodame Indonesia', 'PT Rodame Indonesia', 'PT Roasi Sinergi Industri', 'External customer']), distance: int(90, 780), ratePerKm: int(118, 175) * 100, margin: int(8, 18), issued: day(-160, 0) }),
+    make: ({ i, pick, int, day, ref }) => ({ trip: ref('tms.trips'), billTo: pick(['PT Rodame Indonesia', 'PT Rodame Indonesia', 'PT Roasi Sinergi Industri', 'External customer']), distance: int(90, 780), ratePerKm: int(118, 175) * 100, margin: int(8, 18), issued: day(-160, 0), pod: i % 5 === 0 ? 'Pending' : 'Signed' }),
   },
 
   'bpf.formulas': {
     count: FORMULAS.length,
     make: ({ i }) => {
       const [grade, nn, p, k] = FORMULAS[i] ?? FORMULAS[0]!
-      return { grade, n: nn, p, k, moistureMax: 2.5 }
+      return { grade, n: nn, p, k, moistureMax: 2.5, version: 1 + (i % 3), effective: `2026-0${1 + (i % 6)}-01`, substitute: i % 2 ? 'MAT-0006' : '', costPerT: (54 + i * 3) * 100_000 }
     },
   },
   'bpf.orders': {
@@ -704,8 +716,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     },
   },
   'mrp.schedule': {
-    count: 24,
-    make: ({ int, day, ref }) => ({ machine: ref('mrp.workcenters'), order: ref('bpf.orders'), start: day(-60, 14), hours: int(6, 36) }),
+    count: 56,
+    make: ({ int, day, ref }) => ({ machine: ref('mrp.workcenters'), order: ref('bpf.orders'), start: day(-3, 10), hours: int(10, 40) }),
   },
   'qc.samples': {
     count: 34,
@@ -713,7 +725,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'qc.coa': {
     count: 16,
-    make: ({ pick, day, ref }) => ({ sample: ref('qc.samples'), customer: pick(DISTRIBUTORS.map((d) => d.name)), issued: day(-120, 0) }),
+    make: ({ i, pick, day, ref }) => ({ sample: ref('qc.samples'), customer: pick(DISTRIBUTORS.map((d) => d.name)), issued: day(-120, 0), lot: `L-2610-${100 + i * 3}`, signedBy: 'Ratna Wulandari, QC Head', distribution: (['Email', 'Customer portal', 'Printed with delivery'] as const)[i % 3] }),
   },
   'eam.assets': {
     count: 34,
@@ -906,7 +918,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     make: ({ i }) => {
       const d = DISTRIBUTORS[i] ?? DISTRIBUTORS[0]!
       const region = { jatim: 'Jawa Timur', jateng: 'Jawa Tengah', jabar: 'Jawa Barat', lampung: 'Lampung', sumsel: 'Sumatera Selatan', sulsel: 'Sulawesi Selatan' }[d.region] ?? 'Jawa Timur'
-      return { name: d.name, region, kiosks: d.kiosks, manager: d.manager }
+      const creditLimit = (20 + (i % 4) * 10) * 1e9
+      return { name: d.name, region, kiosks: d.kiosks, manager: d.manager, territory: `${region} ${['north', 'south', 'east', 'west'][i % 4]}`, target: 1200 + (i % 5) * 400, creditLimit, outstanding: Math.round(creditLimit * [0.42, 0.68, 0.93, 0.55, 1.04][i % 5]!) }
     },
   },
   'dms.quotas': {
@@ -951,7 +964,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['Sulfur dioxide', '7446-09-5', 'Acute toxic'],
         ['Potassium chloride', '7447-40-7', 'Health hazard'],
       ] as const)[i]!
-      return { chemical, cas, ghs, revision: day(-500, -10) }
+      return { chemical, cas, ghs, revision: day(-500, -10), version: 2 + (i % 4), language: i % 3 ? 'Both' : 'Bahasa Indonesia', signalWord: ghs === 'Health hazard' ? 'Warning' : 'Danger', pictograms: { Corrosive: 'GHS05', 'Acute toxic': 'GHS06', Oxidizer: 'GHS03', Flammable: 'GHS02', 'Health hazard': 'GHS08' }[ghs], sections: i % 4 === 3 ? 14 : 16 }
     },
   },
   'ehs.emissions': {
@@ -992,8 +1005,11 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     },
   },
   'gtr.recalls': {
-    count: 1,
-    make: ({ ref }) => ({ lot: ref('gtr.lots'), reason: 'Ammonia assay below spec, possible water ingress in T-101.', customers: 2 }),
+    count: 2,
+    make: ({ i, ref }) =>
+      i === 0
+        ? { lot: ref('gtr.lots'), reason: 'Ammonia assay below spec, possible water ingress in T-101.', customers: 2, kind: 'Real recall', shipped: 48, recovered: 41 }
+        : { lot: ref('gtr.lots'), reason: 'Quarterly mock recall drill on an acid lot.', customers: 3, kind: 'Mock recall', shipped: 62, recovered: 62 },
   },
 }
 
@@ -1001,6 +1017,9 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
 const PINNED: Record<string, (values: Values) => string | undefined> = {
   // Administration rows stay in force, except the delegation that already ended.
   'sys.matrix': () => 'active',
+  // A task that breaks hazard segregation cannot be confirmed, so it waits in progress.
+  'wms.tasks': (v) => (v.segregation === 'Compatible' ? undefined : 'progress'),
+  'tms.telemetry': (v) => (v.alarm === 'Alarm' ? 'logged' : undefined),
   'sys.levels': () => 'active',
   'sys.permissions': () => 'active',
   'sys.roles': () => 'active',

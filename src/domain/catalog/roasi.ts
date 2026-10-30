@@ -40,6 +40,11 @@ export const ROASI: readonly RecordType[] = [
     text('cas', 'CAS number', { required: true, list: true }),
     pick('ghs', 'GHS hazard', ['Corrosive', 'Acute toxic', 'Oxidizer', 'Flammable', 'Health hazard'], { required: true, list: true }),
     date('revision', 'Revision date', { required: true, list: true }),
+    num('version', 'SDS version', undefined, { min: 1 }),
+    pick('language', 'Language', ['Bahasa Indonesia', 'English', 'Both']),
+    pick('signalWord', 'Signal word', ['Danger', 'Warning']),
+    text('pictograms', 'GHS pictograms'),
+    num('sections', 'Sections complete', 'of 16', { min: 0, max: 16 }),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -137,6 +142,10 @@ export const ROASI: readonly RecordType[] = [
     ref('lot', 'Lot', 'gtr.lots', { required: true, list: true }),
     note('reason', 'Reason', { required: true, list: true }),
     num('customers', 'Customers affected', undefined, { required: true, min: 0, list: true }),
+    pick('kind', 'Kind', ['Real recall', 'Mock recall'], { list: true }),
+    num('shipped', 'Quantity shipped', 't', { min: 0 }),
+    num('recovered', 'Quantity recovered', 't', { min: 0 }),
+    calc('recovery', 'Recovered', (v) => (n(v, 'shipped') ? round1((n(v, 'recovered') / n(v, 'shipped')) * 100) : 0), { unit: '%', list: true }),
   ], flow(
     [
       ['opened', 'Opened', 'danger'],

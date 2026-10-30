@@ -32,6 +32,8 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
     { label: 'Safety ADAS & DSM', to: '/fleet/safety' },
   ],
   tfm: [{ label: 'Tank farm 3D', to: '/tank-farm?view=3d' }],
+  mrp: [{ label: 'Scheduling board & capacity', to: '/mrp/planning' }],
+  bi: [{ label: 'Group analytics', to: '/analytics' }],
   mes: [{ label: 'Plant line 3D', to: '/mes/cockpit?view=3d' }],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },
@@ -88,6 +90,7 @@ export function buildMenu({ entities, modules, types, accessFor }: MenuInput): M
       { id: 'catalogue', label: 'Module catalogue', kind: 'page', tcode: 'ZMOD', to: '/modules' },
       { id: 'users', label: 'User & access matrix', kind: 'page', tcode: 'ZUSR', to: '/users' },
       { id: 'integration', label: 'Integration layer & event bus', kind: 'page', tcode: 'ZINT', to: '/integration' },
+      { id: 'coverage', label: 'Scope coverage (gap analysis)', kind: 'page', tcode: 'ZGAP', to: '/coverage' },
     ],
   }
   const byEntity = entities.map((e, i) => {
@@ -103,6 +106,19 @@ export function* walk(nodes: readonly MenuNode[]): Generator<MenuNode> {
     yield n
     if (n.children) yield* walk(n.children)
   }
+}
+
+/** The landing page of a folder: one card per sub-feature. */
+export const folderPath = (id: string) => `/menu/${encodeURIComponent(id)}`
+
+/** The folders from the root down to the node with `id`, or empty when it is not in the tree. */
+export function chainTo(tree: readonly MenuNode[], id: string): MenuNode[] {
+  for (const n of tree) {
+    if (n.id === id) return [n]
+    const rest = n.children ? chainTo(n.children, id) : []
+    if (rest.length) return [n, ...rest]
+  }
+  return []
 }
 
 /** Accepts `TRP01`, `trp01` or SAP's `/nTRP01`. */
@@ -132,6 +148,7 @@ export function searchMenu(tree: readonly MenuNode[], q: string, limit = 12): Me
  * then the longest leaf path the location sits under (a record page sits under its list).
  */
 export function trail(tree: readonly MenuNode[], pathname: string, search = ''): MenuNode[] {
+  if (pathname.startsWith('/menu/')) return chainTo(tree, decodeURIComponent(pathname.slice('/menu/'.length)))
   const leaf = (n: MenuNode) => {
     if (!n.to) return -1
     const [p, q = ''] = n.to.split('?')

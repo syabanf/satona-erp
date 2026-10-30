@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RECORD_TYPES } from '@/domain/catalog'
 import { accessOf, ADMIN_ROLE, type Role } from '@/domain/erp'
-import { buildMenu, findByTcode, searchMenu, trail, walk } from '@/domain/menu'
+import { buildMenu, findByTcode, folderPath, searchMenu, trail, walk } from '@/domain/menu'
 import { ENTITIES, MODULES, ROLES } from '@/infrastructure/mock/data/erp'
 
 const menuFor = (role: Role) =>
@@ -33,6 +33,11 @@ describe('SAP-style menu', () => {
     expect(trail(tree, '/modules/tms/trips/TRP-0001').map((n) => n.label)).toEqual(['Rotama', 'TMS · Transportation Management & Telematics', 'Transactions', 'Trips', 'Trips worklist'])
     expect(trail(tree, '/modules/tms/trips', '?status=planned').at(-1)?.kind).toBe('approval')
     expect(trail(tree, '/').at(-1)?.tcode).toBe('ZOV')
+  })
+
+  it('gives a folder page the folder trail', () => {
+    expect(trail(tree, folderPath('tms:master')).map((n) => n.label)).toEqual(['Rotama', 'TMS · Transportation Management & Telematics', 'Master data'])
+    expect(trail(tree, folderPath('nope'))).toEqual([])
   })
 
   it('hides closed modules and write items from portal users', () => {

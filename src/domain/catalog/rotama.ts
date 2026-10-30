@@ -30,6 +30,8 @@ export const ROTAMA: readonly RecordType[] = [
     num('qty', 'Load', 't', { required: true, min: 1 }),
     num('distance', 'Distance', 'km', { required: true, min: 1, list: true }),
     date('departure', 'Departure', { required: true, list: true }),
+    num('stops', 'Drops', 'stops', { min: 1 }),
+    money('tripCost', 'Trip cost (fuel, toll, driver)'),
   ], flow(
     [
       ['planned', 'Planned', 'neutral'],
@@ -80,6 +82,10 @@ export const ROTAMA: readonly RecordType[] = [
     text('unNumber', 'UN number', { required: true, list: true }),
     pick('hazardClass', 'Hazard class', B3_CLASSES, { required: true, list: true }),
     num('qty', 'Quantity', 't', { required: true, min: 0 }),
+    text('festronik', 'Festronik number', { list: true }),
+    text('generator', 'Generator'),
+    text('transporter', 'Transporter'),
+    text('receiver', 'Receiver'),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -115,9 +121,14 @@ export const ROTAMA: readonly RecordType[] = [
 
   master('fbl', 'rates', ['Rate cards', 'Rate card', 'RTE'], 'route', [
     text('route', 'Lane', { required: true, list: true }),
-    money('ratePerKm', 'Cost per km', { required: true, list: true }),
+    money('fuel', 'Fuel per km', { required: true }),
+    money('toll', 'Toll per km', { required: true }),
+    money('driverCost', 'Driver and crew per km', { required: true }),
+    money('overhead', 'Depreciation and overhead per km', { required: true }),
+    calc('ratePerKm', 'Cost per km', (v) => n(v, 'fuel') + n(v, 'toll') + n(v, 'driverCost') + n(v, 'overhead'), { unit: 'Rp', list: true }),
+    num('shrinkage', 'Shrinkage allowance', '%', { required: true, min: 0, max: 5 }),
     num('margin', 'Cost-plus margin', '%', { required: true, min: 0, max: 50, list: true }),
-    calc('price', 'Price per km', (v) => Math.round(n(v, 'ratePerKm') * (1 + n(v, 'margin') / 100)), { unit: 'Rp', list: true }),
+    calc('price', 'Price per km', (v) => Math.round((n(v, 'fuel') + n(v, 'toll') + n(v, 'driverCost') + n(v, 'overhead')) * (1 + (n(v, 'margin') + n(v, 'shrinkage')) / 100)), { unit: 'Rp', list: true }),
   ], ACTIVE),
   type('fbl', 'invoices', ['Freight invoices', 'Freight invoice', 'FIN'], 'billTo', [
     ref('trip', 'Trip', 'tms.trips', { required: true, list: true }),
@@ -127,6 +138,8 @@ export const ROTAMA: readonly RecordType[] = [
     num('margin', 'Margin', '%', { required: true, min: 0, max: 50 }),
     calc('amount', 'Amount', (v) => Math.round(n(v, 'distance') * n(v, 'ratePerKm') * (1 + n(v, 'margin') / 100)), { unit: 'Rp', list: true }),
     date('issued', 'Invoice date', { required: true, list: true }),
+    calc('billing', 'Billing', (v) => (String(v.billTo).startsWith('PT R') ? 'Intercompany' : 'External'), { list: true }),
+    pick('pod', 'POD / BAST', ['Signed', 'Pending']),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],

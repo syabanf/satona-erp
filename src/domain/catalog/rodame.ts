@@ -12,6 +12,10 @@ export const RODAME: readonly RecordType[] = [
     num('p', 'Phosphate (P₂O₅)', '%', { required: true, min: 0, max: 50, list: true }),
     num('k', 'Potash (K₂O)', '%', { required: true, min: 0, max: 60, list: true }),
     num('moistureMax', 'Max moisture', '%', { required: true, min: 0, max: 5 }),
+    num('version', 'Version', undefined, { min: 1, list: true }),
+    date('effective', 'Effective from'),
+    ref('substitute', 'Substitute material', 'mdm.materials'),
+    money('costPerT', 'Standard cost per t'),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -103,6 +107,9 @@ export const RODAME: readonly RecordType[] = [
     ref('sample', 'Sample', 'qc.samples', { required: true, list: true }),
     text('customer', 'Customer', { required: true, list: true }),
     date('issued', 'Issue date', { required: true, list: true }),
+    text('lot', 'Lot', { list: true }),
+    text('signedBy', 'Signed by (QC head)'),
+    pick('distribution', 'Sent by', ['Email', 'Customer portal', 'Printed with delivery']),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -231,6 +238,11 @@ export const RODAME: readonly RecordType[] = [
     pick('region', 'Province', PROVINCES, { required: true, list: true }),
     num('kiosks', 'Kiosks', undefined, { required: true, min: 0, list: true }),
     text('manager', 'Area manager', { list: true }),
+    text('territory', 'Sales territory'),
+    num('target', 'Monthly target', 't', { min: 0 }),
+    money('creditLimit', 'Credit limit'),
+    money('outstanding', 'Outstanding receivable'),
+    calc('creditUse', 'Credit used', (v) => (n(v, 'creditLimit') ? round1((n(v, 'outstanding') / n(v, 'creditLimit')) * 100) : 0), { unit: '%', list: true }),
   ], ACTIVE, { groupBy: 'region' }),
   type('dms', 'quotas', ['Quota allocations', 'Quota', 'QTA'], 'region', [
     pick('region', 'Province', PROVINCES, { required: true, list: true }),

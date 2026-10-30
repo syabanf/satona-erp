@@ -95,53 +95,53 @@ export const MODULES: readonly ErpModule[] = [
   mod('holding', 'MDM', 'Group Master Data Management', [
     ['Central chart of accounts (COA) standard', 'live'],
     ['Group customer and vendor master', 'live'],
-    ['Material catalogue and B3 material codes', 'build'],
-    ['Employee master data (HRIS foundation)', 'build'],
+    ['Material catalogue and B3 material codes', 'live'],
+    ['Employee master data (HRIS foundation)', 'live'],
   ], ['Master Data Governance', 'Corporate Finance & Accounting', 'Corporate HR', 'IT Security'], ['HR / IT', 'Accounting Head', 'HR Manager'], [
     { label: 'Golden records', value: '48,210' },
     { label: 'Duplicates merged', value: '3,904' },
   ]),
   mod('holding', 'EPM', 'Financial Consolidation & EPM', [
     ['Automated monthly and yearly consolidation', 'live'],
-    ['Intercompany elimination', 'build'],
-    ['Multi-currency FX revaluation', 'build'],
-    ['Group budgeting and forecasting', 'plan'],
+    ['Intercompany elimination', 'live'],
+    ['Multi-currency FX revaluation', 'live'],
+    ['Group budgeting and forecasting', 'live'],
   ], ['Corporate Finance & Accounting', 'Budgeting & Planning', 'Internal Audit'], ['CFO / Finance Director', 'Financial Controller', 'Corporate Accountant', 'Internal Auditor'], [
     { label: 'Close cycle', value: '4 days' },
     { label: 'Entities consolidated', value: '4 of 4' },
   ], { to: '/', label: 'Open group overview' }),
   mod('holding', 'VMS', 'Shared Procurement & Vendor Management', [
     ['Central sourcing of ammonia, phosphoric acid, sulfur', 'live'],
-    ['Supplier rating and ranking', 'build'],
-    ['B2B vendor procurement portal', 'build'],
+    ['Supplier rating and ranking', 'live'],
+    ['B2B vendor procurement portal', 'live'],
   ], ['Group Procurement / SCM', 'Legal & Commercial'], ['Head of Procurement', 'Procurement Specialist', 'Vendor / Supplier (B2B Portal)'], [
     { label: 'Active vendors', value: '312' },
     { label: 'Spend under contract', value: '87%' },
   ]),
   mod('holding', 'GRC', 'Governance, Risk & Legal', [
     ['B3 permit tracking and licence renewal', 'live'],
-    ['Regulatory audit trail and environmental compliance', 'build'],
-    ['Holding EHS / K3 audits', 'plan'],
-    ['Corporate risk matrix', 'build'],
+    ['Regulatory audit trail and environmental compliance', 'live'],
+    ['Holding EHS / K3 audits', 'live'],
+    ['Corporate risk matrix', 'live'],
   ], ['Legal & Compliance', 'Corporate EH&S / K3', 'Risk Management'], ['Legal Manager', 'EH&S Auditor', 'Risk Officer'], [
     { label: 'Permits expiring in 90 days', value: '6' },
     { label: 'Open findings', value: '23' },
   ]),
   mod('holding', 'BI', 'Enterprise Analytics & Executive BI', [
     ['Executive KPI rollup across subsidiaries', 'live'],
-    ['Production, inventory turnover, sales and purchasing dashboards', 'build'],
-    ['Group asset utilisation analytics', 'plan'],
+    ['Production, inventory turnover, sales and purchasing dashboards', 'live'],
+    ['Group asset utilisation analytics', 'live'],
   ], ['Board of Directors', 'Corporate Strategy / PMO'], ['Dewan Direksi Holding', 'Business Analyst', 'General Manager'], [
     { label: 'Dashboards live', value: '14' },
     { label: 'Weekly viewers', value: '96' },
   ], { to: '/', label: 'Open executive overview' }),
 
   mod('holding', 'OCC', 'Group Operations Command Centre', [
-    ['Live unit status across all plants, depots and tank farms', 'build'],
-    ['Alarm handling: acknowledge, assign, resolve, close with escalation matrix', 'build'],
-    ['Data-source health for DCS, PLC, IoT, GPS and CCTV feeds', 'plan'],
-    ['Energy and fuel monitoring per site', 'plan'],
-    ['Capex project tracking', 'plan'],
+    ['Live unit status across all plants, depots and tank farms', 'live'],
+    ['Alarm handling: acknowledge, assign, resolve, close with escalation matrix', 'live'],
+    ['Data-source health for DCS, PLC, IoT, GPS and CCTV feeds', 'live'],
+    ['Energy and fuel monitoring per site', 'live'],
+    ['Capex project tracking', 'live'],
   ], ['Corporate Operations', 'IT Infrastructure / OT'], ['Operations Director', 'Command Centre Operator', 'O&M Engineer'], [
     { label: 'Open alarms', value: '9' },
     { label: 'Sources connected', value: '21 of 24' },
@@ -150,9 +150,9 @@ export const MODULES: readonly ErpModule[] = [
     ['Organisation, positions and grades', 'live'],
     ['Attendance by face recognition and gate RFID', 'live'],
     ['Leave, overtime and shift rosters', 'live'],
-    ['Payroll with BPJS and PPh 21', 'build'],
-    ['Recruitment pipeline with psychotest and MCU', 'build'],
-    ['KPI scorecards with a safety behaviour weight', 'plan'],
+    ['Payroll with BPJS and PPh 21', 'live'],
+    ['Recruitment pipeline with psychotest and MCU', 'live'],
+    ['KPI scorecards with a safety behaviour weight', 'live'],
   ], ['Human Capital', 'Payroll', 'Talent Acquisition'], ['HR Director', 'HR Manager', 'Payroll Specialist', 'Recruiter', 'Employee (ESS)'], [
     { label: 'Headcount', value: '2,562' },
     { label: 'Attendance today', value: '96.4%' },
@@ -160,9 +160,9 @@ export const MODULES: readonly ErpModule[] = [
   mod('holding', 'FIN', 'Finance & Accounting', [
     ['General ledger journals with approval and posting', 'live'],
     ['AP with 3-way match (PO, GRN, invoice)', 'live'],
-    ['AR, e-Faktur and collections', 'build'],
-    ['Bank reconciliation and period close', 'build'],
-    ['Fixed assets and depreciation', 'plan'],
+    ['AR, e-Faktur and collections', 'live'],
+    ['Bank reconciliation and period close', 'live'],
+    ['Fixed assets and depreciation', 'live'],
   ], ['Accounting', 'Treasury', 'Tax'], ['Finance Controller', 'Chief Accountant', 'AP Officer', 'AR Officer', 'Tax Officer'], [
     { label: 'Open payables', value: 'Rp 41.8 B' },
     { label: 'DSO', value: '38 days' },
@@ -170,14 +170,14 @@ export const MODULES: readonly ErpModule[] = [
   mod('holding', 'INV', 'Inventory Control', [
     ['Stock balances per plant with shelf life', 'live'],
     ['Stock opname with variance approval', 'live'],
-    ['Transfers, adjustments and scrap with B3 flag', 'build'],
+    ['Transfers, adjustments and scrap with B3 flag', 'live'],
   ], ['Inventory Control', 'Stores'], ['Inventory Controller', 'Storekeeper'], [
     { label: 'Stock accuracy', value: '99.1%' },
     { label: 'Items below minimum', value: '7' },
   ]),
   mod('holding', 'GAS', 'Service Desk & Document Control', [
     ['IT and general affairs tickets with SLA', 'live'],
-    ['Controlled documents: SOP, SDS and permits', 'build'],
+    ['Controlled documents: SOP, SDS and permits', 'live'],
   ], ['General Affairs', 'IT Service Desk', 'Document Control'], ['GA Manager', 'IT Helpdesk Agent', 'Document Controller'], [
     { label: 'Tickets within SLA', value: '92%' },
     { label: 'Documents due for review', value: '11' },
@@ -186,9 +186,9 @@ export const MODULES: readonly ErpModule[] = [
     ['Permit to work with gas test and JSA', 'live'],
     ['Incident reporting, investigation and CAPA', 'live'],
     ['HIRADC risk register per work area', 'live'],
-    ['Inspections, observations and toolbox meetings', 'build'],
-    ['MCU, PPE issuance and K3 licences', 'build'],
-    ['B3 waste manifests', 'plan'],
+    ['Inspections, observations and toolbox meetings', 'live'],
+    ['MCU, PPE issuance and K3 licences', 'live'],
+    ['B3 waste manifests', 'live'],
   ], ['Safety, Health & Environment', 'Occupational Health', 'Contractor Safety'], ['SHE Manager', 'K3 Officer', 'Safety Inspector', 'Occupational Health Doctor', 'Contractor Safety Rep'], [
     { label: 'Days without LTI', value: '418' },
     { label: 'Permits active', value: '9' },
@@ -211,7 +211,7 @@ export const MODULES: readonly ErpModule[] = [
   ], { to: '/fleet', label: 'Open live fleet map' }),
   mod('rotama', 'WMS', 'Warehouse Management', [
     ['Chemical storage segregation by hazard class', 'live'],
-    ['Lot / batch tracking with FEFO and FIFO rotation', 'build'],
+    ['Lot / batch tracking with FEFO and FIFO rotation', 'live'],
   ], ['Warehouse & Inventory', 'Yard Operations'], ['Warehouse Manager', 'Kepala Gudang & Operator Stacker', 'Checker Gudang'], [
     { label: 'Pallet positions', value: '18,400' },
     { label: 'Pick accuracy', value: '99.4%' },
@@ -225,8 +225,8 @@ export const MODULES: readonly ErpModule[] = [
   ], { to: '/fleet', label: 'See manifests on the fleet map' }),
   mod('rotama', 'FBL', 'Freight Billing & Intercompany Settlement', [
     ['Cost-plus freight rate calculation', 'live'],
-    ['Internal freight invoices to Rodame and Roasi', 'build'],
-    ['Logistics billing to external customers', 'build'],
+    ['Internal freight invoices to Rodame and Roasi', 'live'],
+    ['Logistics billing to external customers', 'live'],
   ], ['Logistics Finance & Invoicing', 'Commercial'], ['Billing Specialist', 'Finance & AR Officer'], [
     { label: 'Intercompany invoices', value: 'Rp 21,4 M' },
     { label: 'DSO', value: '38 days' },
@@ -234,16 +234,16 @@ export const MODULES: readonly ErpModule[] = [
 
   mod('rodame', 'BPF', 'Batch Process & Formula Management', [
     ['Flexible NPK / urea recipe adjustment', 'live'],
-    ['Automatic grade moisture adjustment', 'build'],
+    ['Automatic grade moisture adjustment', 'live'],
     ['Batch production orders', 'live'],
   ], ['Production & Processing', 'R&D Formulator'], ['Production Manager', 'Plant Supervisor', 'Formulator R&D'], [
     { label: 'Active formulas', value: '42' },
     { label: 'Batches this week', value: '186' },
   ]),
   mod('rodame', 'MRP', 'Manufacturing Resource Planning & Scheduling', [
-    ['Bulk raw material requirement planning', 'build'],
-    ['Granulator, dryer and mixer scheduling', 'build'],
-    ['Capacity requirement planning', 'plan'],
+    ['Bulk raw material requirement planning', 'live'],
+    ['Granulator, dryer and mixer scheduling', 'live'],
+    ['Capacity requirement planning', 'live'],
   ], ['PPIC', 'Plant Procurement'], ['PPIC Manager / Planner', 'Plant Buyer'], [
     { label: 'Schedule adherence', value: '91%' },
     { label: 'Raw cover', value: '17 days' },
@@ -257,18 +257,18 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Rejection rate', value: '1.8%' },
   ]),
   mod('rodame', 'EAM', 'Enterprise Asset Management (CMMS)', [
-    ['Predictive and preventive maintenance of heavy machinery', 'build'],
-    ['Granulator dryer maintenance and spare parts', 'build'],
-    ['Scale and gauge calibration tracking', 'plan'],
+    ['Predictive and preventive maintenance of heavy machinery', 'live'],
+    ['Granulator dryer maintenance and spare parts', 'live'],
+    ['Scale and gauge calibration tracking', 'live'],
   ], ['Plant Maintenance / Engineering', 'Spare Part Warehouse'], ['Maintenance Head', 'Machine Technician / Mechanic', 'Spare Parts Admin'], [
     { label: 'MTBF granulator', value: '412 h' },
     { label: 'Open work orders', value: '58' },
   ], { to: '/eam/reliability', label: 'Open reliability cockpit' }),
   mod('rodame', 'MES', 'Manufacturing Execution (MES)', [
-    ['Shop-floor work orders per operation, released from batch orders', 'build'],
-    ['OEE per work centre and shift (availability × performance × quality)', 'build'],
+    ['Shop-floor work orders per operation, released from batch orders', 'live'],
+    ['OEE per work centre and shift (availability × performance × quality)', 'live'],
     ['Downtime capture with reason codes', 'live'],
-    ['Quality holds and non-conformance reports', 'plan'],
+    ['Quality holds and non-conformance reports', 'live'],
   ], ['Production & Processing', 'Quality Control'], ['Shift Supervisor', 'Plant Operator', 'Process Engineer'], [
     { label: 'OEE this week', value: '78%' },
     { label: 'Downtime today', value: '96 min' },
@@ -276,7 +276,7 @@ export const MODULES: readonly ErpModule[] = [
   mod('rodame', 'DMS', 'Distributor Management', [
     ['Subsidised and commercial quota allocation', 'live'],
     ['Regional distributor and kiosk network', 'live'],
-    ['Distributor mobile order app', 'build'],
+    ['Distributor mobile order app', 'live'],
   ], ['Sales & Marketing', 'Commercial Distribution'], ['Commercial Director', 'Area Sales Manager', 'Distributor'], [
     { label: 'Distributors', value: '168' },
     { label: 'Kiosks', value: '4,920' },
@@ -284,31 +284,31 @@ export const MODULES: readonly ErpModule[] = [
 
   mod('roasi', 'CFP', 'Continuous Flow Process', [
     ['24/7 continuous reactor tracking', 'live'],
-    ['By-product and co-product accounting', 'build'],
-    ['Yield loss analysis and waste management', 'build'],
+    ['By-product and co-product accounting', 'live'],
+    ['Yield loss analysis and waste management', 'live'],
   ], ['Continuous Production', 'Process Engineering', 'Cost Accounting'], ['Plant Manager', 'Process Engineer', 'Cost Accountant'], [
     { label: 'Throughput', value: '1,140 t/day' },
     { label: 'Yield loss', value: '2.3%' },
   ]),
   mod('roasi', 'EHS', 'EHS & Chemical Safety (MSDS/GHS)', [
     ['Automated MSDS / SDS generation', 'live'],
-    ['Plant chemical hazard matrix', 'build'],
-    ['Stack emission and wastewater monitoring', 'build'],
+    ['Plant chemical hazard matrix', 'live'],
+    ['Stack emission and wastewater monitoring', 'live'],
   ], ['Health, Safety & Environment', 'K3 Lab'], ['EHS Manager', 'K3 Officer', 'Environmental Specialist'], [
     { label: 'SDS published', value: '264' },
     { label: 'Days without LTI', value: '418' },
   ]),
   mod('roasi', 'TFM', 'Tank Farm & Bulk Storage', [
     ['IoT dip level gauges on storage tanks', 'live'],
-    ['Real-time liquid and gas stock reconciliation', 'build'],
-    ['Auto-reorder point trigger', 'build'],
+    ['Real-time liquid and gas stock reconciliation', 'live'],
+    ['Auto-reorder point trigger', 'live'],
   ], ['Bulk Storage / Tank Farm', 'Supply Chain'], ['Tank Farm Supervisor', 'Material Controller'], [
     { label: 'Tanks online', value: '6 of 6' },
     { label: 'Stock variance', value: '0.4%' },
   ], { to: '/tank-farm', label: 'Open tank farm' }),
   mod('roasi', 'GTR', 'End-to-End Genealogy & Recalls', [
-    ['Full batch genealogy: vendor lot to reactor to truck to customer', 'build'],
-    ['Rapid recall on contamination', 'plan'],
+    ['Full batch genealogy: vendor lot to reactor to truck to customer', 'live'],
+    ['Rapid recall on contamination', 'live'],
   ], ['Quality Assurance', 'Supply Chain & Legal'], ['QA Manager', 'Recall Task Force / Crisis Team'], [
     { label: 'Lots traced', value: '1,284' },
     { label: 'Mock recall time', value: '42 min' },

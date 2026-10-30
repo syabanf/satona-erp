@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { BarChart3, CheckCheck, ChevronRight, Database, FileText, Folder, FolderOpen, LayoutDashboard, Plus, Settings2, Star, type LucideIcon } from 'lucide-react'
-import type { MenuKind, MenuNode } from '@/domain/menu'
+import { folderPath, type MenuKind, type MenuNode } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 
-const ICON: Record<MenuKind, LucideIcon> = {
+export const MENU_ICON: Record<MenuKind, LucideIcon> = {
   folder: Folder,
   create: Plus,
   master: Database,
@@ -55,6 +55,7 @@ interface MenuTreeProps {
 export function MenuTree({ tree, active, counts, onNavigate }: MenuTreeProps) {
   const [open, setOpen] = useStoredSet('satona-menu-open', ['cockpit'])
   const [favs, setFavs] = useStoredSet('satona-menu-favs', ['approvals'])
+  const navigate = useNavigate()
   const activeLeaf = active.at(-1)?.id
   const activeKey = active.map((n) => n.id).join('>')
 
@@ -92,20 +93,30 @@ export function MenuTree({ tree, active, counts, onNavigate }: MenuTreeProps) {
     if (!n.to) {
       const isOpen = open.has(n.id)
       const onPath = active.some((a) => a.id === n.id)
+      const here = n.id === activeLeaf
       const Icon = isOpen ? FolderOpen : Folder
+      // A folder opens its card page and unfolds; clicking the folder whose page is showing folds it again.
+      const onClick = () => {
+        if (here) return setOpen((s) => (s.has(n.id) ? s.delete(n.id) : s.add(n.id)))
+        setOpen((s) => s.add(n.id))
+        navigate(folderPath(n.id))
+      }
       return (
         <li key={keyPrefix + n.id} role="treeitem" aria-expanded={isOpen} aria-selected={false}>
           <button
             type="button"
             data-tree-item={n.id}
             data-folder="1"
-            onClick={() => setOpen((s) => (s.has(n.id) ? s.delete(n.id) : s.add(n.id)))}
+            onClick={onClick}
+            aria-current={here ? 'page' : undefined}
             style={pad}
             className={cn(
-              'flex h-9 w-full cursor-pointer items-center gap-2 rounded-xl pr-2 text-left text-sm transition-colors hover:bg-raised',
-              onPath ? 'font-semibold text-fg' : depth === 0 ? 'font-medium text-fg' : 'text-body',
+              'relative flex h-9 w-full cursor-pointer items-center gap-2 rounded-xl pr-2 text-left text-sm transition-colors',
+              here ? 'bg-accent-soft font-semibold text-accent-text' : 'hover:bg-raised',
+              !here && (onPath ? 'font-semibold text-fg' : depth === 0 ? 'font-medium text-fg' : 'text-body'),
             )}
           >
+            {here && <span aria-hidden className="absolute top-2 bottom-2 -left-3 w-1 rounded-r-full bg-accent" />}
             <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 text-subtle transition-transform', isOpen && 'rotate-90')} />
             <Icon aria-hidden className={cn('size-4 shrink-0', onPath ? 'text-accent-text' : 'text-muted')} />
             <span className="min-w-0 flex-1 truncate">{n.label}</span>
@@ -118,7 +129,7 @@ export function MenuTree({ tree, active, counts, onNavigate }: MenuTreeProps) {
         </li>
       )
     }
-    const Icon = ICON[n.kind]
+    const Icon = MENU_ICON[n.kind]
     const on = n.id === activeLeaf
     const count = n.approval ? (counts[`${n.approval.type}:${n.approval.status}`] ?? 0) : n.id === 'approvals' ? Object.values(counts).reduce((s, c) => s + c, 0) : 0
     const fav = favs.has(n.id)

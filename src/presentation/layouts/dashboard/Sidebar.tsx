@@ -1,5 +1,7 @@
-import { Link } from 'react-router'
-import { Building2, Check, ChevronsLeft, ChevronsRight, ChevronsUpDown, FlaskConical, Folder, LayoutDashboard, Moon, RotateCcw, Sprout, Truck, X, type LucideIcon } from 'lucide-react'
+import { Link, useLocation } from 'react-router'
+import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, House, LayoutGrid, Moon, RotateCcw, Search, X } from 'lucide-react'
+import { homeFor } from '@/domain/menu'
+import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
 import { useTheme } from '../../hooks/useTheme'
 import { BrandMark } from '../../ui/BrandMark'
@@ -10,9 +12,12 @@ import { Switch } from '../../ui/Switch'
 import { ThemeToggle } from '../../ui/ThemeToggle'
 import { useToast } from '../../ui/useToast'
 import { useMenu, useTrail } from '../../hooks/useMenu'
+import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
+import { useSession } from '../../hooks/useSession'
 import { CommandField } from './CommandField'
 import { MenuTree } from './MenuTree'
+import { usePalette } from './palette'
 import { RoleSwitcher } from './RoleSwitcher'
 
 interface SidebarProps {
@@ -23,14 +28,6 @@ interface SidebarProps {
   onClose?: () => void
   /** Collapsed rail: a top-level icon asks the shell to open the sidebar. */
   onExpand?: () => void
-}
-
-const TOP_ICON: Record<string, LucideIcon> = {
-  cockpit: LayoutDashboard,
-  'entity:holding': Building2,
-  'entity:rotama': Truck,
-  'entity:rodame': Sprout,
-  'entity:roasi': FlaskConical,
 }
 
 const ENTITY_LINKS = [
@@ -49,7 +46,7 @@ function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNa
         <button
           {...props}
           type="button"
-          aria-label="Switch entity"
+          aria-label="Ganti perusahaan"
           className={cn(
             'flex w-full cursor-pointer items-center gap-3 rounded-2xl text-left transition-colors hover:bg-control',
             collapsed ? 'justify-center p-1.5' : 'border border-line bg-raised p-2',
@@ -60,7 +57,7 @@ function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNa
             <>
               <span className="min-w-0 flex-1 leading-tight">
                 <span className="block truncate text-sm font-semibold">Satona Group</span>
-                <span className="block truncate text-xs text-muted">ERP command centre</span>
+                <span className="block truncate text-xs text-muted">Sistem kerja grup</span>
               </span>
               <ChevronsUpDown aria-hidden className="size-4 text-muted" />
             </>
@@ -70,9 +67,9 @@ function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNa
     >
       {(close) => (
         <div>
-          <p className="px-3 pt-1 pb-2 eyebrow">Jump to entity</p>
+          <p className="px-3 pt-1 pb-2 eyebrow">Pilih perusahaan</p>
           <Link to="/" onClick={() => { close(); onNavigate?.() }} className={menuItem}>
-            <span className="flex-1">Whole group</span>
+            <span className="flex-1">Seluruh grup</span>
             <Check aria-hidden className="size-4 text-accent-text" />
           </Link>
           {ENTITY_LINKS.map((e) => (
@@ -98,8 +95,8 @@ function ThemeRow({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted">
       <Moon aria-hidden className="size-[18px]" />
-      <span className="flex-1">Dark theme</span>
-      <Switch label="Dark theme" checked={theme === 'dark'} onChange={(on) => setTheme(on ? 'dark' : 'light')} />
+      <span className="flex-1">Tampilan gelap</span>
+      <Switch label="Tampilan gelap" checked={theme === 'dark'} onChange={(on) => setTheme(on ? 'dark' : 'light')} />
     </div>
   )
 }
@@ -110,14 +107,22 @@ function ThemeRow({ collapsed }: { collapsed: boolean }) {
  */
 export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: SidebarProps) {
   const { records } = useServices()
+  const { role } = useSession()
+  const { pathname } = useLocation()
+  const accessFor = useAccess()
+  const openSearch = usePalette()
   const toast = useToast()
   const { tree, counts, approvals } = useMenu()
   const trail = useTrail()
+  const home = homeFor(role)
+  const report = role.id === 'admin' ? '/analytics' : `/modules/${role.module}`
+  const tasks = suggestedTasks(role, accessFor, approvals).filter((task) => task.id !== 'modules').slice(0, 3)
+  const mainLink = 'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-raised'
 
   return (
     <div className="flex h-full flex-col">
       <div className={cn('flex h-16 shrink-0 items-center gap-2.5', collapsed ? 'justify-center' : 'px-5')}>
-        <Link to="/" onClick={onNavigate} aria-label="Satona ERP, overview" className="flex items-center gap-2.5">
+        <Link to={home} onClick={onNavigate} aria-label="Satona ERP, beranda" className="flex items-center gap-2.5">
           <BrandMark className="size-7 text-fg" />
           {!collapsed && (
             <span className="text-base font-bold tracking-tight">
@@ -139,29 +144,26 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
 
       <nav aria-label="Main" className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {collapsed ? (
-          <ul className="space-y-1">
-            {tree.map((n) => {
-              const Icon = TOP_ICON[n.id] ?? Folder
-              const here = trail[0]?.id === n.id
-              return (
-                <li key={n.id}>
-                  <button
-                    type="button"
-                    title={n.label}
-                    onClick={() => onExpand?.()}
-                    className={cn('relative grid h-10 w-full cursor-pointer place-items-center rounded-xl transition-colors', here ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-raised hover:text-fg')}
-                  >
-                    {here && <span aria-hidden className="absolute top-2 bottom-2 -left-3 w-1 rounded-r-full bg-accent" />}
-                    <Icon aria-hidden className="size-[18px]" />
-                    <span className="sr-only">{n.label}, expand the menu</span>
-                    {n.id === 'cockpit' && approvals > 0 && <span aria-hidden className="absolute top-2 right-2.5 size-2 rounded-full bg-accent ring-2 ring-card" />}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+          <div className="space-y-1">
+            <Link to={home} title="Beranda" aria-label="Beranda" aria-current={pathname === home ? 'page' : undefined} className={cn('grid h-10 place-items-center rounded-xl', pathname === home ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-raised')}><House aria-hidden className="size-[18px]" /></Link>
+            {approvals > 0 && <Link to="/approvals" title="Tugas saya" aria-label="Tugas saya" className="grid h-10 place-items-center rounded-xl text-muted hover:bg-raised"><CheckCheck aria-hidden className="size-[18px]" /></Link>}
+            {!role.external && <Link to={report} title="Laporan" aria-label="Laporan" className="grid h-10 place-items-center rounded-xl text-muted hover:bg-raised"><BarChart3 aria-hidden className="size-[18px]" /></Link>}
+            <button type="button" title="Semua menu" aria-label="Semua menu" onClick={() => onExpand?.()} className="grid h-10 w-full cursor-pointer place-items-center rounded-xl text-muted hover:bg-raised"><LayoutGrid aria-hidden className="size-[18px]" /></button>
+          </div>
         ) : (
-          <MenuTree tree={tree} active={trail} counts={counts} onNavigate={onNavigate} />
+          <div className="space-y-1">
+            <Link to={home} onClick={onNavigate} aria-current={pathname === home ? 'page' : undefined} className={cn(mainLink, pathname === home ? 'bg-accent-soft text-accent-text' : 'text-body')}><House aria-hidden className="size-[18px]" /> Beranda</Link>
+            <p className="px-3 pt-4 pb-1 eyebrow">Tugas saya</p>
+            {tasks.map((task) => (
+              <Link key={task.id} to={task.to} onClick={onNavigate} className={cn(mainLink, pathname === task.to ? 'bg-accent-soft text-accent-text' : 'text-body')}><CheckCheck aria-hidden className="size-[18px] shrink-0" /><span className="min-w-0 flex-1 truncate">{task.title}</span></Link>
+            ))}
+            <button type="button" onClick={() => { onNavigate?.(); openSearch() }} className={cn(mainLink, 'w-full cursor-pointer text-left text-body')}><Search aria-hidden className="size-[18px]" /> Cari pekerjaan</button>
+            {!role.external && <Link to={report} onClick={onNavigate} className={cn(mainLink, pathname === report ? 'bg-accent-soft text-accent-text' : 'text-body')}><BarChart3 aria-hidden className="size-[18px]" /> Laporan</Link>}
+            <details className="pt-3">
+              <summary className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-body hover:bg-raised"><LayoutGrid aria-hidden className="size-[18px]" /> Semua menu</summary>
+              <div className="pt-2"><MenuTree tree={tree} active={trail} counts={counts} onNavigate={onNavigate} /></div>
+            </details>
+          </div>
         )}
       </nav>
 
@@ -169,15 +171,15 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
         <ThemeRow collapsed={collapsed} />
         <button
           type="button"
-          title={collapsed ? 'Reset demo data' : undefined}
+          title={collapsed ? 'Atur ulang data demo' : undefined}
           onClick={async () => {
             await records.reset()
-            toast({ title: 'Demo data reset', description: 'Every module is back to its seed records.' })
+            toast({ title: 'Data demo diatur ulang', description: 'Semua modul kembali ke data awal.' })
           }}
           className={cn('flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl text-sm font-medium text-muted hover:bg-raised hover:text-fg', collapsed ? 'justify-center' : 'px-3')}
         >
           <RotateCcw aria-hidden className="size-[18px]" />
-          {collapsed ? <span className="sr-only">Reset demo data</span> : 'Reset demo data'}
+          {collapsed ? <span className="sr-only">Atur ulang data demo</span> : 'Atur ulang data demo'}
         </button>
         <div className="pt-1">
           <RoleSwitcher collapsed={collapsed} onNavigate={onNavigate} />

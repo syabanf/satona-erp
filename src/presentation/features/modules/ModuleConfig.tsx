@@ -41,6 +41,7 @@ export default function ModuleConfig() {
           </div>
 
           <div className="mt-3 overflow-x-auto">
+            <p className="px-5 pb-2 text-xs text-muted sm:hidden">Swipe sideways to see field rules and required fields.</p>
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">

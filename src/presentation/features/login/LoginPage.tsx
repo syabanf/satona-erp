@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { ArrowRight, Factory, FlaskConical, Lock, Mail, ShieldCheck, Truck } from 'lucide-react'
 import { ADMIN_ROLE, type Role } from '@/domain/erp'
+import { RECORD_TYPES } from '@/domain/catalog'
 import { homeFor } from '@/domain/menu'
+import { moduleLabel } from '@/domain/uiLabels'
 import { cn } from '@/lib/cn'
 import { useResource } from '../../hooks/useResource'
 import { useServices } from '../../hooks/useServices'
@@ -16,10 +18,14 @@ import { useToast } from '../../ui/useToast'
 
 /** Personas for quick login, by role name (or role id where two modules share a name), grouped the way a demo walks through them. */
 const PERSONAS: ReadonlyArray<{ group: string; names: readonly string[] }> = [
-  { group: 'Group', names: ['Group IT Program Lead', 'CFO / Finance Director', 'Head of Procurement', 'Operations Director'] },
-  { group: 'Shared services and SHE / K3', names: ['SHE Manager', 'she-k3-officer', 'Safety Inspector', 'Contractor Safety Rep', 'HR Director', 'hrs-hr-manager', 'Employee (ESS)', 'Finance Controller', 'Chief Accountant', 'System Administrator'] },
-  { group: 'Rotama logistics', names: ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)', 'Warehouse Manager'] },
-  { group: 'Rodame and Roasi plants', names: ['Production Manager', 'Plant Operator', 'Maintenance Head', 'QC Manager', 'Tank Farm Supervisor', 'Distributor'] },
+  { group: 'Grup', names: ['Group IT Program Lead', 'CFO / Finance Director', 'Head of Procurement', 'Operations Director'] },
+  { group: 'Layanan bersama dan keselamatan', names: ['SHE Manager', 'she-k3-officer', 'Safety Inspector', 'Contractor Safety Rep', 'HR Director', 'hrs-hr-manager', 'Employee (ESS)', 'Finance Controller', 'Chief Accountant', 'System Administrator'] },
+  { group: 'Logistik Rotama', names: ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)', 'Warehouse Manager'] },
+  { group: 'Pabrik Rodame dan Roasi', names: ['Production Manager', 'Plant Operator', 'Maintenance Head', 'QC Manager', 'Tank Farm Supervisor', 'Distributor'] },
+]
+
+const FEATURED = [
+  { group: 'Coba peran berikut', names: ['Group IT Program Lead', 'Operations Director', 'Head of Procurement', 'Driver (Driver App)'] },
 ]
 
 const ENTITY_LABEL = { holding: 'Holding', rotama: 'Rotama', rodame: 'Rodame', roasi: 'Roasi' } as const
@@ -30,9 +36,11 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const roles = useResource('erp.roles', () => erp.roles())
+  const modules = useResource('erp.modules', () => erp.modules())
   const [email, setEmail] = useState('raka.pradana@satona.co.id')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  const [showAllRoles, setShowAllRoles] = useState(false)
 
   if (signedIn) return <Navigate to={homeFor(current)} replace />
 
@@ -43,7 +51,7 @@ export default function LoginPage() {
     // A short pause lets the card show it was picked before the console opens.
     window.setTimeout(() => {
       signIn(role)
-      toast({ title: `Signed in as ${role.name}`, description: 'Menus, buttons and approvals follow this role.' })
+      toast({ title: `Masuk sebagai ${role.name}`, description: 'Menu dan tugas mengikuti peran ini.' })
       navigate(homeFor(role), { replace: true })
     }, 350)
   }
@@ -51,7 +59,7 @@ export default function LoginPage() {
   function submit(e: FormEvent) {
     e.preventDefault()
     if (!email.includes('@') || password.length < 4) {
-      toast({ tone: 'danger', title: 'Check your email and password', description: 'Demo: any email and a password of 4 or more characters work.' })
+      toast({ tone: 'danger', title: 'Periksa email dan kata sandi', description: 'Untuk demo, gunakan email apa pun dan kata sandi minimal 4 karakter.' })
       return
     }
     enter(ADMIN_ROLE)
@@ -67,17 +75,17 @@ export default function LoginPage() {
           </span>
         </div>
         <div className="mt-auto max-w-lg">
-          <p className="eyebrow text-on-ink-muted!">Group command centre</p>
+          <p className="eyebrow text-on-ink-muted!">Satona Group</p>
           <h1 className="mt-3 text-[44px] leading-[1.05] font-bold tracking-tight">
-            One ERP for logistics, fertiliser and chemicals<span className="text-accent">.</span>
+            Satu tempat untuk logistik, pupuk, dan bahan kimia<span className="text-accent">.</span>
           </h1>
-          <p className="mt-4 text-on-ink-muted">20 modules, 95 record types and live views for fleet, plants, tank farms and the group command centre.</p>
+          <p className="mt-4 text-on-ink-muted">{modules.data?.length ?? '…'} modul dan {RECORD_TYPES.length} jenis data. Coba alur armada, pabrik, tangki, dan operasi grup.</p>
         </div>
         <ul className="mt-10 grid grid-cols-3 gap-3">
           {[
-            { icon: Truck, label: 'Rotama', note: '128 tankers' },
+            { icon: Truck, label: 'Rotama', note: 'Peta armada' },
             { icon: Factory, label: 'Rodame', note: '41,300 t NPK' },
-            { icon: FlaskConical, label: 'Roasi', note: '98.7% uptime' },
+            { icon: FlaskConical, label: 'Roasi', note: '98,7% waktu aktif' },
           ].map((c, i) => (
             <li key={c.label} className="animate-rise rounded-panel bg-white/8 p-4 ring-1 ring-white/10" style={{ animationDelay: `${150 + i * 120}ms` }}>
               <c.icon aria-hidden className="size-5 text-accent" />
@@ -97,35 +105,35 @@ export default function LoginPage() {
           </span>
         </div>
         <h2 className="text-2xl font-bold tracking-tight md:text-[28px]">
-          Sign in<span className="text-accent">.</span>
+          Masuk<span className="text-accent">.</span>
         </h2>
-        <p className="mt-1 text-sm text-muted">Use your Satona account, or pick a role below to try the demo as that person.</p>
+        <p className="mt-1 text-sm text-muted">Gunakan akun Satona, atau pilih peran di bawah untuk mencoba demo.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-3">
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted">Work email</span>
+            <span className="mb-1.5 block text-xs font-medium text-muted">Email kerja</span>
             <Input tone="card" type="email" autoComplete="username" icon={<Mail className="size-4" />} value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted">Password</span>
-            <Input tone="card" type="password" autoComplete="current-password" icon={<Lock className="size-4" />} placeholder="Demo: any 4 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <span className="mb-1.5 block text-xs font-medium text-muted">Kata sandi</span>
+            <Input tone="card" type="password" autoComplete="current-password" icon={<Lock className="size-4" />} placeholder="Demo: isi minimal 4 karakter" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
           <Button type="submit" variant="accent" className="w-full" loading={busy === ADMIN_ROLE.id}>
-            Sign in <ArrowRight aria-hidden className="size-4" />
+            Masuk <ArrowRight aria-hidden className="size-4" />
           </Button>
           <p className="flex items-center gap-1.5 text-xs text-muted">
-            <ShieldCheck aria-hidden className="size-3.5" /> Single sign-on through Keycloak in production. This demo signs you in locally.
+            <ShieldCheck aria-hidden className="size-3.5" /> Demo ini berjalan di perangkat Anda. Sistem asli memakai akun perusahaan.
           </p>
         </form>
 
         <div className="mt-8 flex items-center gap-3">
           <span className="h-px flex-1 bg-line-strong" />
-          <span className="eyebrow">Quick login</span>
+          <span className="eyebrow">Masuk cepat</span>
           <span className="h-px flex-1 bg-line-strong" />
         </div>
 
         <div className="mt-4 space-y-5">
-          {PERSONAS.map((g, gi) => (
+          {(showAllRoles ? PERSONAS : FEATURED).map((g, gi) => (
             <div key={g.group}>
               <p className="eyebrow mb-2">{g.group}</p>
               <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -137,6 +145,7 @@ export default function LoginPage() {
                       <button
                         type="button"
                         onClick={() => enter(role)}
+                        title={role.name}
                         disabled={busy !== null}
                         className={cn(
                           'flex w-full cursor-pointer items-center gap-3 rounded-panel border border-line bg-card p-3 text-left shadow-card transition-[background-color,translate,scale] duration-300 active:scale-[0.97] disabled:cursor-wait [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5',
@@ -147,7 +156,7 @@ export default function LoginPage() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold">{role.name}</span>
                           <span className={cn('block truncate text-xs', busy === role.id ? 'opacity-70' : 'text-muted')}>
-                            {role.id === ADMIN_ROLE.id ? 'All modules · approves everything' : `${ENTITY_LABEL[role.entity]} · ${role.module.toUpperCase()}${role.external ? ' · portal' : ''}`}
+                            {role.id === ADMIN_ROLE.id ? 'Semua modul · dapat menyetujui' : `${ENTITY_LABEL[role.entity]} · ${moduleLabel(role.module)}${role.external ? ' · portal' : ''}`}
                           </span>
                         </span>
                         <ArrowRight aria-hidden className="size-4 shrink-0 opacity-50" />
@@ -158,6 +167,9 @@ export default function LoginPage() {
               </ul>
             </div>
           ))}
+          <button type="button" className="text-sm font-semibold text-accent-text hover:underline" aria-expanded={showAllRoles} onClick={() => setShowAllRoles((value) => !value)}>
+            {showAllRoles ? 'Tampilkan lebih sedikit' : 'Lihat semua peran'}
+          </button>
         </div>
       </section>
     </div>

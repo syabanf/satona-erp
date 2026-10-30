@@ -144,28 +144,6 @@ export default function CheckinPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile label="Check-ins today" value={todays.length} format={(v) => String(Math.round(v))} to={recordPath(type)} accent />
-        <KpiTile label="Fit to drive (all time)" value={checkins.filter((c) => c.values.readiness === 'Fit to drive').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?f=Fit to drive`} />
-        <KpiTile label="On hold" value={checkins.filter((c) => c.values.readiness === 'Hold').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?q=Hold`} />
-        <KpiTile label="Alcohol positive" value={checkins.filter((c) => c.values.alcohol === 'Positive').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?q=Positive`} note="last 20 days" />
-      </div>
-
-      <Card>
-        <CardHeader title="Check-ins per day, 3 weeks" />
-        <LineChart
-          labels={perDay([], today, 21, () => '').map((x) => x.day.slice(8))}
-          series={[
-            { id: 'all', label: 'Check-ins', values: perDay(checkins, today, 21, (c) => String(c.values.date)).map((x) => x.count), color: 'var(--color-series-2)', area: true },
-            { id: 'hold', label: 'On hold', values: perDay(checkins.filter((c) => c.values.readiness === 'Hold'), today, 21, (c) => String(c.values.date)).map((x) => x.count), color: 'var(--color-series-1)' },
-          ]}
-          format={(v) => `${v}`}
-          height={180}
-          onPick={(i) => navigate(`/modules/tms/checkins${dayQuery(shiftDay(today, i - 20))}`)}
-          label="Check-ins and holds per day"
-        />
-      </Card>
-
       <div className="grid gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3">
           <CardHeader title="New check-in" action={<Tabs label="Check-in type" options={KINDS} value={kind} onChange={setKind} />} />
@@ -299,6 +277,28 @@ export default function CheckinPage() {
           </ul>
         </Card>
       </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiTile label="Check-ins today" value={todays.length} format={(v) => String(Math.round(v))} to={recordPath(type)} accent />
+        <KpiTile label="Fit to drive (all time)" value={checkins.filter((c) => c.values.readiness === 'Fit to drive').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?f=Fit to drive`} />
+        <KpiTile label="On hold" value={checkins.filter((c) => c.values.readiness === 'Hold').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?q=Hold`} />
+        <KpiTile label="Alcohol positive" value={checkins.filter((c) => c.values.alcohol === 'Positive').length} format={(v) => String(Math.round(v))} to={`${recordPath(type)}?q=Positive`} note="last 20 days" />
+      </div>
+
+      <Card>
+        <CardHeader title="Check-ins per day, 3 weeks" />
+        <LineChart
+          labels={perDay([], today, 21, () => '').map((x) => x.day.slice(8))}
+          series={[
+            { id: 'all', label: 'Check-ins', values: perDay(checkins, today, 21, (c) => String(c.values.date)).map((x) => x.count), color: 'var(--color-series-2)', area: true },
+            { id: 'hold', label: 'On hold', values: perDay(checkins.filter((c) => c.values.readiness === 'Hold'), today, 21, (c) => String(c.values.date)).map((x) => x.count), color: 'var(--color-series-1)' },
+          ]}
+          format={(v) => `${v}`}
+          height={180}
+          onPick={(i) => navigate(`/modules/tms/checkins${dayQuery(shiftDay(today, i - 20))}`)}
+          label="Check-ins and holds per day"
+        />
+      </Card>
     </div>
   )
 }

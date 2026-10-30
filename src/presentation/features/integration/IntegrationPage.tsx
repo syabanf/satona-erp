@@ -117,6 +117,7 @@ export default function IntegrationPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className={picked ? 'xl:col-span-2' : 'xl:col-span-3'}>
           <CardHeader title="Data flow across the group" icon={<Activity aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">Click a component to trace its links</span>} />
+          <p className="mb-2 text-xs text-muted md:hidden">Swipe sideways to explore the full data flow.</p>
           <div className="overflow-x-auto">
             <svg viewBox="0 0 1000 410" className="min-w-[720px]" role="group" aria-label="Integration architecture">
               {EDGES.map(([a, b, dur]) => {

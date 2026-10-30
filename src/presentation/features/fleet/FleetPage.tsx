@@ -184,11 +184,11 @@ export default function FleetPage() {
               ]}
             />
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button variant="solid" size="sm" onClick={() => toast({ title: `Call placed to ${picked.driver}`, description: 'Demo: no phone line is connected.' })}>
-                <PhoneCall aria-hidden className="size-3.5" /> Call driver
+              <Button variant="solid" size="sm" onClick={() => toast({ title: `Demo call to ${picked.driver}`, description: 'No phone line is connected.' })}>
+                <PhoneCall aria-hidden className="size-3.5" /> Simulate call
               </Button>
-              <Button variant="soft" size="sm" onClick={() => toast({ title: `Manifest ${picked.manifest} sent`, description: 'Demo: KLHK and Kemenhub submission is simulated.' })}>
-                <FileText aria-hidden className="size-3.5" /> Send B3 manifest
+              <Button variant="soft" size="sm" onClick={() => toast({ title: `Manifest ${picked.manifest} simulated`, description: 'No submission was sent to KLHK or Kemenhub.' })}>
+                <FileText aria-hidden className="size-3.5" /> Simulate manifest send
               </Button>
             </div>
           </Card>

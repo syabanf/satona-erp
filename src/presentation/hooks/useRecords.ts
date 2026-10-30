@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { RECORD_TYPES } from '@/domain/catalog'
-import { approvalInbox, overridesFrom } from '@/domain/approval'
+import { approvalInbox, isPendingApproval, overridesFrom } from '@/domain/approval'
 import { effectiveAccess, type Access } from '@/domain/erp'
 import { useResource } from './useResource'
 import { useServices } from './useServices'
@@ -42,10 +42,15 @@ export function useAccess() {
 }
 
 /** Everything the session role can approve right now. */
-export function useApprovals() {
+export function useApprovalQueue() {
   const { clock } = useServices()
   const { role } = useSession()
   const all = useAllRecords()
   const accessFor = useAccess()
   return useMemo(() => (all.data ? approvalInbox(RECORD_TYPES, all.data, accessFor, role, clock.today()) : []), [all.data, accessFor, role, clock])
+}
+
+export function useApprovals() {
+  const queue = useApprovalQueue()
+  return useMemo(() => queue.filter(isPendingApproval), [queue])
 }

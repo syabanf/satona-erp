@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Check, ChevronsUpDown, LogOut, Search } from 'lucide-react'
 import { ADMIN_ROLE, filterRoles, type Role } from '@/domain/erp'
+import { homeFor } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 import { useResource } from '../../hooks/useResource'
 import { useServices } from '../../hooks/useServices'
@@ -27,7 +28,8 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
     setRole(next)
     close()
     onNavigate?.()
-    toast({ title: `Signed in as ${next.name}`, description: 'Menus, buttons and approvals now follow this role.' })
+    navigate(homeFor(next))
+    toast({ title: `Masuk sebagai ${next.name}`, description: 'Menu dan tugas kini mengikuti peran ini.' })
   }
 
   return (
@@ -39,7 +41,7 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
         <button
           {...props}
           type="button"
-          aria-label={`Signed in as ${role.name}. Switch role`}
+          aria-label={`Peran saat ini ${role.name}. Ganti peran`}
           title={collapsed ? role.name : undefined}
           className={cn('flex w-full cursor-pointer items-center gap-3 rounded-2xl p-1.5 text-left transition-colors hover:bg-raised', collapsed && 'justify-center')}
         >
@@ -60,8 +62,8 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
     >
       {(close) => (
         <div>
-          <p className="px-3 pt-1 pb-2 eyebrow">Sign in as</p>
-          <Input className="mb-2 h-10" icon={<Search className="size-4" />} placeholder="Role or department" aria-label="Search roles" value={q} onChange={(e) => setQ(e.target.value)} />
+          <p className="px-3 pt-1 pb-2 eyebrow">Pilih peran</p>
+          <Input className="mb-2 h-10" icon={<Search className="size-4" />} placeholder="Peran atau bagian" aria-label="Cari peran" value={q} onChange={(e) => setQ(e.target.value)} />
           <button
             type="button"
             onClick={() => {
@@ -71,7 +73,7 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
             }}
             className={cn(menuItem, 'mb-1 border-b border-line pb-3 text-accent-text')}
           >
-            <LogOut aria-hidden className="size-4" /> Sign out
+            <LogOut aria-hidden className="size-4" /> Keluar
           </button>
           <ul className="max-h-72 overflow-y-auto">
             {list.map((r) => (
@@ -80,7 +82,7 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-fg">{r.name}</span>
                     <span className="block truncate text-xs text-muted">
-                      {r.id === ADMIN_ROLE.id ? 'Approves in every module' : `${ENTITY[r.entity]} · ${r.module.toUpperCase()}${r.external ? ' · external' : ''}`}
+                      {r.id === ADMIN_ROLE.id ? 'Dapat menyetujui di semua modul' : `${ENTITY[r.entity]} · ${r.module.toUpperCase()}${r.external ? ' · pengguna luar' : ''}`}
                     </span>
                   </span>
                   {r.id === role.id && <Check aria-hidden className="size-4 text-accent-text" />}

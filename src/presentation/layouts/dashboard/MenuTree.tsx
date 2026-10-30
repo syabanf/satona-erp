@@ -178,14 +178,14 @@ export function MenuTree({ tree, active, counts, onNavigate }: MenuTreeProps) {
     <div onKeyDown={onKeyDown}>
       {favourites.length > 0 && (
         <div className="mb-3">
-          <p className="px-2 pb-1 eyebrow">Favourites</p>
-          <ul role="tree" aria-label="Favourites">
+          <p className="px-2 pb-1 eyebrow">Favorit</p>
+          <ul role="tree" aria-label="Favorit">
             {favourites.map((n) => row(n, 0, 'fav:'))}
           </ul>
         </div>
       )}
-      <p className="px-2 pb-1 eyebrow">Menu</p>
-      <ul role="tree" aria-label="Menu">
+      <p className="px-2 pb-1 eyebrow">Daftar lengkap</p>
+      <ul role="tree" aria-label="Daftar lengkap">
         {tree.map((n) => row(n, 0))}
       </ul>
     </div>

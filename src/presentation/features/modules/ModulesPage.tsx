@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Search } from 'lucide-react'
 import { countBy, filterModules, moduleProgress, moduleStatus, SCOPE_LABEL, type EntityId, type ScopeStatus } from '@/domain/erp'
+import { moduleLabel } from '@/domain/uiLabels'
 import { percent } from '@/lib/format'
 import { seriesColor } from '../../charts/colors'
 import { useQueryState } from '../../hooks/useParams'
@@ -18,9 +19,9 @@ import { CardSkeleton, EmptyState } from '../../ui/States'
 import { ENTITY_OPTIONS, SCOPE_TONE } from '../entityStyle'
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: ScopeStatus; label: string }> = [
-  { value: 'live', label: 'Live' },
-  { value: 'build', label: 'In build' },
-  { value: 'plan', label: 'Planned' },
+  { value: 'live', label: SCOPE_LABEL.live },
+  { value: 'build', label: SCOPE_LABEL.build },
+  { value: 'plan', label: SCOPE_LABEL.plan },
 ]
 
 export default function ModulesPage() {
@@ -45,48 +46,48 @@ export default function ModulesPage() {
   return (
     <Card className="p-0">
       <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-        <FilterChips label="Filter by status" options={STATUS_OPTIONS} value={status} counts={statusCounts} total={base} onChange={(v) => setQuery({ status: v })} />
+        <FilterChips label="Saring menurut status" options={STATUS_OPTIONS} value={status} counts={statusCounts} total={base} onChange={(v) => setQuery({ status: v })} />
         <Select
           compact
-          aria-label="Filter by entity"
+          aria-label="Saring menurut perusahaan"
           value={entity ?? ''}
           onChange={(e) => setQuery({ entity: e.target.value || undefined })}
-          options={[{ value: '', label: 'All entities' }, ...ENTITY_OPTIONS]}
+          options={[{ value: '', label: 'Semua perusahaan' }, ...ENTITY_OPTIONS]}
         />
         <Input
           className="h-10 w-full sm:w-64"
           icon={<Search className="size-4" />}
-          placeholder="Module, scope, department, user"
-          aria-label="Search modules"
+          placeholder="Cari nama modul atau pekerjaan"
+          aria-label="Cari modul"
           value={query.q ?? ''}
           onChange={(e) => setQuery({ q: e.target.value })}
         />
         {active && (
           <>
             <span className="text-xs text-muted tabular">
-              {rows.length} of {all.length}
+              {rows.length} dari {all.length}
             </span>
             <Button variant="ghost" size="sm" onClick={() => setQuery({ entity: undefined, status: undefined, q: undefined })}>
-              Clear filters
+              Hapus saringan
             </Button>
           </>
         )}
         <p className="sr-only" aria-live="polite">
-          {rows.length} results
+          {rows.length} hasil
         </p>
       </div>
 
       {rows.length === 0 ? (
         <div className="p-6">
           <EmptyState
-            title="No module matches"
+            title="Modul tidak ditemukan"
             action={
               <Button variant="solid" size="sm" onClick={() => setQuery({ entity: undefined, status: undefined, q: undefined })}>
-                Clear filters
+                Hapus saringan
               </Button>
             }
           >
-            Try another word, or show every entity.
+            Coba kata lain atau tampilkan semua perusahaan.
           </EmptyState>
         </div>
       ) : (
@@ -94,11 +95,11 @@ export default function ModulesPage() {
           <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="text-left text-xs text-muted">
-                <th className="px-5 py-3 font-medium">Module</th>
-                <th className="px-3 py-3 font-medium">Entity</th>
+                <th className="px-5 py-3 font-medium">Modul</th>
+                <th className="px-3 py-3 font-medium">Perusahaan</th>
                 <th className="px-3 py-3 font-medium">Status</th>
-                <th className="w-48 px-3 py-3 font-medium">Progress</th>
-                <th className="px-5 py-3 text-right font-medium">Users</th>
+                <th className="w-48 px-3 py-3 font-medium">Kemajuan</th>
+                <th className="px-5 py-3 text-right font-medium">Pengguna</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -110,7 +111,7 @@ export default function ModulesPage() {
                     <td className="px-5 py-3.5">
                       <Link to={`/modules/${m.id}`} className="flex items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
                         <span className="grid h-8 w-12 shrink-0 place-items-center rounded-lg bg-raised font-mono text-[11px] font-semibold">{m.code}</span>
-                        <span className="font-medium">{m.name}</span>
+                        <span className="font-medium">{moduleLabel(m.id, m.name)}</span>
                       </Link>
                     </td>
                     <td className="px-3 py-3.5">
@@ -124,7 +125,7 @@ export default function ModulesPage() {
                     </td>
                     <td className="px-3 py-3.5">
                       <div className="flex items-center gap-2">
-                        <Meter value={moduleProgress(m)} tone={s === 'live' ? 'success' : 'fg'} className="flex-1" label={`${m.name} progress`} />
+                        <Meter value={moduleProgress(m)} tone={s === 'live' ? 'success' : 'fg'} className="flex-1" label={`Kemajuan ${moduleLabel(m.id, m.name)}`} />
                         <span className="w-9 text-right text-xs tabular">{percent(moduleProgress(m), { digits: 0 })}</span>
                       </div>
                     </td>
@@ -144,8 +145,7 @@ export default function ModulesPage() {
                       <span className="font-mono text-xs text-muted">{m.code}</span>
                       <StatusPill tone={SCOPE_TONE[s]}>{SCOPE_LABEL[s]}</StatusPill>
                     </div>
-                    <p className="mt-1 text-sm font-semibold">{m.name}</p>
-                    <Meter value={moduleProgress(m)} className="mt-2" label={`${m.name} progress`} />
+                    <p className="mt-1 text-sm font-semibold">{moduleLabel(m.id, m.name)}</p>
                   </Link>
                 </li>
               )

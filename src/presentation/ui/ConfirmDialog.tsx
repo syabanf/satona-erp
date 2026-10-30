@@ -32,7 +32,7 @@ export function ConfirmDialog({ open, title, children, confirm, busy, onConfirm,
   if (!open) return null
   return (
     <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" className="fixed inset-0 z-[1000] grid place-items-center p-4">
-      <button type="button" aria-label="Cancel" className="absolute inset-0 animate-fade bg-ink/40" onClick={onClose} />
+      <button type="button" aria-label="Batal" className="absolute inset-0 animate-fade bg-ink/40" onClick={onClose} />
       <div className="relative w-full max-w-sm animate-rise rounded-card border border-line bg-card p-6 shadow-float">
         <h2 id="confirm-title" className="text-lg font-semibold">
           {title}
@@ -40,7 +40,7 @@ export function ConfirmDialog({ open, title, children, confirm, busy, onConfirm,
         {children && <div className="mt-2 text-sm text-body">{children}</div>}
         <div className="mt-6 flex justify-end gap-2">
           <Button ref={cancel} variant="soft" onClick={onClose}>
-            Cancel
+            Batal
           </Button>
           <Button variant="accent" loading={busy} onClick={onConfirm}>
             {confirm}

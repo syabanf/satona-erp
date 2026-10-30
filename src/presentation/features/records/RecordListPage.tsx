@@ -36,7 +36,6 @@ export default function RecordListPage() {
 
   return (
     <div className="space-y-4">
-      <RecordInsight type={type} rows={rows.data} all={all.data} />
       <Card className="p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
           <h2 className="text-lg font-semibold">{type.name}</h2>
@@ -49,6 +48,12 @@ export default function RecordListPage() {
         </div>
         <RecordTable type={type} rows={rows.data} all={all.data} />
       </Card>
+      <details className="group rounded-card border border-line bg-card shadow-card">
+        <summary className="cursor-pointer px-5 py-4 text-sm font-semibold marker:text-accent-text">Insights and charts for {type.name.toLowerCase()}</summary>
+        <div className="border-t border-line p-4">
+          <RecordInsight type={type} rows={rows.data} all={all.data} />
+        </div>
+      </details>
     </div>
   )
 }

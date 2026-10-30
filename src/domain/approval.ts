@@ -83,6 +83,11 @@ export function approvalInbox(types: readonly RecordType[], all: Readonly<Record
   )
 }
 
+/** Keep operational follow-up actions separate from decisions that need approval. */
+export function isPendingApproval(item: ReturnType<typeof approvalInbox>[number]): boolean {
+  return item.record.status !== 'closed' && item.moves.some((move) => /^(approve|reject|release|sign(?: off)?|post|accept|authori[sz]e|confirm|review|verify|validate|clear)\b/i.test(move.label))
+}
+
 /** A safety rule that stops a move whatever the approver says, such as a permit with a failed gas test. */
 export function moveBlocker(type: RecordType, record: Pick<ErpRecord, 'values'>, to: string): string | undefined {
   if (type.key === 'she.permits' && (to === 'approved' || to === 'active') && record.values.gasTest === 'Fail') return `Gas test failed (LEL ${String(record.values.lel)}%). Ventilate and re-test before approving.`

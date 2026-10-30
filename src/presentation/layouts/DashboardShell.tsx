@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation } from 'react-router'
-import { Bell } from 'lucide-react'
+import { Bell, Search } from 'lucide-react'
 import type { Alert } from '@/domain/ops'
+import { homeFor } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 import { shortDay, shortWeekday } from '@/lib/dates'
 import { useAlerts } from '../hooks/useAlerts'
@@ -16,6 +17,8 @@ import { menuItem, Popover } from '../ui/Popover'
 import { RecordDrawerProvider } from '../records/RecordDrawer'
 import { CommandPalette } from './dashboard/CommandPalette'
 import { BottomNav } from './dashboard/BottomNav'
+import { TaskLauncher } from './dashboard/TaskLauncher'
+import { usePalette } from './dashboard/palette'
 import { Sidebar, SidebarContent } from './dashboard/Sidebar'
 
 const COLLAPSE_KEY = 'satona-sidebar'
@@ -45,8 +48,8 @@ function Notifications({ alerts }: { alerts: readonly Alert[] }) {
     >
       {(close) => (
         <div className="max-h-[70dvh] overflow-y-auto">
-          <p className="px-3 pt-1 pb-2 eyebrow">Needs attention</p>
-          {alerts.length === 0 && <p className="px-3 pb-2 text-sm text-body">Every site is within limits.</p>}
+          <p className="px-3 pt-1 pb-2 eyebrow">Perlu ditangani</p>
+          {alerts.length === 0 && <p className="px-3 pb-2 text-sm text-body">Belum ada masalah yang perlu ditangani.</p>}
           {alerts.map((a) => (
             <Link key={a.id} to={a.to} onClick={close} className={`${menuItem} items-start`}>
               <Dot tone={a.tone === 'danger' ? 'accent' : a.tone} className="mt-1.5" />
@@ -65,7 +68,7 @@ function Notifications({ alerts }: { alerts: readonly Alert[] }) {
 /** Title words sit in masks so the entrance can raise them; the red period follows the last one. */
 function Title({ text }: { text: string }) {
   return (
-    <h1 className="truncate text-2xl font-bold tracking-tight md:text-[28px]">
+    <h1 className="text-2xl font-bold leading-tight tracking-tight md:text-[28px]">
       {text.split(' ').map((word, i) => (
         <span key={`${word}-${i}`} className="-mb-[0.1em] inline-block overflow-hidden pb-[0.1em] align-bottom">
           <span data-word className="inline-block">
@@ -84,6 +87,8 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
   const { pathname } = useLocation()
   const { clock } = useServices()
   const crumbs = useTrail()
+  const { tree } = useMenu()
+  const openSearch = usePalette()
   const today = clock.today()
   const leaf = crumbs.at(-1)
   const folders = crumbs.slice(0, -1)
@@ -114,13 +119,14 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
               {detail && (
                 <>
                   <li aria-hidden>/</li>
-                  <li aria-current="page">Details</li>
+                  <li aria-current="page">Rincian</li>
                 </>
               )}
             </ol>
           </nav>
         )}
-        <Title text={leaf?.label ?? 'Not found'} />
+        <Title text={leaf?.label ?? (tree.length ? 'Halaman tidak ditemukan' : 'Memuat halaman')} />
+        <p className="mt-0.5 text-[11px] text-muted">Data demo · perubahan hanya di perangkat ini</p>
       </div>
       {leaf?.tcode && (
         <span title="Transaction code" className="hidden h-10 items-center rounded-full border border-line bg-card px-3 font-mono text-xs font-semibold text-accent-text shadow-card md:inline-flex">
@@ -130,6 +136,9 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
       <span className="hidden h-10 items-center rounded-full border border-line bg-card px-4 text-xs font-medium text-muted shadow-card lg:inline-flex">
         {shortWeekday(today)}, {shortDay(today)}
       </span>
+      <Button variant="card" size="icon-lg" aria-label="Cari pekerjaan atau data" onClick={() => openSearch()}>
+        <Search aria-hidden className="size-5" />
+      </Button>
       <Notifications alerts={alerts} />
     </header>
   )
@@ -148,7 +157,7 @@ export function DashboardShell() {
   const panel = useRef<HTMLDivElement>(null)
   const { signedIn, role } = useSession()
   const accessFor = useAccess()
-  const { approvals } = useMenu()
+  const { tree, approvals } = useMenu()
 
   // Block body on purpose: newer browsers return a Promise from scrollTo, and an effect may only return a cleanup.
   useEffect(() => {
@@ -195,6 +204,7 @@ export function DashboardShell() {
             <Header alerts={alerts} />
             <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
               <Entrance key={pathname}>
+                {tree.length > 0 && pathname === homeFor(role) && !role.external && <TaskLauncher role={role} accessFor={accessFor} approvals={approvals} />}
                 <Outlet />
               </Entrance>
             </main>

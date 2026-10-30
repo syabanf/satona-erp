@@ -17,10 +17,10 @@ interface Tab {
 function tabsFor(role: Role, access: Access, approvals: number): Tab[] {
   const work = typesOf(role.module).find((t) => t.area === 'transaction')
   const tabs: Tab[] = [
-    { to: homeFor(role), label: 'Home', icon: House },
-    work ? { to: recordPath(work), label: role.module.toUpperCase(), icon: ClipboardList } : { to: '/modules', label: 'Modules', icon: ClipboardList },
+    { to: homeFor(role), label: 'Beranda', icon: House },
+    role.id === 'admin' ? { to: '/modules', label: 'Modul', icon: ClipboardList } : work ? { to: recordPath(work), label: 'Daftar', icon: ClipboardList } : { to: '/modules', label: 'Modul', icon: ClipboardList },
   ]
-  tabs.push(can(access, 'approve') || approvals > 0 ? { to: '/approvals', label: 'Approvals', icon: CheckCheck, badge: approvals } : { to: `/modules/${role.module}`, label: 'Insight', icon: BarChart3 })
+  tabs.push(can(access, 'approve') || approvals > 0 ? { to: '/approvals', label: 'Setujui', icon: CheckCheck, badge: approvals } : { to: `/modules/${role.module}`, label: 'Laporan', icon: BarChart3 })
   return tabs
 }
 

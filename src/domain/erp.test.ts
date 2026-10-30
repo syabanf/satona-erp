@@ -28,6 +28,7 @@ describe('modules', () => {
     expect(filterModules(list, { entity: 'rotama' }).map((m) => m.id)).toEqual(['tms'])
     expect(filterModules(list, { status: 'build' }).map((m) => m.id)).toEqual(['qc'])
     expect(filterModules(list, { q: 'module q' }).map((m) => m.id)).toEqual(['qc'])
+    expect(filterModules(list, { q: 'transportasi' }).map((m) => m.id)).toEqual(['tms'])
     expect(countBy(list, moduleStatus)).toEqual({ live: 1, build: 1 })
   })
 })

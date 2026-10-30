@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ArrowRight, ArrowUpRight, MapPinned, Siren } from 'lucide-react'
 import { RECORD_TYPES } from '@/domain/catalog'
-import { moduleProgress, moduleStatus, type EntityId } from '@/domain/erp'
+import { moduleProgress, type EntityId } from '@/domain/erp'
 import { cn } from '@/lib/cn'
 import { count, moneyCompact, percent } from '@/lib/format'
 import { ColumnChart } from '../../charts/ColumnChart'
@@ -48,7 +48,6 @@ export default function OverviewPage() {
   const list = entities.data ?? []
   const totals = useMemo(() => labels.map((_, i) => list.reduce((s, e) => s + (e.revenue[i] ?? 0), 0)), [list, labels])
   const ytd = list.reduce((s, e) => s + e.revenueYtd, 0)
-  const live = (modules.data ?? []).filter((m) => moduleStatus(m) === 'live').length
   const rollout = modules.data ? modules.data.reduce((s, m) => s + moduleProgress(m), 0) / modules.data.length : 0
   const onRoad = (trucks.data ?? []).filter((t) => t.state !== 'loading').length
   const picked = (sites.data ?? []).find((s) => s.id === site)
@@ -70,37 +69,53 @@ export default function OverviewPage() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Link to="/entities/holding" data-motion="rise" className={tile}>
-          <p className="text-xs text-muted">Group revenue, year to date</p>
+          <p className="text-xs text-muted">Pendapatan grup tahun ini</p>
           <p className="mt-2 text-[28px] font-medium tracking-tight tabular">{entities.data ? <CountUp value={ytd} format={moneyCompact} /> : '·'}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
-            <Delta value={0.087} /> against last year
+            <Delta value={0.087} /> dibanding tahun lalu
           </p>
         </Link>
         <Link to="/fleet" data-motion="rise" className={tile}>
-          <p className="text-xs text-muted">Tankers on the road</p>
+          <p className="text-xs text-muted">Armada di jalan</p>
           <p className="mt-2 text-[28px] font-medium tracking-tight tabular">{trucks.data ? <CountUp value={onRoad} /> : '·'}</p>
-          <p className="mt-1 text-xs text-muted">of {trucks.data?.length ?? '·'} tracked by GPS</p>
+          <p className="mt-1 text-xs text-muted">dari {trucks.data?.length ?? '·'} kendaraan terpantau GPS</p>
         </Link>
         <Link to="/modules" data-motion="rise" className={tile}>
-          <p className="text-xs text-muted">ERP rollout</p>
+          <p className="text-xs text-muted">Kesiapan sistem</p>
           <p className="mt-2 text-[28px] font-medium tracking-tight tabular">
             {modules.data ? <CountUp value={rollout * 100} format={(v: number) => `${Math.round(v)}%`} /> : '·'}
           </p>
           <Meter value={rollout} tone="accent" className="mt-2" label="ERP rollout progress" />
         </Link>
         <Link to="/approvals" data-motion="rise" className={tile}>
-          <p className="text-xs text-muted">Waiting for your approval</p>
+          <p className="text-xs text-muted">Menunggu persetujuan Anda</p>
           <p className="mt-2 text-[28px] font-medium tracking-tight tabular">{all.data ? <CountUp value={approvals.length} /> : '·'}</p>
-          <p className="mt-1 text-xs text-muted">
-            {live} of {modules.data?.length ?? 18} modules fully live
-          </p>
+          <p className="mt-1 text-xs text-muted">Buka daftar persetujuan</p>
         </Link>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
+        <Card>
+          <CardHeader title="Perlu ditangani" icon={<Siren aria-hidden className="size-5 text-muted" />} />
+          <ul className="divide-y divide-line">
+            {(alerts.data ?? []).map((a) => (
+              <li key={a.id} data-motion="row">
+                <Link to={a.to} className="group flex items-start gap-3 py-3 first:pt-0">
+                  <Dot tone={a.tone === 'danger' ? 'accent' : a.tone} className="mt-1.5" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium group-hover:underline">{a.title}</span>
+                    <span className="block text-xs text-muted">{a.detail}</span>
+                  </span>
+                  <ArrowUpRight aria-hidden className="size-4 shrink-0 text-subtle group-hover:text-fg" />
+                </Link>
+              </li>
+            ))}
+            {!alerts.data && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="my-3 h-10" />)}
+          </ul>
+        </Card>
         <Card className="xl:col-span-2">
           <CardHeader
-            title="Group footprint"
+            title="Lokasi grup"
             icon={<MapPinned aria-hidden className="size-5 text-muted" />}
             action={
               <div role="group" aria-label="Show entities on the map" className="no-scrollbar flex gap-1.5 overflow-x-auto">
@@ -144,51 +159,33 @@ export default function OverviewPage() {
                 <p className="mt-0.5 font-semibold">{picked.name}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl bg-raised p-2">
-                    <p className="text-muted">Staff</p>
+                  <p className="text-muted">Pegawai</p>
                     <p className="text-sm font-semibold tabular">{count(picked.staff)}</p>
                   </div>
                   <div className="rounded-xl bg-raised p-2">
-                    <p className="text-muted">Utilisation</p>
+                  <p className="text-muted">Pemakaian</p>
                     <p className="text-sm font-semibold tabular">{percent(picked.utilisation, { digits: 0 })}</p>
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Link to={`/entities/${picked.entity}`} className={buttonStyles({ variant: 'solid', size: 'sm' })}>
-                    Open entity <ArrowRight aria-hidden className="size-3.5" />
+                    Buka perusahaan <ArrowRight aria-hidden className="size-3.5" />
                   </Link>
                   <button type="button" onClick={() => setQuery({ site: undefined })} className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
-                    Close
+                    Tutup
                   </button>
                 </div>
               </div>
             )}
           </div>
-          <p className="mt-3 text-xs text-muted">Click a site to drill in. Toggle an entity above to hide its sites.</p>
+          <p className="mt-3 text-xs text-muted">Pilih lokasi pada peta untuk melihat rincian. Pilih perusahaan di atas untuk menampilkan atau menyembunyikan lokasinya.</p>
         </Card>
 
-        <Card>
-          <CardHeader title="Needs attention" icon={<Siren aria-hidden className="size-5 text-muted" />} />
-          <ul className="divide-y divide-line">
-            {(alerts.data ?? []).map((a) => (
-              <li key={a.id} data-motion="row">
-                <Link to={a.to} className="group flex items-start gap-3 py-3 first:pt-0">
-                  <Dot tone={a.tone === 'danger' ? 'accent' : a.tone} className="mt-1.5" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium group-hover:underline">{a.title}</span>
-                    <span className="block text-xs text-muted">{a.detail}</span>
-                  </span>
-                  <ArrowUpRight aria-hidden className="size-4 shrink-0 text-subtle group-hover:text-fg" />
-                </Link>
-              </li>
-            ))}
-            {!alerts.data && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="my-3 h-10" />)}
-          </ul>
-        </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader title="Consolidated revenue" action={<span className="text-xs text-muted">Last 12 months, Rp miliar (M)</span>} />
+          <CardHeader title="Pendapatan grup" action={<span className="text-xs text-muted">12 bulan terakhir, Rp miliar</span>} />
           {entities.data ? (
             <ColumnChart
               data={totals.map((v, i) => ({ key: String(i), label: labels[i] ?? '', value: Math.round(v / 1e8) / 10 }))}
@@ -208,7 +205,7 @@ export default function OverviewPage() {
         </Card>
 
         <Card>
-          <CardHeader title={`${labels[m] ?? ''} by entity`} />
+          <CardHeader title={`${labels[m] ?? ''} menurut perusahaan`} />
           {entities.data && (
             <div className="flex flex-col items-center gap-4">
               <Donut
@@ -271,9 +268,9 @@ export default function OverviewPage() {
 
       <Card className="p-0">
         <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-2">
-          <h2 className="text-lg font-semibold">Latest ERP changes</h2>
+          <h2 className="text-lg font-semibold">Perubahan data terbaru</h2>
           <Link to="/integration" className={buttonStyles({ variant: 'soft', size: 'sm' })}>
-            Event bus
+            Integrasi
           </Link>
         </div>
         <ul className="divide-y divide-line">

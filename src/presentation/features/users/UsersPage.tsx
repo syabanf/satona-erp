@@ -124,6 +124,7 @@ export default function UsersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto p-4">
+            <p className="mb-2 text-xs text-muted md:hidden">Swipe sideways to see more modules. The role column stays in place.</p>
             <table className="w-full min-w-[640px] border-separate border-spacing-1 text-sm">
               <thead>
                 <tr>

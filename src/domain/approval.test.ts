@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { approvalChain, maySign, moveBlocker, pendingStep } from './approval'
+import { approvalChain, isPendingApproval, maySign, moveBlocker, pendingStep } from './approval'
 import type { ErpRecord, RecordType } from './records'
 
 const type = { key: 'vms.orders', insight: { sumField: 'value' }, workflow: { states: [], transitions: [], initial: 'draft' } } as unknown as RecordType
@@ -50,5 +50,14 @@ describe('move blockers', () => {
     expect(moveBlocker(permits, { values: { gasTest: 'Fail', lel: 14 } }, 'approved')).toMatch(/LEL 14%/)
     expect(moveBlocker(permits, { values: { gasTest: 'Fail' } }, 'rejected')).toBeUndefined()
     expect(moveBlocker(permits, { values: { gasTest: 'Pass' } }, 'approved')).toBeUndefined()
+  })
+})
+
+describe('approval queue', () => {
+  it('keeps reopening closed records out of pending approvals', () => {
+    const item = (status: string, label: string) => ({ record: row('A-1', {}, status), moves: [{ label }] }) as Parameters<typeof isPendingApproval>[0]
+    expect(isPendingApproval(item('closed', 'Reopen'))).toBe(false)
+    expect(isPendingApproval(item('submitted', 'Approve'))).toBe(true)
+    expect(isPendingApproval(item('progress', 'Close'))).toBe(false)
   })
 })

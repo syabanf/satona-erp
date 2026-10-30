@@ -4,6 +4,7 @@
  */
 import { can, type Access, type Entity, type ErpModule, type Role } from './erp'
 import { canCreate, type RecordType } from './records'
+import { moduleLabel, recordLabel } from './uiLabels'
 
 export type MenuKind = 'folder' | 'create' | 'master' | 'transaction' | 'approval' | 'report' | 'config' | 'page'
 
@@ -48,13 +49,13 @@ const present = (xs: Array<MenuNode | null>) => xs.filter((x): x is MenuNode => 
 function typeItems(t: RecordType, access: Access): MenuNode[] {
   const base = `${t.key}`
   const items: MenuNode[] = []
-  if (canCreate(t, access)) items.push({ id: `${base}:create`, label: `Create ${t.singular.toLowerCase()}`, kind: 'create', tcode: `${t.prefix}01`, to: `${path(t)}/new` })
-  items.push({ id: `${base}:list`, label: t.area === 'master' ? `Maintain ${t.name.toLowerCase()}` : `${t.name} worklist`, kind: t.area, tcode: `${t.prefix}02`, to: path(t) })
+  if (canCreate(t, access)) items.push({ id: `${base}:create`, label: `Buat ${recordLabel(t.key, t.singular.toLowerCase())}`, kind: 'create', tcode: `${t.prefix}01`, to: `${path(t)}/new` })
+  items.push({ id: `${base}:list`, label: `Daftar ${recordLabel(t.key, t.name.toLowerCase())}`, kind: t.area, tcode: `${t.prefix}02`, to: path(t) })
   if (can(access, 'approve')) {
     const waiting = [...new Set(t.workflow.transitions.filter((m) => m.needs === 'approve').map((m) => m.from))]
     waiting.forEach((status, i) => {
       const label = t.workflow.states.find((s) => s.id === status)?.label ?? status
-      items.push({ id: `${base}:approve:${status}`, label: `Approve: ${label.toLowerCase()} ${t.name.toLowerCase()}`, kind: 'approval', tcode: `${t.prefix}${String(5 + i).padStart(2, '0')}`, to: `${path(t)}?status=${status}`, approval: { type: t.key, status } })
+      items.push({ id: `${base}:approve:${status}`, label: `Setujui ${recordLabel(t.key, t.name.toLowerCase())} · ${label.toLowerCase()}`, kind: 'approval', tcode: `${t.prefix}${String(5 + i).padStart(2, '0')}`, to: `${path(t)}?status=${status}`, approval: { type: t.key, status } })
     })
   }
   return items
@@ -64,17 +65,17 @@ function moduleNode(m: MenuInput['modules'][number], types: readonly RecordType[
   if (access === 'none') return null
   const mine = types.filter((t) => t.module === m.id)
   const group = (area: RecordType['area']) =>
-    mine.filter((t) => t.area === area).map((t) => (folder(`${t.key}:folder`, t.name, typeItems(t, access)) as MenuNode))
-  const reports: MenuNode[] = [{ id: `${m.id}:insight`, label: `${m.code} insight dashboard`, kind: 'report', tcode: `${m.code}R1`, to: `/modules/${m.id}` }]
+    mine.filter((t) => t.area === area).map((t) => (folder(`${t.key}:folder`, recordLabel(t.key, t.name).replace(/^\w/, (letter) => letter.toUpperCase()), typeItems(t, access)) as MenuNode))
+  const reports: MenuNode[] = [{ id: `${m.id}:insight`, label: `Ringkasan ${moduleLabel(m.id, m.name)}`, kind: 'report', tcode: `${m.code}R1`, to: `/modules/${m.id}` }]
   if (m.live) reports.push({ id: `${m.id}:live`, label: m.live.label.replace(/^Open /, '').replace(/^\w/, (c) => c.toUpperCase()), kind: 'report', tcode: `${m.code}R2`, to: m.live.to })
   for (const [i, v] of (VIEWS[m.id] ?? []).entries()) reports.push({ id: `${m.id}:view${i}`, label: v.label, kind: 'report', tcode: `${m.code}R${i + 3}`, to: v.to })
-  return folder(`${m.id}`, `${m.code} · ${m.name}`, present([
-    folder(`${m.id}:master`, 'Master data', group('master')),
-    folder(`${m.id}:transactions`, 'Transactions', group('transaction')),
-    folder(`${m.id}:reports`, 'Reports', reports),
-    folder(`${m.id}:config`, 'Configuration', [
-      { id: `${m.id}:schema`, label: 'Record schemas & workflows', kind: 'config', tcode: `${m.code}C1`, to: `/modules/${m.id}/config` },
-      { id: `${m.id}:about`, label: 'Scope, departments & users', kind: 'config', tcode: `${m.code}C2`, to: `/modules/${m.id}/about` },
+  return folder(`${m.id}`, moduleLabel(m.id, m.name), present([
+    folder(`${m.id}:master`, 'Data utama', group('master')),
+    folder(`${m.id}:transactions`, 'Aktivitas', group('transaction')),
+    folder(`${m.id}:reports`, 'Laporan', reports),
+    folder(`${m.id}:config`, 'Pengaturan', [
+      { id: `${m.id}:schema`, label: 'Jenis data dan alur kerja', kind: 'config', tcode: `${m.code}C1`, to: `/modules/${m.id}/config` },
+      { id: `${m.id}:about`, label: 'Cakupan dan pengguna', kind: 'config', tcode: `${m.code}C2`, to: `/modules/${m.id}/about` },
     ]),
   ]))
 }
@@ -82,21 +83,21 @@ function moduleNode(m: MenuInput['modules'][number], types: readonly RecordType[
 export function buildMenu({ entities, modules, types, accessFor }: MenuInput): MenuNode[] {
   const cockpit: MenuNode = {
     id: 'cockpit',
-    label: 'Group cockpit',
+    label: 'Ringkasan grup',
     kind: 'folder',
     children: [
-      { id: 'overview', label: 'Executive overview', kind: 'page', tcode: 'ZOV', to: '/' },
-      { id: 'approvals', label: 'My approvals', kind: 'page', tcode: 'ZAPP', to: '/approvals' },
-      { id: 'catalogue', label: 'Module catalogue', kind: 'page', tcode: 'ZMOD', to: '/modules' },
-      { id: 'users', label: 'User & access matrix', kind: 'page', tcode: 'ZUSR', to: '/users' },
-      { id: 'integration', label: 'Integration layer & event bus', kind: 'page', tcode: 'ZINT', to: '/integration' },
-      { id: 'coverage', label: 'Scope coverage (gap analysis)', kind: 'page', tcode: 'ZGAP', to: '/coverage' },
+      { id: 'overview', label: 'Beranda grup', kind: 'page', tcode: 'ZOV', to: '/' },
+      { id: 'approvals', label: 'Persetujuan saya', kind: 'page', tcode: 'ZAPP', to: '/approvals' },
+      { id: 'catalogue', label: 'Semua modul', kind: 'page', tcode: 'ZMOD', to: '/modules' },
+      { id: 'users', label: 'Pengguna dan akses', kind: 'page', tcode: 'ZUSR', to: '/users' },
+      { id: 'integration', label: 'Integrasi sistem', kind: 'page', tcode: 'ZINT', to: '/integration' },
+      { id: 'coverage', label: 'Cakupan sistem', kind: 'page', tcode: 'ZGAP', to: '/coverage' },
     ],
   }
   const byEntity = entities.map((e, i) => {
     const mods = present(modules.filter((m) => m.entity === e.id).map((m) => moduleNode(m, types, accessFor(m.id))))
     if (!mods.length) return null
-    return folder(`entity:${e.id}`, e.short, [{ id: `entity:${e.id}:home`, label: `${e.short} overview`, kind: 'page', tcode: `ZENT${i + 1}`, to: `/entities/${e.id}` }, ...mods])
+    return folder(`entity:${e.id}`, e.short, [{ id: `entity:${e.id}:home`, label: `Ringkasan ${e.short}`, kind: 'page', tcode: `ZENT${i + 1}`, to: `/entities/${e.id}` }, ...mods])
   })
   return present([cockpit, ...byEntity])
 }

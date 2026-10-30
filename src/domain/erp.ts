@@ -1,4 +1,5 @@
 /** Satona Group ERP: entities, modules, roles and the access rules between them. */
+import { moduleLabel } from './uiLabels'
 
 export type EntityId = 'holding' | 'rotama' | 'rodame' | 'roasi'
 
@@ -53,8 +54,8 @@ export interface Role {
 
 export type Access = 'full' | 'approve' | 'portal' | 'view' | 'none'
 
-export const SCOPE_LABEL: Record<ScopeStatus, string> = { live: 'Live', build: 'In build', plan: 'Planned' }
-export const ACCESS_LABEL: Record<Access, string> = { full: 'Full', approve: 'Approve', portal: 'Portal', view: 'View', none: 'No access' }
+export const SCOPE_LABEL: Record<ScopeStatus, string> = { live: 'Aktif', build: 'Dibangun', plan: 'Direncanakan' }
+export const ACCESS_LABEL: Record<Access, string> = { full: 'Kelola', approve: 'Setujui', portal: 'Portal', view: 'Lihat', none: 'Tidak ada' }
 
 /** Done milestones over all milestones across the module's scope. */
 export function moduleProgress(m: Pick<ErpModule, 'scope'>): number {
@@ -131,7 +132,7 @@ export function filterModules(list: readonly ErpModule[], { entity, status, q }:
       (!entity || m.entity === entity) &&
       (!status || moduleStatus(m) === status) &&
       (!needle ||
-        [m.name, m.code, ...m.departments, ...m.users, ...m.scope.map((s) => s.title)].some((t) => t.toLowerCase().includes(needle))),
+        [m.name, moduleLabel(m.id), m.code, ...m.departments, ...m.users, ...m.scope.map((s) => s.title)].some((t) => t.toLowerCase().includes(needle))),
   )
 }
 

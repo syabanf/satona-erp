@@ -11,7 +11,7 @@ interface FilterChipsProps<T extends string> {
   className?: string
 }
 
-/** "All" plus one chip per value with its count. A second click on the active chip clears it. */
+/** All values plus one chip per option. A second click on the active chip clears it. */
 export function FilterChips<T extends string>({ label, options, value, counts, total, onChange, className }: FilterChipsProps<T>) {
   const chip = (key: T | undefined, text: string, n: number) => {
     const active = value === key
@@ -31,7 +31,7 @@ export function FilterChips<T extends string>({ label, options, value, counts, t
   }
   return (
     <div role="group" aria-label={label} className={cn('no-scrollbar -mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1', className)}>
-      {chip(undefined, 'All', total)}
+      {chip(undefined, 'Semua', total)}
       {options.map((o) => chip(o.value, o.label, counts[o.value] ?? 0))}
     </div>
   )

@@ -24,19 +24,19 @@ describe('SAP-style menu', () => {
   })
 
   it('accepts SAP command syntax and searches labels', () => {
-    expect(findByTcode(tree, '/ntrp01')?.label).toBe('Create trip')
+    expect(findByTcode(tree, '/ntrp01')?.label).toBe('Buat perjalanan')
     expect(findByTcode(tree, 'nope')).toBeUndefined()
     expect(searchMenu(tree, 'oee').some((n) => n.tcode === 'OEE02')).toBe(true)
   })
 
   it('finds the breadcrumb trail for records, lists and approval worklists', () => {
-    expect(trail(tree, '/modules/tms/trips/TRP-0001').map((n) => n.label)).toEqual(['Rotama', 'TMS · Transportation Management & Telematics', 'Transactions', 'Trips', 'Trips worklist'])
+    expect(trail(tree, '/modules/tms/trips/TRP-0001').map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Aktivitas', 'Perjalanan', 'Daftar perjalanan'])
     expect(trail(tree, '/modules/tms/trips', '?status=planned').at(-1)?.kind).toBe('approval')
     expect(trail(tree, '/').at(-1)?.tcode).toBe('ZOV')
   })
 
   it('gives a folder page the folder trail', () => {
-    expect(trail(tree, folderPath('tms:master')).map((n) => n.label)).toEqual(['Rotama', 'TMS · Transportation Management & Telematics', 'Master data'])
+    expect(trail(tree, folderPath('tms:master')).map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Data utama'])
     expect(trail(tree, folderPath('nope'))).toEqual([])
   })
 
@@ -46,6 +46,6 @@ describe('SAP-style menu', () => {
     expect(leaves.some((n) => n.to?.startsWith('/modules/fbl'))).toBe(false)
     expect(leaves.filter((n) => n.kind === 'create').map((n) => n.tcode)).toEqual(['CHK01'])
     expect(leaves.some((n) => n.tcode === 'TRP02')).toBe(true)
-    expect(menuFor(driver).map((n) => n.label)).toEqual(['Group cockpit', 'Rotama'])
+    expect(menuFor(driver).map((n) => n.label)).toEqual(['Ringkasan grup', 'Rotama'])
   })
 })

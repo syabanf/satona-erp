@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Eye, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Eye, Search, SlidersHorizontal, X } from 'lucide-react'
+import { applyWhere, parseWhere, serializeWhere } from '@/domain/filters'
 import { filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { toCsv } from '@/lib/csv'
@@ -10,25 +11,29 @@ import { Input, Select } from '../ui/Field'
 import { FilterChips } from '../ui/FilterChips'
 import { EmptyState } from '../ui/States'
 import { BulkBar } from './BulkBar'
+import { FieldFilters, FilterTags } from './FieldFilters'
 import { useRecordDrawer } from './drawer'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
 
 const PAGE = 20
-const KEYS = ['status', 'q', 'f', 'sort', 'dir', 'page', 'from', 'to'] as const
+const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to'] as const
 
-/** Every record list: status chips with counts, a picker for the main category field, search, sort and pages, all in the URL. */
+/** Every record list: status chips with counts, a filter on every field, search, sort and pages, all in the URL. */
 export function RecordTable({ type, rows, all }: { type: RecordType; rows: readonly ErpRecord[]; all?: AllRecords }) {
   const navigate = useNavigate()
   const open = useRecordDrawer()
   const [query, setQuery] = useQueryState(KEYS)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const [panel, setPanel] = useState(false)
+  const where = useMemo(() => parseWhere(query.w), [query.w])
+  const setWhere = (key: string, value: string | undefined) => setQuery({ w: serializeWhere({ ...where, [key]: value ?? '' }), page: undefined })
   const columns = type.fields.filter((f) => f.list).slice(0, 5)
   const picker = type.fields.find((f) => f.key === type.insight.groupBy && (f.type === 'select' || f.type === 'entity')) ?? type.fields.find((f) => f.type === 'select' || f.type === 'entity')
   const base = useMemo(() => {
     const inPeriod = query.from || query.to ? rows.filter((r) => (!query.from || recordDate(type, r) >= query.from) && (!query.to || recordDate(type, r) <= query.to)) : rows
-    return filterRecords(inPeriod, { q: query.q, where: picker ? { [picker.key]: query.f } : {} })
-  }, [rows, query.q, query.f, query.from, query.to, picker, type])
+    return applyWhere(type, filterRecords(inPeriod, { q: query.q, where: picker ? { [picker.key]: query.f } : {} }), where)
+  }, [rows, query.q, query.f, query.from, query.to, picker, type, where])
   const shown = useMemo(
     () => sortRecords(filterRecords(base, { status: query.status }), query.sort ?? 'id', query.dir === 'asc' ? 'asc' : query.sort ? 'asc' : 'desc'),
     [base, query.status, query.sort, query.dir],
@@ -37,8 +42,9 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   const pages = Math.max(1, Math.ceil(shown.length / PAGE))
   const page = Math.min(pages, Math.max(1, Number(query.page) || 1))
   const slice = shown.slice((page - 1) * PAGE, page * PAGE)
-  const active = Boolean(query.status || query.q || query.f || query.from || query.to)
-  const clear = () => setQuery({ status: undefined, q: undefined, f: undefined, from: undefined, to: undefined, page: undefined })
+  const fieldCount = Object.keys(where).length
+  const active = Boolean(query.status || query.q || query.f || query.from || query.to || fieldCount)
+  const clear = () => setQuery({ status: undefined, q: undefined, f: undefined, w: undefined, from: undefined, to: undefined, page: undefined })
   // Selection only keeps rows still on screen, so a filter change drops what it hides.
   const selected = shown.filter((r) => picked.has(r.id))
   const allOnPage = slice.length > 0 && slice.every((r) => picked.has(r.id))
@@ -109,6 +115,11 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
           value={query.q ?? ''}
           onChange={(e) => setQuery({ q: e.target.value, page: undefined })}
         />
+        <Button variant={panel ? 'solid' : 'card'} size="sm" aria-expanded={panel} aria-controls="field-filters" onClick={() => setPanel((p) => !p)}>
+          <SlidersHorizontal aria-hidden className="size-4" /> Filters
+          {fieldCount > 0 && <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent-strong px-1 text-[10px] font-semibold text-white tabular">{fieldCount}</span>}
+        </Button>
+        <FilterTags type={type} rows={rows} all={all} where={where} onChange={setWhere} />
         {(query.from || query.to) && (
           <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-invert pr-1 pl-3 text-xs font-medium text-on-invert tabular">
             <CalendarRange aria-hidden className="size-3.5" />
@@ -135,6 +146,12 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
           {shown.length} results
         </p>
       </div>
+
+      {panel && (
+        <div id="field-filters">
+          <FieldFilters type={type} rows={rows} all={all} where={where} onChange={setWhere} />
+        </div>
+      )}
 
       {selected.length > 0 && <BulkBar type={type} rows={selected} onExport={() => exportCsv(selected)} onClear={() => setPicked(new Set())} />}
 

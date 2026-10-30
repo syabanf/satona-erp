@@ -6,11 +6,13 @@ interface PopoverProps {
   trigger: (props: { onClick: () => void; 'aria-expanded': boolean; 'aria-controls': string }) => ReactNode
   children: (close: () => void) => ReactNode
   align?: 'left' | 'right'
+  /** Width class; `cn` does not resolve Tailwind conflicts, so it lives apart from `className`. */
+  width?: string
   className?: string
 }
 
 /** Anchored panel that closes on outside click and Escape, handing focus back to its trigger. */
-export function Popover({ trigger, children, align = 'right', className }: PopoverProps) {
+export function Popover({ trigger, children, align = 'right', width = 'w-64', className }: PopoverProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -40,7 +42,8 @@ export function Popover({ trigger, children, align = 'right', className }: Popov
         <div
           id={id}
           className={cn(
-            'absolute top-full z-40 mt-2 w-64 animate-rise rounded-panel border border-line-strong bg-card p-2 shadow-float',
+            'absolute top-full z-40 mt-2 max-w-[calc(100vw-2rem)] animate-rise rounded-panel border border-line-strong bg-card p-2 shadow-float',
+            width,
             align === 'right' ? 'right-0' : 'left-0',
             className,
           )}

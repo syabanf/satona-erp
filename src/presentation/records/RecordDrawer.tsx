@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ArrowUpRight, X } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
+import { cn } from '@/lib/cn'
 import { defaultsFor } from '@/domain/records'
 import { useAllRecords } from '../hooks/useRecords'
 import { useServices } from '../hooks/useServices'
@@ -89,10 +90,19 @@ function Panel({ request, onClose, onSwitch }: { request: DrawerRequest; onClose
     )
   else if (all.data) body = <p className="text-sm text-muted">This record no longer exists.</p>
 
+  // A new record opens as a centred modal; viewing and editing keep the side drawer beside the list.
+  const modal = request.mode === 'create'
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="drawer-title" className="fixed inset-0 z-[900]">
+    <div role="dialog" aria-modal="true" aria-labelledby="drawer-title" className={cn('fixed inset-0 z-[900]', modal && 'grid place-items-center p-3 sm:p-6')}>
       <button type="button" aria-label="Close" className="absolute inset-0 animate-fade bg-ink/40" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} className="absolute inset-y-0 right-0 flex w-full max-w-xl animate-slide-left flex-col bg-card shadow-float outline-none">
+      <div
+        ref={panel}
+        tabIndex={-1}
+        className={cn(
+          'flex flex-col bg-card shadow-float outline-none',
+          modal ? 'relative max-h-[92dvh] w-full max-w-2xl animate-rise overflow-hidden rounded-card' : 'absolute inset-y-0 right-0 w-full max-w-xl animate-slide-left',
+        )}
+      >
         <header className="flex items-start gap-3 border-b border-line px-5 py-4">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-xs text-muted">

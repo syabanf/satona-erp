@@ -35,6 +35,7 @@ function Notifications({ alerts }: { alerts: readonly Alert[] }) {
   const urgent = alerts.filter((a) => a.tone === 'danger').length
   return (
     <Popover
+      width="w-80"
       trigger={(props) => (
         <Button {...props} variant="card" size="icon-lg" aria-label={`Alerts, ${alerts.length} open`} className="relative">
           <Bell aria-hidden className="size-5" />
@@ -43,15 +44,15 @@ function Notifications({ alerts }: { alerts: readonly Alert[] }) {
       )}
     >
       {(close) => (
-        <div className="w-80 max-w-[calc(100vw-2rem)]">
+        <div className="max-h-[70dvh] overflow-y-auto">
           <p className="px-3 pt-1 pb-2 eyebrow">Needs attention</p>
           {alerts.length === 0 && <p className="px-3 pb-2 text-sm text-body">Every site is within limits.</p>}
           {alerts.map((a) => (
             <Link key={a.id} to={a.to} onClick={close} className={`${menuItem} items-start`}>
               <Dot tone={a.tone === 'danger' ? 'accent' : a.tone} className="mt-1.5" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-fg">{a.title}</span>
-                <span className="block truncate text-xs text-muted">{a.detail}</span>
+                <span className="block font-medium text-fg">{a.title}</span>
+                <span className="block text-xs text-muted">{a.detail}</span>
               </span>
             </Link>
           ))}

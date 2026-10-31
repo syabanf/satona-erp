@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Eye, Search, SlidersHorizontal, X } from 'lucide-react'
+import { dateFieldOf } from '@/domain/calendar'
+import { typeOf } from '@/domain/catalog'
 import { applyWhere, parseWhere, serializeWhere } from '@/domain/filters'
+import { mappable } from '@/domain/geo'
 import { filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { toCsv } from '@/lib/csv'
@@ -9,15 +12,20 @@ import { useQueryState } from '../hooks/useParams'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Field'
 import { FilterChips } from '../ui/FilterChips'
-import { EmptyState } from '../ui/States'
+import { Skeleton, EmptyState } from '../ui/States'
+import { Tabs } from '../ui/Tabs'
 import { BulkBar } from './BulkBar'
+import { RecordCalendar } from './RecordCalendar'
 import { FieldFilters, FilterTags } from './FieldFilters'
 import { useRecordDrawer } from './drawer'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
 
 const PAGE = 20
-const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to'] as const
+// Leaflet stays out of the list chunk until someone opens the map view.
+const RecordMap = lazy(() => import('./RecordMap').then((m) => ({ default: m.RecordMap })))
+const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to', 'view'] as const
+type View = 'table' | 'calendar' | 'map'
 
 /** Every record list: status chips with counts, a filter on every field, search, sort and pages, all in the URL. */
 export function RecordTable({ type, rows, all }: { type: RecordType; rows: readonly ErpRecord[]; all?: AllRecords }) {
@@ -27,6 +35,13 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [panel, setPanel] = useState(false)
   const where = useMemo(() => parseWhere(query.w), [query.w])
+  const views = useMemo(() => {
+    const out: Array<{ value: View; label: string }> = [{ value: 'table', label: 'Tabel' }]
+    if (dateFieldOf(type)) out.push({ value: 'calendar', label: 'Kalender' })
+    if (all && mappable(type, all, typeOf)) out.push({ value: 'map', label: 'Peta' })
+    return out
+  }, [type, all])
+  const view: View = views.some((v) => v.value === query.view) ? (query.view as View) : 'table'
   const setWhere = (key: string, value: string | undefined) => setQuery({ w: serializeWhere({ ...where, [key]: value ?? '' }), page: undefined })
   const columns = type.fields.filter((f) => f.list).slice(0, 5)
   const picker = type.fields.find((f) => f.key === type.insight.groupBy && (f.type === 'select' || f.type === 'entity')) ?? type.fields.find((f) => f.type === 'select' || f.type === 'entity')
@@ -156,9 +171,29 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
         </div>
       )}
 
-      {selected.length > 0 && <BulkBar type={type} rows={selected} onExport={() => exportCsv(selected)} onClear={() => setPicked(new Set())} />}
+      {views.length > 1 && (
+        <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <Tabs label="Tampilan" options={views} value={view} onChange={(v) => setQuery({ view: v === 'table' ? undefined : v })} />
+          {view !== 'table' && <span className="text-xs text-muted tabular">{shown.length} data sesuai filter</span>}
+        </div>
+      )}
 
-      {shown.length === 0 ? (
+      {view === 'calendar' && (
+        <div className="p-4">
+          <RecordCalendar type={type} rows={shown} all={all ?? {}} />
+        </div>
+      )}
+      {view === 'map' && all && (
+        <div className="p-4">
+          <Suspense fallback={<Skeleton className="h-[420px] rounded-panel" />}>
+            <RecordMap type={type} rows={shown} all={all} />
+          </Suspense>
+        </div>
+      )}
+
+      {view === 'table' && selected.length > 0 && <BulkBar type={type} rows={selected} onExport={() => exportCsv(selected)} onClear={() => setPicked(new Set())} />}
+
+      {view !== 'table' ? null : shown.length === 0 ? (
         <div className="p-6">
           {active ? (
             <EmptyState title={`No ${type.singular.toLowerCase()} matches`} action={<Button variant="solid" size="sm" onClick={clear}>Clear filters</Button>}>

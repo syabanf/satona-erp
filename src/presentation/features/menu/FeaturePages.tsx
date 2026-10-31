@@ -1,8 +1,11 @@
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { ArrowUpRight, Boxes, CheckCheck, Database, FileText, Plus, Settings2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
 import type { Entity, ErpModule } from '@/domain/erp'
+import { dateFieldOf } from '@/domain/calendar'
 import { approvalStates, featureStats, relatedTypes, type FeatureStats } from '@/domain/featureStats'
+import { mappable } from '@/domain/geo'
 import { chainTo, folderPath, walk, type MenuNode } from '@/domain/menu'
 import { moduleLabel, recordLabel } from '@/domain/uiLabels'
 import { canCreate, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
@@ -11,13 +14,17 @@ import { count } from '@/lib/format'
 import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useRecordDrawer } from '../../records/drawer'
+import { RecordCalendar } from '../../records/RecordCalendar'
 import { StateBadge } from '../../records/StateBadge'
 import { fieldText, recordPath, recordTitle, type AllRecords } from '../../records/text'
 import { Tag } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { buttonStyles } from '../../ui/buttonStyles'
 import { Card, CardHeader } from '../../ui/Card'
+import { Skeleton } from '../../ui/States'
 import { KpiTile } from '../mes/KpiTile'
+
+const RecordMap = lazy(() => import('../../records/RecordMap').then((m) => ({ default: m.RecordMap })))
 
 const BAR: Record<StateTone, string> = { neutral: 'bg-line-strong', info: 'bg-info', warning: 'bg-warning', success: 'bg-success', danger: 'bg-danger', accent: 'bg-accent' }
 const int = (v: number) => count(Math.round(v))
@@ -367,6 +374,21 @@ export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type:
           <p className="mt-4 text-xs text-muted">{type.workflow.transitions.map((t) => t.label).filter((l, i, a) => a.indexOf(l) === i).join(' · ')}</p>
         </Card>
       </div>
+
+      {mappable(type, all, typeOf) && (
+        <Card>
+          <CardHeader title="Peta" action={<span className="text-xs text-muted">pilih titik atau rute untuk melihat datanya</span>} />
+          <Suspense fallback={<Skeleton className="h-[420px] rounded-panel" />}>
+            <RecordMap type={type} rows={all[type.key] ?? []} all={all} />
+          </Suspense>
+        </Card>
+      )}
+      {dateFieldOf(type) && (
+        <Card>
+          <CardHeader title="Kalender" action={<Link to={`${list}?view=calendar`} className="text-xs font-medium text-accent-text hover:underline">Buka dengan filter</Link>} />
+          <RecordCalendar type={type} rows={all[type.key] ?? []} all={all} />
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <RelatedList title="Sub-fitur terkait" note="memakai data ini" types={related.usedBy} tree={tree} all={all} />

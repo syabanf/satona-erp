@@ -63,6 +63,9 @@
 .mark-5 { fill: var(--color-series-5); stroke: var(--color-series-5); }
 .mark-route { stroke: var(--color-fg); fill: none; opacity: 0.18; }
 .mark-route-active { stroke: var(--color-accent); fill: none; stroke-dasharray: 6 8; animation: route-flow 1.2s linear infinite; }
+.mark-lane { stroke: var(--color-series-2); fill: none; opacity: 0.6; }
+.mark-place { fill: var(--color-accent); stroke: var(--color-card); stroke-width: 2; fill-opacity: 0.85; }
+.mark-place-on { fill: var(--color-fg); stroke: var(--color-accent); stroke-width: 3; }
 .mark-region { fill: var(--color-info); stroke: var(--color-info-text); fill-opacity: 0.25; }
 .mark-region-hot { fill: var(--color-accent); stroke: var(--color-accent-text); fill-opacity: 0.22; }
 @keyframes route-flow {

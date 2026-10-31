@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Check, ChevronRight, Clock3, Pencil, Trash2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
 import { isRejection } from '@/domain/approval'
 import { can } from '@/domain/erp'
-import { ancestors, childTypes, referencedBy, stateOf } from '@/domain/records'
+import { geoOf } from '@/domain/geo'
+import { ancestors, childTypes, referencedBy, stateOf, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
@@ -15,7 +16,7 @@ import { Card, CardHeader } from '../../ui/Card'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Headline } from '../../ui/Headline'
 import { PageBar } from '../../ui/PageBar'
-import { CardSkeleton } from '../../ui/States'
+import { CardSkeleton, Skeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { RecordChildren } from '../../records/RecordChildren'
 import { StateBadge } from '../../records/StateBadge'
@@ -24,6 +25,23 @@ import { fieldText, recordPath, recordTitle } from '../../records/text'
 import { NotFound } from '../NotFound'
 import { useModule } from '../modules/context'
 import { useRecordType } from './useRecordType'
+
+const RecordMap = lazy(() => import('../../records/RecordMap').then((m) => ({ default: m.RecordMap })))
+
+/** The key facts of a linked record, so a reader sees the driver's phone or the vehicle's capacity without leaving the page. */
+function LinkedFacts({ type, record, all }: { type: RecordType; record: ErpRecord; all: Parameters<typeof fieldText>[2] }) {
+  const facts = type.fields.filter((f) => f.key !== type.titleField && f.type !== 'textarea' && record.values[f.key] !== '' && record.values[f.key] !== undefined).slice(0, 4)
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-normal text-muted">
+      <StateBadge type={type} status={record.status} />
+      {facts.map((f) => (
+        <span key={f.key}>
+          {f.label}: <span className="text-body">{fieldText(f, record.values[f.key], all)}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
 
 export default function RecordPage() {
   const { type, rid } = useRecordType()
@@ -50,6 +68,7 @@ export default function RecordPage() {
   const lineage = ancestors(type, record, RECORD_TYPES, all.data)
   const states = type.workflow.states
   const currentIndex = states.findIndex((s) => s.id === record.status)
+  const place = geoOf(type, record, all.data, typeOf)
 
   async function move(to: string) {
     setBusy(to)
@@ -188,14 +207,18 @@ export default function RecordPage() {
               {type.fields.map((f) => {
                 const v = record.values[f.key]
                 const target = f.type === 'ref' && f.ref && v ? typeOf(f.ref) : undefined
+                const linked = target ? all.data?.[target.key]?.find((r) => r.id === v) : undefined
                 return (
                   <div key={f.key} className={cn('rounded-panel bg-raised p-3', f.type === 'textarea' && 'sm:col-span-2')}>
                     <dt className="text-xs text-muted">{f.label}</dt>
                     <dd className="mt-0.5 text-sm font-medium break-words">
                       {target ? (
-                        <Link to={recordPath(target, String(v))} className="text-accent-text hover:underline">
-                          {fieldText(f, v, all.data)} <span className="font-mono text-xs text-muted">{String(v)}</span>
-                        </Link>
+                        <>
+                          <Link to={recordPath(target, String(v))} className="text-accent-text hover:underline">
+                            {fieldText(f, v, all.data)} <span className="font-mono text-xs text-muted">{String(v)}</span>
+                          </Link>
+                          {linked && <LinkedFacts type={target} record={linked} all={all.data} />}
+                        </>
                       ) : (
                         fieldText(f, v, all.data)
                       )}
@@ -205,6 +228,14 @@ export default function RecordPage() {
               })}
             </dl>
           </Card>
+          {place && (
+            <Card>
+              <CardHeader title="Lokasi" action={<span className="text-xs text-muted">{place.place}</span>} />
+              <Suspense fallback={<Skeleton className="h-72 rounded-panel" />}>
+                <RecordMap type={type} rows={[record]} all={all.data} className="h-72" />
+              </Suspense>
+            </Card>
+          )}
           <RecordChildren type={type} record={record} all={all.data} />
         </div>
 

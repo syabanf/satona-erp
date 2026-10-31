@@ -190,9 +190,9 @@ export default function OsDesktop() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-card px-4">
-        <BrandMark className="size-6" />
-        <span className="text-sm font-semibold">Satona OS</span>
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-card px-3 sm:gap-3 sm:px-4">
+        <BrandMark className="size-6 shrink-0" />
+        <span className="text-sm font-semibold whitespace-nowrap">Satona OS</span>
         {title && <span className="hidden truncate text-sm text-muted sm:inline">· {title}</span>}
         <h1 className="sr-only">Satona OS</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -202,7 +202,7 @@ export default function OsDesktop() {
               <span className="tabular">{approvals.length + alerts.length}</span>
               <span className="sr-only">hal menunggu</span>
             </button>
-            <span aria-hidden className="h-5 w-px bg-line-strong" />
+            <span aria-hidden className="hidden h-5 w-px bg-line-strong sm:block" />
             <span className="hidden h-8 items-center gap-1.5 px-3 text-sm sm:inline-flex">
               <span className="font-semibold tabular">{clockText(now)}</span>
               <span className="text-muted">{dateText(now)}</span>

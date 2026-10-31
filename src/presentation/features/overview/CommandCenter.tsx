@@ -69,11 +69,11 @@ export function CommandCenter({ role }: { role: Role }) {
   return (
     <section aria-labelledby="command-title" className="mb-5 space-y-4">
       <div className="flex flex-wrap items-center gap-4 rounded-card bg-invert p-5 text-on-invert shadow-card sm:p-6">
-        <span className={cn('relative grid size-14 shrink-0 place-items-center rounded-full', LIGHT[overall].dot)}>
+        <span className={cn('relative grid size-10 shrink-0 place-items-center self-start rounded-full sm:size-14 sm:self-center', LIGHT[overall].dot)}>
           <span className={cn('absolute inset-0 animate-ping rounded-full opacity-30', LIGHT[overall].dot)} />
           {overall === 'green' && <CheckCircle2 aria-hidden className="relative size-7 text-white" />}
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_14rem]">
           <p className="text-sm opacity-70">
             {greeting(hour)}, {role.name}
           </p>
@@ -85,7 +85,7 @@ export function CommandCenter({ role }: { role: Role }) {
           </p>
         </div>
         {approvals.length > 0 && (
-          <Link to="/approvals" className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-base font-semibold text-white shadow-glow transition-transform active:scale-[0.97]">
+          <Link to="/approvals" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent px-6 sm:w-auto text-base font-semibold text-white shadow-glow transition-transform active:scale-[0.97]">
             Buka persetujuan <ArrowRight aria-hidden className="size-5" />
           </Link>
         )}
@@ -101,9 +101,9 @@ export function CommandCenter({ role }: { role: Role }) {
           ) : (
             <ul className="mt-3 space-y-2">
               {todo.map((t) => (
-                <li key={t.id} className="flex items-center gap-3 rounded-panel bg-raised p-3">
+                <li key={t.id} className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
                   <span aria-hidden className={cn('size-3 shrink-0 rounded-full', LIGHT[t.light].dot)} />
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-[1_1_10rem]">
                     <span className="block text-base font-semibold text-fg">{t.title}</span>
                     <span className="block truncate text-sm text-muted">{t.detail}</span>
                   </span>

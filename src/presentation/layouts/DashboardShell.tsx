@@ -223,9 +223,11 @@ export function DashboardShell() {
             {drawer && (
               <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
                 <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />
-                <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 animate-slide-up overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
-                  <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 rounded-full bg-line-strong" />
-                  <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
+                <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 flex animate-slide-up flex-col overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
+                  <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 shrink-0 rounded-full bg-line-strong" />
+                  <div className="min-h-0 flex-1">
+                    <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
+                  </div>
                 </div>
               </div>
             )}

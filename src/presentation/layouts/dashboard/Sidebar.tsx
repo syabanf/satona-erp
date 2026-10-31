@@ -144,7 +144,8 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
   const mainLink = 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors hover:bg-raised'
 
   return (
-    <div className="flex h-full flex-col">
+    // Open, the whole panel scrolls so the menu stays reachable on short screens; collapsed, only the icon list scrolls.
+    <div className={cn('flex h-full flex-col', !collapsed && 'no-scrollbar overflow-y-auto overscroll-contain')}>
       <div className={cn('flex h-16 shrink-0 items-center gap-2.5', collapsed ? 'justify-center' : 'px-5')}>
         <Link to={home} onClick={onNavigate} aria-label="Satona ERP, beranda" className="flex items-center gap-2.5">
           <BrandMark className="size-7 text-fg" />
@@ -170,7 +171,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
         )}
       </div>
 
-      <nav aria-label="Main" className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <nav aria-label="Main" className={cn('mt-4 flex-1 px-3 pb-4', collapsed && 'no-scrollbar min-h-0 overflow-y-auto')}>
         {collapsed ? (
           <div className="space-y-1">
             <Link to={home} title="Beranda" aria-label="Beranda" aria-current={pathname === home ? 'page' : undefined} className={cn('grid h-10 place-items-center rounded-xl', pathname === home ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-raised')}><House aria-hidden className="size-[18px]" /></Link>

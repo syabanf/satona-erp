@@ -49,7 +49,7 @@ const present = (xs: Array<MenuNode | null>) => xs.filter((x): x is MenuNode => 
 function typeItems(t: RecordType, access: Access): MenuNode[] {
   const base = `${t.key}`
   const items: MenuNode[] = []
-  if (canCreate(t, access)) items.push({ id: `${base}:create`, label: `Buat ${recordLabel(t.key, t.singular.toLowerCase())}`, kind: 'create', tcode: `${t.prefix}01`, to: `${path(t)}/new` })
+  if (canCreate(t, access)) items.push({ id: `${base}:create`, label: `Buat ${recordLabel(t.key, t.singular.toLowerCase())}`, kind: 'create', tcode: `${t.prefix}01`, to: t.createPage ?? `${path(t)}/new` })
   items.push({ id: `${base}:list`, label: `Daftar ${recordLabel(t.key, t.name.toLowerCase())}`, kind: t.area, tcode: `${t.prefix}02`, to: path(t) })
   if (can(access, 'approve')) {
     const waiting = [...new Set(t.workflow.transitions.filter((m) => m.needs === 'approve').map((m) => m.from))]

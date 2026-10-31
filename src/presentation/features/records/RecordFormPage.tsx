@@ -10,7 +10,7 @@ import { Headline } from '../../ui/Headline'
 import { PageBar } from '../../ui/PageBar'
 import { CardSkeleton, EmptyState } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
-import { useRecordDrawer } from '../../records/drawer'
+import { createPageFor, useRecordDrawer } from '../../records/drawer'
 import { RecordForm } from '../../records/RecordForm'
 import { recordPath } from '../../records/text'
 import { NotFound } from '../NotFound'
@@ -35,6 +35,8 @@ export default function RecordFormPage() {
   useEffect(() => {
     if (!type || !creating) return
     const prefill = Object.fromEntries(type.fields.filter((f) => params.get(f.key)).map((f) => [f.key, params.get(f.key) ?? '']))
+    const page = createPageFor(type.key, prefill)
+    if (page) return void navigate(page, { replace: true })
     open({ mode: 'create', type: type.key, prefill })
     navigate(recordPath(type), { replace: true })
   }, [type, creating, params, open, navigate])

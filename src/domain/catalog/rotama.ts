@@ -2,6 +2,18 @@
 import type { RecordType } from '../records'
 import { ACTIVE, B3_CLASSES, calc, date, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
+export const QUOTE_SERVICES = ['Bulk liquid tanker', 'Dry bulk truck', 'Container trucking', 'B3 escort'] as const
+export const QUOTE_UNITS = ['trip', 't', 'day', 'lot'] as const
+/** Standard services a quotation line can start from, with list prices. */
+export const QUOTE_PRODUCTS: ReadonlyArray<{ item: string; unit: (typeof QUOTE_UNITS)[number]; price: number }> = [
+  { item: 'Bulk liquid tanker 24 kL', unit: 'trip', price: 18_500_000 },
+  { item: 'Dry bulk truck 30 t', unit: 'trip', price: 9_200_000 },
+  { item: 'Container trucking 20 ft', unit: 'trip', price: 7_800_000 },
+  { item: 'B3 escort and transport permit', unit: 'lot', price: 2_400_000 },
+  { item: 'Demurrage at customer site', unit: 'day', price: 1_500_000 },
+  { item: 'Loading supervision', unit: 'lot', price: 850_000 },
+]
+
 export const ROTAMA: readonly RecordType[] = [
   master('tms', 'vehicles', ['Vehicles', 'Vehicle', 'VEH'], 'plate', [
     text('plate', 'Plate', { required: true, list: true }),
@@ -151,6 +163,71 @@ export const ROTAMA: readonly RecordType[] = [
       ['issued', 'paid', 'Record payment', 'approve'],
     ],
   ), { sumField: 'amount', groupBy: 'billTo', dateField: 'issued' }),
+  type('fbl', 'inquiries', ['Customer inquiries', 'Inquiry', 'INQ'], 'commodity', [
+    ref('customer', 'Customer', 'mdm.partners', { required: true, list: true }),
+    pick('service', 'Service', QUOTE_SERVICES, { required: true, list: true }),
+    ref('lane', 'Lane', 'tms.lanes', { required: true, list: true }),
+    text('commodity', 'Commodity', { required: true, list: true }),
+    num('trips', 'Trips', 'trip', { required: true, min: 1 }),
+    date('needed', 'Needed by', { required: true, list: true }),
+    text('pic', 'PIC'),
+    text('phone', 'Phone'),
+    text('email', 'Email'),
+    note('notes', 'Notes'),
+  ], flow(
+    [
+      ['new', 'New', 'info'],
+      ['quoted', 'Quoted', 'warning'],
+      ['closed', 'Closed', 'neutral'],
+    ],
+    [
+      ['new', 'quoted', 'Mark quoted'],
+      ['new', 'closed', 'Close'],
+      ['quoted', 'closed', 'Close'],
+    ],
+  ), { groupBy: 'service', dateField: 'needed' }),
+  {
+    ...type('fbl', 'quotations', ['Customer quotations', 'Quotation', 'QTN'], 'title', [
+      text('title', 'Service', { required: true, list: true }),
+      ref('customer', 'Customer', 'mdm.partners', { required: true, list: true }),
+      ref('branch', 'Branch', 'tms.locations', { required: true }),
+      ref('inquiry', 'Inquiry', 'fbl.inquiries'),
+      text('pic', 'PIC', { required: true }),
+      text('phone', 'Phone', { required: true }),
+      text('email', 'Email', { required: true }),
+      date('loadDate', 'Loading date', { required: true, list: true }),
+      date('unloadDate', 'Unloading date'),
+      text('origin', 'Origin'),
+      text('destination', 'Destination'),
+      date('validTo', 'Valid until'),
+      money('subtotal', 'Subtotal', { required: true }),
+      money('discount', 'Discount'),
+      num('ppnRate', 'PPN', '%', { min: 0, max: 12 }),
+      calc('total', 'Total', (v) => Math.round((n(v, 'subtotal') - n(v, 'discount')) * (1 + n(v, 'ppnRate') / 100)), { unit: 'Rp', list: true }),
+      note('notes', 'Order notes'),
+    ], flow(
+      [
+        ['draft', 'Draft', 'neutral'],
+        ['sent', 'Sent', 'info'],
+        ['accepted', 'Accepted', 'success'],
+        ['rejected', 'Rejected', 'danger'],
+      ],
+      [
+        ['draft', 'sent', 'Send to customer', 'approve'],
+        ['sent', 'accepted', 'Mark accepted'],
+        ['sent', 'rejected', 'Mark rejected'],
+      ],
+    ), { sumField: 'total', groupBy: 'customer', dateField: 'loadDate' }),
+    createPage: '/quotations/new',
+  },
+  type('fbl', 'quotelines', ['Quotation lines', 'Quotation line', 'QLN'], 'item', [
+    ref('quotation', 'Quotation', 'fbl.quotations', { required: true, list: true, parent: true }),
+    text('item', 'Item', { required: true, list: true }),
+    num('qty', 'Quantity', undefined, { required: true, min: 1, list: true }),
+    pick('unit', 'Unit', QUOTE_UNITS, { required: true }),
+    money('price', 'Unit price', { required: true, list: true }),
+    calc('amount', 'Amount', (v) => n(v, 'qty') * n(v, 'price'), { unit: 'Rp', list: true }),
+  ], ACTIVE, { sumField: 'amount' }),
 ]
 
 export const ROTAMA_MASTERS: readonly RecordType[] = [

@@ -13,7 +13,8 @@ const RECORD_NAMES: Record<string, string> = {
   'tms.checkins': 'pemeriksaan kendaraan', 'tms.trips': 'perjalanan',
   'occ.alarms': 'alarm', 'hrs.leaves': 'pengajuan cuti', 'she.permits': 'izin kerja',
   'eam.workorders': 'pekerjaan perawatan', 'mes.workorders': 'pekerjaan produksi',
-  'dms.orders': 'pesanan pelanggan',
+  'dms.orders': 'pesanan pelanggan', 'fbl.quotations': 'penawaran', 'fbl.inquiries': 'inquiry pelanggan',
+  'fbl.quotelines': 'baris penawaran',
 }
 
 export const moduleLabel = (id: string, fallback?: string) => MODULE_NAMES[id] ?? fallback ?? id.toUpperCase()

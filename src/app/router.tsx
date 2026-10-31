@@ -36,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'she', lazy: page(() => import('@/presentation/features/she/SheCockpit')) },
       { path: 'hris', lazy: page(() => import('@/presentation/features/hris/HrCockpit')) },
       { path: 'finance', lazy: page(() => import('@/presentation/features/finance/FinanceCockpit')) },
+      { path: 'quotations/new', lazy: page(() => import('@/presentation/features/quotation/QuotationEditor')) },
       { path: 'approvals', lazy: page(() => import('@/presentation/features/approvals/ApprovalsPage')) },
       { path: 'users', lazy: page(() => import('@/presentation/features/users/UsersPage')) },
       { path: 'users/:id', lazy: page(() => import('@/presentation/features/users/RolePage')) },

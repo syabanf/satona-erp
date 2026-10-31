@@ -1,6 +1,7 @@
 /** Deterministic seed rows for every record type, relative to "today" so dates always look current. */
 import { RECORD_TYPES } from '@/domain/catalog'
 import { PROVINCES } from '@/domain/catalog/kit'
+import { QUOTE_PRODUCTS, QUOTE_SERVICES } from '@/domain/catalog/rotama'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
 import { MATERIAL_HAZARDS, SCOPE_SEEDS, groupAccountFor } from './seedsScope'
@@ -54,6 +55,17 @@ const FORMULAS: ReadonlyArray<[string, number, number, number]> = [
   ['ZA 21', 21, 0, 0],
   ['NPK 20-10-10', 20, 10, 10],
 ]
+
+const QUOTES = 24
+const seedId = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(4, '0')}`
+/** The lines of seeded quotation `q`; its subtotal is their sum, so the demo totals add up. */
+function quoteLines(q: number) {
+  return Array.from({ length: 1 + (q % 3) }, (_, k) => {
+    const { item, unit, price } = QUOTE_PRODUCTS[(q + k * 2) % QUOTE_PRODUCTS.length]!
+    return { quotation: seedId('QTN', q), item, unit, price, qty: unit === 'trip' ? 2 + ((q * 3 + k) % 9) : 1 + ((q + k) % 3) }
+  })
+}
+const QUOTE_LINES = Array.from({ length: QUOTES }, (_, q) => quoteLines(q)).flat()
 
 const SEEDS: Record<string, { count: number; make: Make }> = {
   ...SUPPORT_SEEDS,
@@ -697,6 +709,45 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     make: ({ i, pick, int, day, ref }) => ({ trip: ref('tms.trips'), billTo: pick(['PT Rodame Indonesia', 'PT Rodame Indonesia', 'PT Roasi Sinergi Industri', 'External customer']), distance: int(90, 780), ratePerKm: int(118, 175) * 100, margin: int(8, 18), issued: day(-160, 0), pod: i % 5 === 0 ? 'Pending' : 'Signed' }),
   },
 
+  'fbl.inquiries': {
+    count: 20,
+    make: ({ i, day }) => ({
+      customer: seedId('BP', 5 + (i % 6)),
+      service: QUOTE_SERVICES[i % 4],
+      lane: seedId('LN', i % LANES.length),
+      commodity: ['Caustic soda 48%', 'NPK 15-15-15', 'Sulphuric acid 98%', 'Urea prill', 'Phosphoric acid 52%'][i % 5] ?? '',
+      trips: 2 + (i % 7),
+      needed: day(-20, 30),
+      pic: ['Budi Santoso', 'Rina Wijaya', 'Agus Prasetyo', 'Dewi Lestari'][i % 4] ?? '',
+      phone: `0812${String(31_000_000 + i * 7919).slice(0, 8)}`,
+      email: `logistik${i + 1}@pelanggan.co.id`,
+    }),
+  },
+  'fbl.quotations': {
+    count: QUOTES,
+    make: ({ i, day }) => {
+      const lane = LANES[i % LANES.length] ?? ''
+      const [origin, destination] = lane.split(' → ')
+      return {
+        title: `${QUOTE_SERVICES[i % 4]}, ${lane}`,
+        customer: seedId('BP', 5 + (i % 6)),
+        branch: seedId('LOC', i % 4),
+        inquiry: i < 20 && i % 2 === 0 ? seedId('INQ', i) : '',
+        pic: ['Budi Santoso', 'Rina Wijaya', 'Agus Prasetyo', 'Dewi Lestari'][i % 4] ?? '',
+        phone: `0812${String(31_000_000 + i * 7919).slice(0, 8)}`,
+        email: `logistik${i + 1}@pelanggan.co.id`,
+        loadDate: day(-150, 30),
+        origin,
+        destination,
+        validTo: day(0, 45),
+        subtotal: quoteLines(i).reduce((sum, l) => sum + l.qty * l.price, 0),
+        discount: i % 4 === 0 ? 1_000_000 : 0,
+        ppnRate: 11,
+      }
+    },
+  },
+  'fbl.quotelines': { count: QUOTE_LINES.length, make: ({ i }) => QUOTE_LINES[i]! },
+
   'bpf.formulas': {
     count: FORMULAS.length,
     make: ({ i }) => {
@@ -1017,6 +1068,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
 const PINNED: Record<string, (values: Values) => string | undefined> = {
   // Administration rows stay in force, except the delegation that already ended.
   'sys.matrix': () => 'active',
+  'fbl.quotelines': () => 'active',
   // A task that breaks hazard segregation cannot be confirmed, so it waits in progress.
   'wms.tasks': (v) => (v.segregation === 'Compatible' ? undefined : 'progress'),
   'tms.telemetry': (v) => (v.alarm === 'Alarm' ? 'logged' : undefined),

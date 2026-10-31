@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ArrowUpRight, X } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { cn } from '@/lib/cn'
@@ -8,7 +8,7 @@ import { useAllRecords } from '../hooks/useRecords'
 import { useServices } from '../hooks/useServices'
 import { useSession } from '../hooks/useSession'
 import { Button } from '../ui/Button'
-import { RecordDrawerContext, type DrawerRequest } from './drawer'
+import { RecordDrawerContext, createPageFor, type DrawerRequest } from './drawer'
 import { RecordControls } from './RecordControls'
 import { RecordForm } from './RecordForm'
 import { StateBadge } from './StateBadge'
@@ -132,9 +132,18 @@ function Panel({ request, onClose, onSwitch }: { request: DrawerRequest; onClose
 /** Hosts one record drawer for the whole console, so any page can create, view, edit, step and delete records in place. */
 export function RecordDrawerProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<DrawerRequest | null>(null)
+  const navigate = useNavigate()
   const close = useCallback(() => setRequest(null), [])
+  const open = useCallback(
+    (r: DrawerRequest) => {
+      const page = r.mode === 'create' && createPageFor(r.type, r.prefill)
+      if (page) navigate(page)
+      else setRequest(r)
+    },
+    [navigate],
+  )
   return (
-    <RecordDrawerContext.Provider value={setRequest}>
+    <RecordDrawerContext.Provider value={open}>
       {children}
       {request && <Panel key={`${request.mode}-${request.type}-${'id' in request ? request.id : ''}`} request={request} onClose={close} onSwitch={setRequest} />}
     </RecordDrawerContext.Provider>

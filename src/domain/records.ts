@@ -47,6 +47,8 @@ export interface RecordType {
   insight: { sumField?: string; groupBy?: string; dateField?: string }
   /** Portal users (drivers, operators) may create these, such as their own check-ins or fault reports. */
   portalCreate?: boolean
+  /** A full page that replaces the create modal, such as the quotation document editor. */
+  createPage?: string
 }
 
 export interface HistoryEntry {

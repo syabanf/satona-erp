@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { byDay, dateFieldOf, monthGrid, shiftMonth } from '@/domain/calendar'
-import { stateOf, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { byDay, dateFieldOf, dayOf, monthGrid, shiftMonth } from '@/domain/calendar'
+import { canCreate, stateOf, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
 import { cn } from '@/lib/cn'
+import { useAccess } from '../hooks/useRecords'
 import { useServices } from '../hooks/useServices'
 import { Button } from '../ui/Button'
 import { useRecordDrawer } from './drawer'
@@ -20,15 +21,19 @@ const CHIP: Record<StateTone, string> = {
 }
 const SHOWN = 3
 
-/** A month of records on their date field. Chips open the drawer; "+n" opens the list for that day. Phones get day counts. */
+/**
+ * A month of records on their date field, or on the day they were created when the type has no date.
+ * Chips open the drawer; "+n" opens the list for that day; the + on a day creates a record dated that day. Phones get day counts.
+ */
 export function RecordCalendar({ type, rows, all }: { type: RecordType; rows: readonly ErpRecord[]; all: AllRecords }) {
   const { clock } = useServices()
   const open = useRecordDrawer()
   const today = clock.today()
+  const accessFor = useAccess()
   const field = dateFieldOf(type)
-  const days = useMemo(() => (field ? byDay(rows, field) : new Map<string, ErpRecord[]>()), [rows, field])
+  const days = useMemo(() => byDay(rows, dayOf(type)), [rows, type])
   const [month, setMonth] = useState(today.slice(0, 7))
-  if (!field) return null
+  const creatable = Boolean(field) && canCreate(type, accessFor(type.module))
   const inMonth = [...days.entries()].filter(([d]) => d.startsWith(month)).reduce((n, [, rs]) => n + rs.length, 0)
   const label = new Date(`${month}-01T00:00:00Z`).toLocaleString('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
@@ -45,7 +50,7 @@ export function RecordCalendar({ type, rows, all }: { type: RecordType; rows: re
           {label}
         </h3>
         <span className="text-xs text-muted tabular">
-          {inMonth} {type.name.toLowerCase()} · {field.label.toLowerCase()}
+          {inMonth} {type.name.toLowerCase()} · {field ? field.label.toLowerCase() : 'tanggal dibuat'}
         </span>
         {month !== today.slice(0, 7) && (
           <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setMonth(today.slice(0, 7))}>
@@ -53,7 +58,7 @@ export function RecordCalendar({ type, rows, all }: { type: RecordType; rows: re
           </Button>
         )}
       </div>
-      <div role="grid" aria-label={`${type.name} by ${field.label.toLowerCase()}, ${label}`} className="overflow-hidden rounded-panel border border-line">
+      <div role="grid" aria-label={`${type.name} by ${field ? field.label.toLowerCase() : 'created date'}, ${label}`} className="overflow-hidden rounded-panel border border-line">
         <div role="row" className="grid grid-cols-7 border-b border-line bg-raised text-center text-[11px] font-medium text-muted">
           {WEEKDAYS.map((d) => (
             <span key={d} role="columnheader" className="py-1.5">
@@ -69,7 +74,19 @@ export function RecordCalendar({ type, rows, all }: { type: RecordType; rows: re
                 <div key={day ?? `e${w}-${i}`} role="gridcell" aria-label={day ? `${day}, ${items.length} records` : undefined} className={cn('min-h-16 p-1 sm:min-h-28 sm:p-1.5', !day && 'bg-raised/60')}>
                   {day && (
                     <>
-                      <span className={cn('grid size-6 place-items-center rounded-full text-[11px] tabular', day === today ? 'bg-accent font-semibold text-white' : 'text-muted')}>{Number(day.slice(8))}</span>
+                      <span className="flex items-center justify-between">
+                        <span className={cn('grid size-6 place-items-center rounded-full text-[11px] tabular', day === today ? 'bg-accent font-semibold text-white' : 'text-muted')}>{Number(day.slice(8))}</span>
+                        {creatable && field && (
+                          <button
+                            type="button"
+                            aria-label={`New ${type.singular.toLowerCase()} on ${day}`}
+                            onClick={() => open({ mode: 'create', type: type.key, prefill: { [field.key]: day } })}
+                            className="hidden size-6 cursor-pointer place-items-center rounded-full text-subtle hover:bg-accent-soft hover:text-accent-text sm:grid"
+                          >
+                            <Plus aria-hidden className="size-3.5" />
+                          </button>
+                        )}
+                      </span>
                       {items.length > 0 && (
                         <Link to={`${recordPath(type)}${dayQuery(day)}`} className="mt-1 block rounded-md bg-invert px-1 text-center text-[10px] font-semibold text-on-invert tabular sm:hidden">
                           {items.length}

@@ -1,10 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Eye, Search, SlidersHorizontal, X } from 'lucide-react'
-import { dateFieldOf } from '@/domain/calendar'
-import { typeOf } from '@/domain/catalog'
+import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal, X } from 'lucide-react'
 import { applyWhere, parseWhere, serializeWhere } from '@/domain/filters'
-import { mappable } from '@/domain/geo'
 import { filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { toCsv } from '@/lib/csv'
@@ -15,9 +12,11 @@ import { FilterChips } from '../ui/FilterChips'
 import { Skeleton, EmptyState } from '../ui/States'
 import { Tabs } from '../ui/Tabs'
 import { BulkBar } from './BulkBar'
+import { Record3D } from './Record3D'
+import { RecordBoard } from './RecordBoard'
 import { RecordCalendar } from './RecordCalendar'
+import { RecordControls } from './RecordControls'
 import { FieldFilters, FilterTags } from './FieldFilters'
-import { useRecordDrawer } from './drawer'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
 
@@ -25,23 +24,23 @@ const PAGE = 20
 // Leaflet stays out of the list chunk until someone opens the map view.
 const RecordMap = lazy(() => import('./RecordMap').then((m) => ({ default: m.RecordMap })))
 const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to', 'view'] as const
-type View = 'table' | 'calendar' | 'map'
+type View = 'table' | 'board' | 'calendar' | 'map' | '3d'
+const VIEWS: ReadonlyArray<{ value: View; label: string }> = [
+  { value: 'table', label: 'Tabel' },
+  { value: 'board', label: 'Papan' },
+  { value: 'calendar', label: 'Kalender' },
+  { value: 'map', label: 'Peta' },
+  { value: '3d', label: '3D' },
+]
 
 /** Every record list: status chips with counts, a filter on every field, search, sort and pages, all in the URL. */
 export function RecordTable({ type, rows, all }: { type: RecordType; rows: readonly ErpRecord[]; all?: AllRecords }) {
   const navigate = useNavigate()
-  const open = useRecordDrawer()
   const [query, setQuery] = useQueryState(KEYS)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [panel, setPanel] = useState(false)
   const where = useMemo(() => parseWhere(query.w), [query.w])
-  const views = useMemo(() => {
-    const out: Array<{ value: View; label: string }> = [{ value: 'table', label: 'Tabel' }]
-    if (dateFieldOf(type)) out.push({ value: 'calendar', label: 'Kalender' })
-    if (all && mappable(type, all, typeOf)) out.push({ value: 'map', label: 'Peta' })
-    return out
-  }, [type, all])
-  const view: View = views.some((v) => v.value === query.view) ? (query.view as View) : 'table'
+  const view: View = VIEWS.some((v) => v.value === query.view) ? (query.view as View) : 'table'
   const setWhere = (key: string, value: string | undefined) => setQuery({ w: serializeWhere({ ...where, [key]: value ?? '' }), page: undefined })
   const columns = type.fields.filter((f) => f.list).slice(0, 5)
   const picker = type.fields.find((f) => f.key === type.insight.groupBy && (f.type === 'select' || f.type === 'entity')) ?? type.fields.find((f) => f.type === 'select' || f.type === 'entity')
@@ -171,10 +170,19 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
         </div>
       )}
 
-      {views.length > 1 && (
-        <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-          <Tabs label="Tampilan" options={views} value={view} onChange={(v) => setQuery({ view: v === 'table' ? undefined : v })} />
-          {view !== 'table' && <span className="text-xs text-muted tabular">{shown.length} data sesuai filter</span>}
+      <div className="no-scrollbar flex items-center gap-3 overflow-x-auto border-b border-line px-4 py-3">
+        <Tabs label="Tampilan" options={VIEWS} value={view} onChange={(v) => setQuery({ view: v === 'table' ? undefined : v })} />
+        {view !== 'table' && <span className="shrink-0 text-xs text-muted tabular">{shown.length} data sesuai filter</span>}
+      </div>
+
+      {view === 'board' && (
+        <div className="p-4">
+          <RecordBoard type={type} rows={shown} all={all ?? {}} />
+        </div>
+      )}
+      {view === '3d' && (
+        <div className="p-4">
+          <Record3D type={type} rows={shown} all={all ?? {}} />
         </div>
       )}
 
@@ -238,17 +246,7 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
                       <StateBadge type={type} status={r.status} />
                     </td>
                     <td className="py-3 pr-5 pl-2 text-right">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`Quick view ${r.id}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          open({ mode: 'view', type: type.key, id: r.id })
-                        }}
-                      >
-                        <Eye aria-hidden className="size-4" />
-                      </Button>
+                      <RecordControls type={type} record={r} view steps={false} className="justify-end" />
                     </td>
                   </tr>
                 ))}

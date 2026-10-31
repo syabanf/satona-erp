@@ -228,14 +228,12 @@ export default function RecordPage() {
               })}
             </dl>
           </Card>
-          {place && (
-            <Card>
-              <CardHeader title="Lokasi" action={<span className="text-xs text-muted">{place.place}</span>} />
-              <Suspense fallback={<Skeleton className="h-72 rounded-panel" />}>
-                <RecordMap type={type} rows={[record]} all={all.data} className="h-72" />
-              </Suspense>
-            </Card>
-          )}
+          <Card>
+            <CardHeader title="Lokasi" action={<span className="text-xs text-muted">{place ? place.place : 'lokasi utama perusahaan'}</span>} />
+            <Suspense fallback={<Skeleton className="h-72 rounded-panel" />}>
+              <RecordMap type={type} rows={[record]} all={all.data} className="h-72" />
+            </Suspense>
+          </Card>
           <RecordChildren type={type} record={record} all={all.data} />
         </div>
 

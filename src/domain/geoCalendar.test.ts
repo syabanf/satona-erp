@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { seedRecords } from '@/infrastructure/mock/data/seeds'
-import { byDay, dateFieldOf, monthGrid, shiftMonth } from './calendar'
+import { byDay, dateFieldOf, dayOf, monthGrid, shiftMonth } from './calendar'
 import { typeOf } from './catalog'
-import { cityIn, geoOf, mappable } from './geo'
+import { cityIn, geoOf, mappable, placeOf } from './geo'
 
 const all = seedRecords('2026-10-31')
 
@@ -19,6 +19,12 @@ describe('geo', () => {
     expect(geo?.line).toHaveLength(2)
     expect(geo?.place).toContain('→')
     expect(geoOf(typeOf('dms.kiosks')!, all['dms.kiosks']![0]!, all, typeOf)?.at).toBeDefined()
+  })
+
+  it('falls back to the company site so every record has a place', () => {
+    const setting = all['sys.settings']![0]!
+    expect(geoOf(typeOf('sys.settings')!, setting, all, typeOf)).toBeUndefined()
+    expect(placeOf(typeOf('sys.settings')!, setting, all, typeOf, 'holding')?.place).toBe('Satona HQ Jakarta')
   })
 
   it('knows which features have a map', () => {
@@ -39,7 +45,7 @@ describe('calendar', () => {
     const type = typeOf('tms.trips')!
     const field = dateFieldOf(type)!
     expect(field.key).toBe('departure')
-    const days = byDay(all['tms.trips']!, field)
+    const days = byDay(all['tms.trips']!, dayOf(type))
     expect([...days.values()].flat()).toHaveLength(all['tms.trips']!.length)
   })
 })

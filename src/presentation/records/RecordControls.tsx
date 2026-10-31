@@ -11,9 +11,9 @@ import { useRecordActions } from './useRecordActions'
 
 /**
  * Everything a role can do to one record, in place: its workflow moves (approval levels included), edit and delete.
- * `view` adds a button that opens the record in the drawer.
+ * `view` adds a button that opens the record in the drawer; `steps={false}` keeps only view, edit and delete for tight rows.
  */
-export function RecordControls({ type, record, view = false, className }: { type: RecordType; record: ErpRecord; view?: boolean; className?: string }) {
+export function RecordControls({ type, record, view = false, steps = true, className }: { type: RecordType; record: ErpRecord; view?: boolean; steps?: boolean; className?: string }) {
   const actions = useRecordActions()
   const open = useRecordDrawer()
   const [busy, setBusy] = useState<string | null>(null)
@@ -28,7 +28,7 @@ export function RecordControls({ type, record, view = false, className }: { type
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)} onClick={(e) => e.stopPropagation()}>
-      {moves.map((m) => (
+      {steps && moves.map((m) => (
         <Button key={m.to} size="sm" variant={m.needs === 'approve' && !isRejection(type, m.to) ? 'accent' : isRejection(type, m.to) ? 'soft' : 'solid'} loading={busy === m.to} onClick={() => act(m.to, () => actions.step(type, record, m.to))}>
           {m.label}
           {approval.step && m.needs === 'approve' && !isRejection(type, m.to) && ` · L${approval.step.level}/${approval.chain.length}`}

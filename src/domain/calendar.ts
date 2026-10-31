@@ -20,12 +20,18 @@ export const shiftMonth = (month: string, by: number) => {
   return new Date(Date.UTC(y, m - 1 + by, 1)).toISOString().slice(0, 7)
 }
 
+/** The day a record lands on in a calendar: its date field, or the day it was created when the type has none. */
+export const dayOf = (type: RecordType) => {
+  const field = dateFieldOf(type)
+  return (r: ErpRecord) => (field ? String(r.values[field.key] ?? '') : r.createdAt).slice(0, 10)
+}
+
 /** Records grouped by their day, in id order. */
-export function byDay(rows: readonly ErpRecord[], field: Field): Map<string, ErpRecord[]> {
+export function byDay(rows: readonly ErpRecord[], day: (r: ErpRecord) => string): Map<string, ErpRecord[]> {
   const out = new Map<string, ErpRecord[]>()
   for (const r of rows) {
-    const day = String(r.values[field.key] ?? '').slice(0, 10)
-    if (day) out.set(day, [...(out.get(day) ?? []), r])
+    const d = day(r)
+    if (d) out.set(d, [...(out.get(d) ?? []), r])
   }
   return out
 }

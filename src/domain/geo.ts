@@ -91,5 +91,25 @@ export function geoOf(type: RecordType, record: ErpRecord, all: All, typeOf: Typ
   return undefined
 }
 
+/** Each company's main site, where records without a place of their own go on the map. */
+const HOME: Record<string, { city: string; site: string }> = {
+  holding: { city: 'jakarta', site: 'Satona HQ Jakarta' },
+  rotama: { city: 'cikampek', site: 'Rotama Fleet Pool Cikampek' },
+  rodame: { city: 'gresik', site: 'Rodame NPK Plant Gresik' },
+  roasi: { city: 'cilegon', site: 'Roasi Acid Plant Cilegon' },
+}
+
+/**
+ * The record's own place, or else the main site of its company: the record's first entity field, then
+ * `homeEntity` (the entity that owns the module). Every record gets a place this way.
+ */
+export function placeOf(type: RecordType, record: ErpRecord, all: All, typeOf: TypeOf, homeEntity?: string): Geo | undefined {
+  const geo = geoOf(type, record, all, typeOf)
+  if (geo) return geo
+  const entity = type.fields.find((f) => f.type === 'entity' && record.values[f.key])
+  const home = HOME[String(entity ? record.values[entity.key] : homeEntity)]
+  return home && { at: CITIES[home.city]!, place: home.site }
+}
+
 /** Whether a record type can show on the map: its first record resolves to a place. */
 export const mappable = (type: RecordType, all: All, typeOf: TypeOf) => (all[type.key] ?? []).slice(0, 5).some((r) => geoOf(type, r, all, typeOf))

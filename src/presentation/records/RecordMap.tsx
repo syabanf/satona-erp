@@ -2,33 +2,36 @@ import { useMemo, useState } from 'react'
 import { CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import { MapPin } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { geoOf, type Geo } from '@/domain/geo'
+import { placeOf, type Geo } from '@/domain/geo'
 import type { ErpRecord, RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
+import { useResource } from '../hooks/useResource'
+import { useServices } from '../hooks/useServices'
 import { BaseMap } from '../maps/BaseMap'
-import { useRecordDrawer } from './drawer'
-import { StateBadge } from './StateBadge'
-import { recordTitle, type AllRecords } from './text'
+import { RecordRows } from './RecordRows'
+import type { AllRecords } from './text'
 
 const JAVA: [number, number] = [-6.6, 109.2]
 
 /**
  * Records on the map, one mark per place (sized by how many records share it) and one line per route.
- * Picking a mark lists its records below the map; each opens in the drawer.
+ * Records without a place of their own sit at their company's main site. Picking a mark lists its records with view, edit and delete.
  */
 export function RecordMap({ type, rows, all, className = 'h-[420px]' }: { type: RecordType; rows: readonly ErpRecord[]; all: AllRecords; className?: string }) {
-  const open = useRecordDrawer()
+  const { erp } = useServices()
+  const modules = useResource('erp.modules', () => erp.modules())
+  const home = modules.data?.find((m) => m.id === type.module)?.entity
   const places = useMemo(() => {
     const out = new Map<string, { geo: Geo; records: ErpRecord[] }>()
     for (const r of rows) {
-      const geo = geoOf(type, r, all, typeOf)
+      const geo = placeOf(type, r, all, typeOf, home)
       if (!geo) continue
       const hit = out.get(geo.place) ?? { geo, records: [] }
       hit.records.push(r)
       out.set(geo.place, hit)
     }
     return [...out.values()].sort((a, b) => b.records.length - a.records.length)
-  }, [type, rows, all])
+  }, [type, rows, all, home])
   const [picked, setPicked] = useState<string | null>(places.length === 1 ? (places[0]?.geo.place ?? null) : null)
   const chosen = places.find((p) => p.geo.place === picked)
   const most = Math.max(1, ...places.map((p) => p.records.length))
@@ -80,20 +83,7 @@ export function RecordMap({ type, rows, all, className = 'h-[420px]' }: { type: 
         {located < rows.length && <span className="self-center text-xs text-muted">{rows.length - located} without a place</span>}
       </div>
 
-      {chosen && (
-        <ul className="divide-y divide-line rounded-panel border border-line">
-          {chosen.records.slice(0, 12).map((r) => (
-            <li key={r.id}>
-              <button type="button" onClick={() => open({ mode: 'view', type: type.key, id: r.id })} className="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-raised">
-                <span className="font-mono text-xs text-muted">{r.id}</span>
-                <span className="min-w-0 flex-1 truncate font-medium">{recordTitle(type, r, all)}</span>
-                <StateBadge type={type} status={r.status} />
-              </button>
-            </li>
-          ))}
-          {chosen.records.length > 12 && <li className="px-3 py-2 text-xs text-muted">and {chosen.records.length - 12} more in the list</li>}
-        </ul>
-      )}
+      {chosen && <RecordRows type={type} rows={chosen.records} all={all} />}
     </div>
   )
 }

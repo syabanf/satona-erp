@@ -1,11 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router'
 import { ArrowUpRight, Boxes, CheckCheck, Database, FileText, Plus, Settings2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
 import type { Entity, ErpModule } from '@/domain/erp'
-import { dateFieldOf } from '@/domain/calendar'
 import { approvalStates, featureStats, relatedTypes, type FeatureStats } from '@/domain/featureStats'
-import { mappable } from '@/domain/geo'
 import { chainTo, folderPath, walk, type MenuNode } from '@/domain/menu'
 import { moduleLabel, recordLabel } from '@/domain/uiLabels'
 import { canCreate, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
@@ -14,13 +12,17 @@ import { count } from '@/lib/format'
 import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useRecordDrawer } from '../../records/drawer'
+import { Record3D } from '../../records/Record3D'
+import { RecordBoard } from '../../records/RecordBoard'
 import { RecordCalendar } from '../../records/RecordCalendar'
+import { RecordControls } from '../../records/RecordControls'
 import { StateBadge } from '../../records/StateBadge'
 import { fieldText, recordPath, recordTitle, type AllRecords } from '../../records/text'
 import { Tag } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { buttonStyles } from '../../ui/buttonStyles'
 import { Card, CardHeader } from '../../ui/Card'
+import { Tabs } from '../../ui/Tabs'
 import { Skeleton } from '../../ui/States'
 import { KpiTile } from '../mes/KpiTile'
 
@@ -296,6 +298,38 @@ function RelatedList({ title, note, types, tree, all }: { title: string; note: s
   )
 }
 
+const FEATURE_VIEWS = [
+  { value: 'board', label: 'Papan' },
+  { value: 'calendar', label: 'Kalender' },
+  { value: 'map', label: 'Peta' },
+  { value: '3d', label: '3D' },
+] as const
+
+/** Every view of a feature's records on its page, each with create, edit, delete and workflow moves in place. */
+function FeatureViews({ type, all }: { type: RecordType; all: AllRecords }) {
+  const [view, setView] = useState<(typeof FEATURE_VIEWS)[number]['value']>('board')
+  const rows = all[type.key] ?? []
+  return (
+    <Card>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">Tampilan</h2>
+        <Tabs label="Tampilan fitur" options={FEATURE_VIEWS} value={view} onChange={setView} />
+        <Link to={`${recordPath(type)}${view === 'board' ? '?view=board' : `?view=${view}`}`} className="ml-auto text-xs font-medium text-accent-text hover:underline">
+          Buka dengan filter
+        </Link>
+      </div>
+      {view === 'board' && <RecordBoard type={type} rows={rows} all={all} />}
+      {view === 'calendar' && <RecordCalendar type={type} rows={rows} all={all} />}
+      {view === 'map' && (
+        <Suspense fallback={<Skeleton className="h-[420px] rounded-panel" />}>
+          <RecordMap type={type} rows={rows} all={all} />
+        </Suspense>
+      )}
+      {view === '3d' && <Record3D type={type} rows={rows} all={all} />}
+    </Card>
+  )
+}
+
 /** One feature (record type): its numbers, the actions the menu offers for it, status split, latest records and the features around it. */
 export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type: RecordType; tree: readonly MenuNode[]; all: AllRecords }) {
   const stats = useStats()(type, all)
@@ -342,13 +376,14 @@ export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type:
           ) : (
             <ul className="divide-y divide-line">
               {stats.latest.map((r: ErpRecord) => (
-                <li key={r.id} data-motion="row">
-                  <button type="button" onClick={() => open({ mode: 'view', type: type.key, id: r.id })} className="flex w-full cursor-pointer items-center gap-3 py-2.5 text-left text-sm hover:bg-raised">
+                <li key={r.id} data-motion="row" className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <button type="button" onClick={() => open({ mode: 'view', type: type.key, id: r.id })} className="flex min-w-0 flex-1 basis-60 cursor-pointer items-center gap-3 text-left text-sm hover:underline">
                     <span className="font-mono text-xs text-muted">{r.id}</span>
                     <span className="min-w-0 flex-1 truncate font-medium">{recordTitle(type, r, all)}</span>
                     <span className="hidden text-xs text-muted sm:inline">{r.createdAt.slice(0, 10)}</span>
-                    <StateBadge type={type} status={r.status} />
                   </button>
+                  <StateBadge type={type} status={r.status} />
+                  <RecordControls type={type} record={r} steps={false} />
                 </li>
               ))}
             </ul>
@@ -375,20 +410,7 @@ export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type:
         </Card>
       </div>
 
-      {mappable(type, all, typeOf) && (
-        <Card>
-          <CardHeader title="Peta" action={<span className="text-xs text-muted">pilih titik atau rute untuk melihat datanya</span>} />
-          <Suspense fallback={<Skeleton className="h-[420px] rounded-panel" />}>
-            <RecordMap type={type} rows={all[type.key] ?? []} all={all} />
-          </Suspense>
-        </Card>
-      )}
-      {dateFieldOf(type) && (
-        <Card>
-          <CardHeader title="Kalender" action={<Link to={`${list}?view=calendar`} className="text-xs font-medium text-accent-text hover:underline">Buka dengan filter</Link>} />
-          <RecordCalendar type={type} rows={all[type.key] ?? []} all={all} />
-        </Card>
-      )}
+      <FeatureViews type={type} all={all} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <RelatedList title="Sub-fitur terkait" note="memakai data ini" types={related.usedBy} tree={tree} all={all} />

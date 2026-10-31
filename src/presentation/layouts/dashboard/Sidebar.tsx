@@ -148,7 +148,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
     <div className={cn('flex h-full flex-col', !collapsed && 'no-scrollbar overflow-y-auto overscroll-contain')}>
       <div className={cn('flex h-16 shrink-0 items-center gap-2.5', collapsed ? 'justify-center' : 'px-5')}>
         <Link to={home} onClick={onNavigate} aria-label="Satona ERP, beranda" className="flex items-center gap-2.5">
-          <BrandMark className="size-7 text-fg" />
+          <BrandMark className="size-8" />
           {!collapsed && (
             <span className="text-base font-bold tracking-tight">
               Satona ERP<span className="text-accent">.</span>

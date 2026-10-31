@@ -6,7 +6,7 @@ export type ButtonSize = 'sm' | 'md' | 'icon-sm' | 'icon' | 'icon-lg'
 const VARIANT: Record<ButtonVariant, string> = {
   /** Inverted pill: ink on light, white on dark. */
   solid: 'bg-invert text-on-invert hover:opacity-90',
-  /** WIT red, the one primary action per region. */
+  /** Satona red, the one primary action per region. */
   accent: 'bg-accent-strong text-white shadow-glow hover:opacity-90',
   /** Inside a card. */
   soft: 'border border-line-strong bg-raised text-fg hover:bg-control',

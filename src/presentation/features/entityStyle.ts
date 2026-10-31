@@ -6,7 +6,7 @@ import type { Pop } from '../ui/pop'
 
 /** Icon and pop surface per entity, shared by the overview, entity pages and the user matrix. */
 export const ENTITY_ICON: Record<EntityId, LucideIcon> = { holding: Building2, rotama: Truck, rodame: Sprout, roasi: FlaskConical }
-export const ENTITY_POP: Record<EntityId, Pop> = { holding: 'ink', rotama: 'blush', rodame: 'blue', roasi: 'red' }
+export const ENTITY_POP: Record<EntityId, Pop> = { holding: 'ink', rotama: 'blush', rodame: 'sun', roasi: 'red' }
 export const ENTITY_OPTIONS: ReadonlyArray<{ value: EntityId; label: string }> = [
   { value: 'holding', label: 'Holding' },
   { value: 'rotama', label: 'Rotama' },

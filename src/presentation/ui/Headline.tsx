@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
-/** Record title ending in the WIT red period. A trailing period in the text ("Edward S.") is dropped first. */
+/** Record title ending in the Satona red period. A trailing period in the text ("Edward S.") is dropped first. */
 export function Headline({ children, className }: { children: string; className?: string }) {
   return (
     <h2 className={cn('text-xl font-bold tracking-tight sm:text-2xl', className)}>

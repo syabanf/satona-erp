@@ -4,10 +4,10 @@
  * so components never branch on the theme.
  * `static` emits every variable, because charts read series colours through inline `var()`.
  *
- * WIT.id brand: red #ED1C24, ink #101112, canvas #F1F0F1 / #F5F4F6, soft blue #83B3EE,
+ * Satona colourway from the logo: red #E3201B, yellow #FFD200; WIT ink #101112, canvas #F1F0F1 / #F5F4F6, soft blue #83B3EE for info,
  * silver #C0C0C0, body #333333, DM Sans.
- * Contrast (WCAG) light: muted on canvas 4.90, white on accent-strong 5.83, accent-text on
- * accent-soft 5.11, ink on every light pop >= 8.68, white on pop-red 5.24.
+ * Contrast (WCAG) light: muted on canvas 4.90, white on accent-strong 6.18, accent-text on
+ * accent-soft 5.74, ink on every light pop >= 8.68 (on yellow 13.03), white on pop-red 5.44.
  * Contrast dark: muted on card 6.06, accent-text on card 5.97, body on card 11.06.
  */
 @theme static {
@@ -40,11 +40,14 @@
   --color-on-ink: #ffffff;
   --color-on-ink-muted: #b8b8b8;
 
-  /* The one accent: WIT red */
-  --color-accent: #ed1c24; /* marks, dots, the selected column */
-  --color-accent-strong: #c9141b; /* solid fill behind small white text */
-  --color-accent-text: #c9141b; /* red as text: links, tags */
-  --color-accent-soft: #fdeced;
+  /* The one accent: Satona red, from the logo disc */
+  --color-accent: #e3201b; /* marks, dots, the selected column */
+  --color-accent-strong: #c01a16; /* solid fill behind small white text */
+  --color-accent-text: #b81814; /* red as text: links, tags */
+  --color-accent-soft: #fdebea;
+  /* Satona yellow, from the logo ring: the second brand hue. Ink text only; white on it fails contrast. */
+  --color-sun: #ffd200;
+  --color-sun-soft: #fff6cc;
 
   /* WIT soft blue: callouts */
   --color-info: #83b3ee;
@@ -60,14 +63,14 @@
   --color-danger-soft: #fdeced;
 
   /* Pop surfaces: phone feature cards and bands. Red and ink carry white text, the rest ink. */
-  --color-pop-red: #d7141c;
-  --color-pop-blue: #83b3ee;
+  --color-pop-red: #d01c17;
+  --color-pop-sun: #ffd200;
   --color-pop-ink: #101112;
   --color-pop-blush: #fbd5d6;
   --color-pop-mist: #e6e5e7;
 
   /* Chart series in fixed order, validated on white (dataviz validator: CVD >= 21, all >= 3:1). */
-  --color-series-1: #ed1c24;
+  --color-series-1: #e3201b;
   --color-series-2: #2f6db5;
   --color-series-3: #c96d12;
   --color-series-4: #3a86d4;
@@ -81,7 +84,7 @@
 
   --shadow-card: 0 1px 2px rgb(16 17 18 / 0.03), 0 8px 24px -12px rgb(16 17 18 / 0.12);
   --shadow-float: 0 12px 40px -12px rgb(16 17 18 / 0.25);
-  --shadow-glow: 0 10px 24px -8px rgb(237 28 36 / 0.5);
+  --shadow-glow: 0 10px 24px -8px rgb(227 32 27 / 0.5);
   --shadow-pop: 0 18px 40px -20px rgb(16 17 18 / 0.45);
 
   --animate-rise: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -134,7 +137,8 @@
   --color-ink: #050506;
 
   --color-accent-text: #ff5a5f;
-  --color-accent-soft: rgb(237 28 36 / 0.16);
+  --color-accent-soft: rgb(227 32 27 / 0.16);
+  --color-sun-soft: rgb(255 210 0 / 0.14);
   --color-info-text: #83b3ee;
   --color-info-soft: rgb(131 179 238 / 0.14);
 

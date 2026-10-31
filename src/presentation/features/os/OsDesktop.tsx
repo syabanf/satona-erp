@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { BarChart3, Bell, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bell, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X } from 'lucide-react'
 import { moduleLabel } from '@/domain/uiLabels'
 import { cn } from '@/lib/cn'
 import { useAlerts } from '../../hooks/useAlerts'
@@ -12,26 +12,8 @@ import { BrandMark } from '../../ui/BrandMark'
 import { prefersReducedMotion } from '../../ui/animate'
 import { moduleIcon } from '../../ui/moduleIcons'
 import { ViewSwitch } from '../../layouts/ViewSwitch'
-
-interface App {
-  id: string
-  title: string
-  icon: LucideIcon
-  url: string
-}
-interface Win {
-  id: number
-  app: App
-  x: number
-  y: number
-  w: number
-  h: number
-  z: number
-  min: boolean
-  max: boolean
-  /** The animation playing now; closing and minimising finish when it ends. */
-  anim?: 'open' | 'close' | 'min'
-}
+import { PhoneOs } from './PhoneOs'
+import type { App, Win } from './types'
 
 const PINNED: readonly App[] = [
   { id: 'home', title: 'Beranda', icon: House, url: '/' },
@@ -44,6 +26,12 @@ const PINNED: readonly App[] = [
   { id: 'analytics', title: 'Analitik', icon: BarChart3, url: '/analytics' },
   { id: 'coverage', title: 'Cakupan', icon: ShieldCheck, url: '/coverage' },
 ]
+
+const phoneQuery = window.matchMedia('(max-width: 767px)')
+const onPhoneChange = (fn: () => void) => {
+  phoneQuery.addEventListener('change', fn)
+  return () => phoneQuery.removeEventListener('change', fn)
+}
 
 const clockText = (d: Date) => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 const dateText = (d: Date) => d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -122,7 +110,7 @@ function Window({ win, active, gliding, onFocus, onChange, onClose, onDragging }
 }
 
 /**
- * The ERP as a desktop: apps on the desktop and in a dock, each opening as a window that can be dragged,
+ * The ERP as a desktop (a phone OS below 768 px): apps on the desktop and in a dock, each opening as a window that can be dragged,
  * resized, stacked, minimised to the dock and maximised. A top bar keeps the clock, alerts and the way back.
  */
 export default function OsDesktop() {
@@ -143,6 +131,7 @@ export default function OsDesktop() {
     setBouncing(null)
     requestAnimationFrame(() => setBouncing(id))
   }
+  const phone = useSyncExternalStore(onPhoneChange, () => phoneQuery.matches)
   const desk = useRef<HTMLDivElement>(null)
   const nextId = useRef(1)
   const top = useRef(10)
@@ -153,7 +142,10 @@ export default function OsDesktop() {
   }, [])
 
   const apps = useMemo<App[]>(
-    () => [...PINNED, ...(modules.data ?? []).filter((m) => accessFor(m.id) !== 'none').map((m) => ({ id: `m-${m.id}`, title: moduleLabel(m.id, m.name), icon: moduleIcon(m.id), url: `/menu/${m.id}` }))],
+    () =>
+      [...PINNED, ...(modules.data ?? []).filter((m) => accessFor(m.id) !== 'none').map((m) => ({ id: `m-${m.id}`, title: moduleLabel(m.id, m.name), icon: moduleIcon(m.id), url: `/menu/${m.id}` }))]
+        // A module named like a pinned app (SDM) shows once.
+        .filter((a, i, all) => all.findIndex((b) => b.title === a.title) === i),
     [modules.data, accessFor],
   )
   const activeId = wins.filter((w) => !w.min).sort((a, b) => b.z - a.z)[0]?.id
@@ -174,9 +166,8 @@ export default function OsDesktop() {
     const area = desk.current?.getBoundingClientRect()
     const width = area?.width ?? 1200
     const height = area?.height ?? 700
-    const small = width < 768
     const n = wins.length % 6
-    setWins((ws) => [...ws, { id: nextId.current++, app, x: 140 + n * 36, y: 24 + n * 30, w: Math.min(1040, width - 180), h: Math.min(680, height - 60), z: ++top.current, min: false, max: small, anim: 'open' }])
+    setWins((ws) => [...ws, { id: nextId.current++, app, x: 140 + n * 36, y: 24 + n * 30, w: Math.min(1040, width - 180), h: Math.min(680, height - 60), z: ++top.current, min: false, max: false, anim: 'open' }])
     bounce(app.id)
   }
   const dockClick = (app: App) => {
@@ -184,16 +175,25 @@ export default function OsDesktop() {
     if (running && running.id === activeId && !running.min) return patch(running.id, { anim: 'min' })
     open(app)
   }
+  const signOutNow = () => {
+    signOut()
+    navigate('/login', { replace: true })
+  }
+  const remove = (id: number) => setWins((ws) => ws.filter((w) => w.id !== id))
+
+  if (phone)
+    return <PhoneOs apps={apps} wins={wins} now={now} roleName={role.name} waiting={approvals.length + alerts.length} approvals={approvals.length} onOpen={open} onPatch={patch} onRemove={remove} onSignOut={signOutNow} />
+
   const dockApps = [...PINNED, ...wins.map((w) => w.app).filter((a) => !PINNED.some((p) => p.id === a.id))]
   const shown = apps.filter((a) => a.title.toLowerCase().includes(query.trim().toLowerCase()))
   const title = wins.find((w) => w.id === activeId)?.app.title
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-card px-3 sm:gap-3 sm:px-4">
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-card px-4">
         <BrandMark className="size-6 shrink-0" />
         <span className="text-sm font-semibold whitespace-nowrap">Satona OS</span>
-        {title && <span className="hidden truncate text-sm text-muted sm:inline">· {title}</span>}
+        {title && <span className="truncate text-sm text-muted">· {title}</span>}
         <h1 className="sr-only">Satona OS</h1>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex h-10 items-center rounded-full border border-line bg-raised p-1">
@@ -202,8 +202,8 @@ export default function OsDesktop() {
               <span className="tabular">{approvals.length + alerts.length}</span>
               <span className="sr-only">hal menunggu</span>
             </button>
-            <span aria-hidden className="hidden h-5 w-px bg-line-strong sm:block" />
-            <span className="hidden h-8 items-center gap-1.5 px-3 text-sm sm:inline-flex">
+            <span aria-hidden className="h-5 w-px bg-line-strong" />
+            <span className="inline-flex h-8 items-center gap-1.5 px-3 text-sm">
               <span className="font-semibold tabular">{clockText(now)}</span>
               <span className="text-muted">{dateText(now)}</span>
             </span>
@@ -213,14 +213,10 @@ export default function OsDesktop() {
               <span className="max-w-52 truncate">{role.name}</span>
             </span>
           </div>
-          <ViewSwitch current="os" className="hidden sm:flex" />
-          <ViewSwitch current="os" compact className="flex-row rounded-full sm:hidden" />
+          <ViewSwitch current="os" />
           <button
             type="button"
-            onClick={() => {
-              signOut()
-              navigate('/login', { replace: true })
-            }}
+            onClick={signOutNow}
             aria-label="Keluar"
             title="Keluar"
             className="grid size-10 cursor-pointer place-items-center rounded-full border border-line-strong bg-card text-accent-text hover:bg-accent-soft"
@@ -231,7 +227,7 @@ export default function OsDesktop() {
       </header>
 
       <div ref={desk} className="relative min-h-0 flex-1 bg-[radial-gradient(var(--color-line-strong)_1px,transparent_1px)] [background-size:22px_22px]">
-        <ul aria-label="Aplikasi di desktop" className="absolute top-4 left-4 hidden grid-flow-col grid-rows-[repeat(5,auto)] gap-2 md:grid">
+        <ul aria-label="Aplikasi di desktop" className="absolute top-4 left-4 grid grid-flow-col grid-rows-[repeat(5,auto)] gap-2">
           {PINNED.map((a, i) => (
             <li key={a.id} className="os-icon-in" style={{ animationDelay: `${i * 45}ms` }}>
               <button type="button" onClick={() => open(a)} className="flex w-24 cursor-pointer flex-col items-center gap-1.5 rounded-2xl p-2 text-center hover:bg-card/80">
@@ -254,7 +250,7 @@ export default function OsDesktop() {
         )}
 
         {wins.map((w) => (
-          <Window key={w.id} win={w} active={w.id === activeId} gliding={!dragging} onFocus={() => w.id !== activeId && focus(w.id)} onChange={(p) => patch(w.id, p)} onClose={() => setWins((ws) => ws.filter((x) => x.id !== w.id))} onDragging={setDragging} />
+          <Window key={w.id} win={w} active={w.id === activeId} gliding={!dragging} onFocus={() => w.id !== activeId && focus(w.id)} onChange={(p) => patch(w.id, p)} onClose={() => remove(w.id)} onDragging={setDragging} />
         ))}
         {/* While a window moves, a shield keeps the frames from swallowing the pointer. */}
         {dragging && <div className="absolute inset-0 z-[9999] cursor-grabbing" />}

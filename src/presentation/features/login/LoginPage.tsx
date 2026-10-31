@@ -69,7 +69,7 @@ export default function LoginPage() {
     <div className="min-h-dvh bg-canvas lg:grid lg:grid-cols-[1.05fr_1fr]">
       <section className={cn('relative hidden overflow-hidden p-10 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col', POP.ink)}>
         <div className="flex items-center gap-3">
-          <BrandMark className="size-9 text-white" />
+          <BrandMark className="size-9" />
           <span className="text-xl font-bold tracking-tight">
             Satona ERP<span className="text-accent">.</span>
           </span>
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
       <section className="mx-auto flex w-full max-w-xl flex-col justify-center px-5 py-10 sm:px-8">
         <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <BrandMark className="size-8 text-fg" />
+          <BrandMark className="size-8" />
           <span className="text-lg font-bold tracking-tight">
             Satona ERP<span className="text-accent">.</span>
           </span>

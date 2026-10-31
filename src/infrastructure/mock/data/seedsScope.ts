@@ -79,19 +79,19 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
   'tms.geofences': {
     count: 10,
     make: ({ i, ref }) => {
-      const [name, kind, radius, speedLimit] = ([
-        ['Roasi Cilegon plant gate', 'Plant', 400, 20],
-        ['Rodame Gresik plant gate', 'Plant', 500, 20],
-        ['Cikampek depot', 'Plant', 300, 20],
-        ['PT Petrokimia Mitra unloading', 'Customer site', 250, 15],
-        ['PT Indo Detergent receiving', 'Customer site', 200, 15],
-        ['Rest area KM 57 Cikampek', 'Rest area', 350, 40],
-        ['Rest area KM 166 Cipali', 'Rest area', 350, 40],
-        ['Merak port, no-stop', 'No-stop zone', 800, 30],
-        ['Semarang city ring, school zone', 'Speed zone', 1500, 40],
-        ['Bakauheni ferry queue', 'No-stop zone', 600, 10],
+      const [name, kind, radius, speedLimit, lat, lng] = ([
+        ['Roasi Cilegon plant gate', 'Plant', 400, 20, -5.97, 106.01],
+        ['Rodame Gresik plant gate', 'Plant', 500, 20, -7.1554, 112.6337],
+        ['Cikampek depot', 'Plant', 300, 20, -6.419, 107.456],
+        ['PT Petrokimia Mitra unloading', 'Customer site', 250, 15, -7.16, 112.65],
+        ['PT Indo Detergent receiving', 'Customer site', 200, 15, -7.29, 112.73],
+        ['Rest area KM 57 Cikampek', 'Rest area', 350, 40, -6.37, 107.33],
+        ['Rest area KM 166 Cipali', 'Rest area', 350, 40, -6.56, 108.06],
+        ['Merak port, no-stop', 'No-stop zone', 800, 30, -5.93, 105.99],
+        ['Semarang city ring, school zone', 'Speed zone', 1500, 40, -6.99, 110.42],
+        ['Bakauheni ferry queue', 'No-stop zone', 600, 10, -5.87, 105.75],
       ] as const)[i]!
-      return { name, kind, radius, speedLimit, location: ref('tms.locations') }
+      return { name, kind, radius, speedLimit, lat, lng, location: ref('tms.locations') }
     },
   },
   'qc.methods': {

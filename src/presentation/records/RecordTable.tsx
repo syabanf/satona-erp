@@ -17,6 +17,7 @@ import { RecordBoard } from './RecordBoard'
 import { RecordCalendar } from './RecordCalendar'
 import { RecordControls } from './RecordControls'
 import { RecordGantt } from './RecordGantt'
+import { RecordFloorplan } from './Floorplan'
 import { RecordInsight } from './RecordInsight'
 import { FieldFilters, FilterTags } from './FieldFilters'
 import { StateBadge } from './StateBadge'
@@ -26,13 +27,14 @@ const PAGE = 20
 // Leaflet stays out of the list chunk until someone opens the map view.
 const RecordMap = lazy(() => import('./RecordMap').then((m) => ({ default: m.RecordMap })))
 const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to', 'view'] as const
-type View = 'table' | 'board' | 'calendar' | 'gantt' | 'map' | '3d' | 'chart'
+type View = 'table' | 'board' | 'calendar' | 'gantt' | 'map' | 'floorplan' | '3d' | 'chart'
 const VIEWS: ReadonlyArray<{ value: View; label: string }> = [
   { value: 'table', label: 'Tabel' },
   { value: 'board', label: 'Papan' },
   { value: 'calendar', label: 'Kalender' },
   { value: 'gantt', label: 'Gantt' },
   { value: 'map', label: 'Peta' },
+  { value: 'floorplan', label: 'Denah' },
   { value: '3d', label: '3D' },
   { value: 'chart', label: 'Grafik' },
 ]
@@ -187,6 +189,11 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
       {view === 'gantt' && (
         <div className="p-4">
           <RecordGantt type={type} rows={shown} all={all ?? {}} />
+        </div>
+      )}
+      {view === 'floorplan' && (
+        <div className="p-4">
+          <RecordFloorplan type={type} rows={shown} all={all ?? {}} />
         </div>
       )}
       {view === 'chart' && (

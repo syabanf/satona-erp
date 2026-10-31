@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, Hash, House, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, Hash, House, Monitor, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
 import { homeFor } from '@/domain/menu'
 import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
@@ -197,6 +197,14 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
       </nav>
 
       <div className="shrink-0 space-y-1 border-t border-line px-3 pt-3 pb-4">
+        <Link
+          to="/os"
+          title={collapsed ? 'Mode OS' : undefined}
+          className={cn('flex h-10 w-full items-center gap-3 rounded-xl text-sm font-medium text-body hover:bg-raised hover:text-fg', collapsed ? 'justify-center' : 'px-3')}
+        >
+          <Monitor aria-hidden className="size-[18px]" />
+          {collapsed ? <span className="sr-only">Mode OS</span> : 'Mode OS (desktop)'}
+        </Link>
         <button
           type="button"
           data-tour="help"

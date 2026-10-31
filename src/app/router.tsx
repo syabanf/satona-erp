@@ -8,6 +8,7 @@ const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({
 
 export const router = createBrowserRouter([
   { path: 'login', lazy: page(() => import('@/presentation/features/login/LoginPage')) },
+  { path: 'os', lazy: page(() => import('@/presentation/features/os/OsDesktop')) },
   {
     element: <DashboardShell />,
     children: [

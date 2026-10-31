@@ -42,6 +42,8 @@ export const SCOPE_MASTERS: readonly RecordType[] = [
     ref('location', 'Location', 'tms.locations'),
     num('radius', 'Radius', 'm', { required: true, min: 50 }),
     num('speedLimit', 'Speed limit', 'km/h', { list: true }),
+    num('lat', 'Latitude', '°', { min: -11, max: 6 }),
+    num('lng', 'Longitude', '°', { min: 95, max: 141 }),
   ], ACTIVE, { groupBy: 'kind' }),
   master('qc', 'methods', ['Test methods & instruments', 'Test method', 'TM'], 'parameter', [
     text('parameter', 'Parameter', { required: true, list: true }),

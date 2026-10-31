@@ -8,11 +8,13 @@ interface PopoverProps {
   align?: 'left' | 'right'
   /** Width class; `cn` does not resolve Tailwind conflicts, so it lives apart from `className`. */
   width?: string
+  /** Opens above the trigger, for menus that sit at the bottom of the screen. */
+  side?: 'bottom' | 'top'
   className?: string
 }
 
 /** Anchored panel that closes on outside click and Escape, handing focus back to its trigger. */
-export function Popover({ trigger, children, align = 'right', width = 'w-64', className }: PopoverProps) {
+export function Popover({ trigger, children, align = 'right', width = 'w-64', side = 'bottom', className }: PopoverProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -42,8 +44,9 @@ export function Popover({ trigger, children, align = 'right', width = 'w-64', cl
         <div
           id={id}
           className={cn(
-            'absolute top-full z-40 mt-2 max-w-[calc(100vw-2rem)] animate-rise rounded-panel border border-line-strong bg-card p-2 shadow-float',
+            'absolute z-40 max-w-[calc(100vw-2rem)] animate-rise rounded-panel border border-line-strong bg-card p-2 shadow-float',
             width,
+            side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
             align === 'right' ? 'right-0' : 'left-0',
             className,
           )}

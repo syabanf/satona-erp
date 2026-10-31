@@ -190,6 +190,8 @@ export function DashboardShell() {
   }
 
   if (!signedIn) return <Navigate to="/login" replace />
+  // Inside an OS-view window the page stands alone: the window frame replaces the sidebar and bottom nav.
+  const embedded = window.self !== window.top
 
   return (
     <RecordDrawerProvider>
@@ -202,10 +204,10 @@ export function DashboardShell() {
             >
               Skip to content
             </a>
-            <Sidebar collapsed={collapsed} onToggle={toggle} />
+            {!embedded && <Sidebar collapsed={collapsed} onToggle={toggle} />}
             <div className="flex min-w-0 flex-1 flex-col">
               <Header alerts={alerts} />
-              <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
+              <main id="main" ref={main} tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto px-4 outline-none md:px-6 lg:px-8', embedded ? 'pb-6' : 'pb-28 md:pb-8')}>
                 <Entrance key={pathname}>
                   {tree.length > 0 && pathname === homeFor(role) && !role.external && (
                     <>
@@ -217,7 +219,7 @@ export function DashboardShell() {
                 </Entrance>
               </main>
             </div>
-            <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />
+            {!embedded && <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />}
             {drawer && (
               <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
                 <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />

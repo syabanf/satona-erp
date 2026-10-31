@@ -19,6 +19,7 @@ import { PageBar } from '../../ui/PageBar'
 import { CardSkeleton, Skeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { RecordChildren } from '../../records/RecordChildren'
+import { Floorplan } from '../../records/Floorplan'
 import { StateBadge } from '../../records/StateBadge'
 import { useRecordActions } from '../../records/useRecordActions'
 import { fieldText, recordPath, recordTitle } from '../../records/text'
@@ -27,6 +28,9 @@ import { useModule } from '../modules/context'
 import { useRecordType } from './useRecordType'
 
 const RecordMap = lazy(() => import('../../records/RecordMap').then((m) => ({ default: m.RecordMap })))
+/** Records that are places: their detail page adds a floor plan of everything filed at them. */
+const SITES = new Set(['mdm.plants', 'mdm.companies', 'tms.locations', 'wms.warehouses', 'wms.zones', 'she.areas', 'occ.units', 'mrp.workcenters', 'cfp.units', 'tfm.tanks', 'tms.geofences'])
+const GeofenceEditor = lazy(() => import('../../records/GeofenceEditor').then((m) => ({ default: m.GeofenceEditor })))
 
 /** The key facts of a linked record, so a reader sees the driver's phone or the vehicle's capacity without leaving the page. */
 function LinkedFacts({ type, record, all }: { type: RecordType; record: ErpRecord; all: Parameters<typeof fieldText>[2] }) {
@@ -66,9 +70,19 @@ export default function RecordPage() {
   const children = new Set(childTypes(type.key, RECORD_TYPES).map((c) => c.type.key))
   const users = referencedBy(record.id, RECORD_TYPES, all.data).filter((u) => !children.has(u.type.key))
   const lineage = ancestors(type, record, RECORD_TYPES, all.data)
+  // Everything that points at this site, one room per record type.
+  const siteRooms: Array<{ id: string; label: string; items: Array<{ type: RecordType; record: ErpRecord }> }> = []
+  if (SITES.has(type.key))
+    for (const u of referencedBy(record.id, RECORD_TYPES, all.data)) {
+      const room = siteRooms.find((r) => r.id === u.type.key)
+      if (room) room.items.push(u)
+      else siteRooms.push({ id: u.type.key, label: u.type.name, items: [u] })
+    }
   const states = type.workflow.states
   const currentIndex = states.findIndex((s) => s.id === record.status)
   const place = geoOf(type, record, all.data, typeOf)
+  // A centre and a radius make a geofence, which gets the map editor instead of a plain location map.
+  const fenced = ['lat', 'lng', 'radius'].every((k) => type.fields.some((f) => f.key === k))
 
   async function move(to: string) {
     setBusy(to)
@@ -229,11 +243,17 @@ export default function RecordPage() {
             </dl>
           </Card>
           <Card>
-            <CardHeader title="Lokasi" action={<span className="text-xs text-muted">{place ? place.place : 'lokasi utama perusahaan'}</span>} />
+            <CardHeader title={fenced ? 'Atur geofence' : 'Lokasi'} action={<span className="text-xs text-muted">{place ? place.place : 'lokasi utama perusahaan'}</span>} />
             <Suspense fallback={<Skeleton className="h-72 rounded-panel" />}>
-              <RecordMap type={type} rows={[record]} all={all.data} className="h-72" />
+              {fenced ? <GeofenceEditor key={record.updatedAt} type={type} record={record} /> : <RecordMap type={type} rows={[record]} all={all.data} className="h-72" />}
             </Suspense>
           </Card>
+          {SITES.has(type.key) && (
+            <Card>
+              <CardHeader title="Denah lokasi" action={<span className="text-xs text-muted">satu ruang per jenis data di lokasi ini</span>} />
+              {siteRooms.length ? <Floorplan rooms={siteRooms} all={all.data} label={`Denah ${recordTitle(type, record, all.data)}`} /> : <p className="text-sm text-muted">Belum ada data yang tercatat di lokasi ini.</p>}
+            </Card>
+          )}
           <RecordChildren type={type} record={record} all={all.data} />
         </div>
 

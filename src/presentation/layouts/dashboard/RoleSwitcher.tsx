@@ -36,7 +36,7 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
     <Popover
       align="left"
       width="w-72"
-      className="top-auto bottom-full mt-0 mb-2"
+      side="top"
       trigger={(props) => (
         <button
           {...props}

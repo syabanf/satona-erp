@@ -73,6 +73,8 @@
 @keyframes scada-blink {
   50% { fill-opacity: 0.35; }
 }
+.mark-fence { fill: var(--color-info); fill-opacity: 0.18; stroke: var(--color-info-text); stroke-width: 2; stroke-dasharray: 6 5; }
+.mark-fence-on { fill: var(--color-accent); fill-opacity: 0.2; stroke: var(--color-accent); stroke-width: 3; }
 .mark-lane { stroke: var(--color-series-2); fill: none; opacity: 0.6; }
 .mark-place { fill: var(--color-accent); stroke: var(--color-card); stroke-width: 2; fill-opacity: 0.85; }
 .mark-place-on { fill: var(--color-fg); stroke: var(--color-accent); stroke-width: 3; }
@@ -149,4 +151,34 @@
   .mark-scada-offline {
     animation: none;
   }
+}
+
+/* Satona OS: windows open from the dock, shrink back to it, and fade when closed. */
+@keyframes os-open {
+  from { opacity: 0; transform: translateY(24px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes os-close {
+  to { opacity: 0; transform: scale(0.94); }
+}
+@keyframes os-min {
+  to { opacity: 0; transform: translateY(60vh) scale(0.15); }
+}
+@keyframes os-bounce {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-14px); }
+  55% { transform: translateY(0); }
+  75% { transform: translateY(-6px); }
+}
+@keyframes os-icon-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .os-open { animation: os-open 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; transform-origin: 50% 100%; }
+  .os-close { animation: os-close 160ms ease-in both; }
+  .os-min { animation: os-min 260ms cubic-bezier(0.5, 0, 0.9, 0.4) both; transform-origin: 50% 100%; }
+  .os-bounce { animation: os-bounce 700ms ease-out; }
+  .os-icon-in { animation: os-icon-in 360ms ease-out both; }
+  .os-glide { transition: left 220ms ease, top 220ms ease, width 220ms ease, height 220ms ease, border-radius 220ms ease; }
 }

@@ -89,7 +89,9 @@ export default function SheCockpit() {
     <div className="space-y-4">
       <NewButtons types={['she.permits', 'she.incidents', 'she.observations', 'she.inspections', 'she.capa', 'she.toolbox']} />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs label="View" options={VIEWS} value={view} onChange={(v) => setParams(v === 'overview' ? {} : { view: v }, { replace: true })} />
+        <div className="no-scrollbar max-w-full overflow-x-auto">
+          <Tabs label="View" options={VIEWS} value={view} onChange={(v) => setParams(v === 'overview' ? {} : { view: v }, { replace: true })} />
+        </div>
         <p className="text-xs text-muted tabular">{count(Math.round(k.manHours / 1e3))}k hours worked in 180 days</p>
       </div>
 
@@ -263,11 +265,11 @@ export default function SheCockpit() {
             <CardHeader title="B3 waste by code" icon={<FlaskConical aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">{k.wasteStored} manifests in TPS</span>} />
             <BarList items={Object.entries(k.waste).sort((a, b) => b[1] - a[1]).map(([key, value]) => ({ key, label: key, value, text: `${value.toFixed(1)} t`, to: list('she.waste', `?f=${encodeURIComponent(key)}`) }))} />
           </Card>
-          <Card className="xl:col-span-2">
+          <Card className="min-w-0 xl:col-span-2">
             <CardHeader title="Fire equipment due for service, 30 days" />
             <ul className="grid gap-2 sm:grid-cols-2">
               {k.fireDue.slice(0, 10).map((f) => (
-                <li key={f.id}>
+                <li key={f.id} className="min-w-0">
                   <Link to={recordPath(t('she.fireequipment'), f.id)} className="flex items-center gap-3 rounded-panel bg-raised p-3 text-sm hover:bg-control">
                     <span className="font-mono text-xs font-semibold">{String(f.values.tag)}</span>
                     <span className="min-w-0 flex-1 truncate">{String(f.values.kind)} · {refTitle('she.areas', String(f.values.area), d).split(' · ')[0]}</span>

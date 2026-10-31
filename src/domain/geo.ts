@@ -48,6 +48,8 @@ export function cityIn(text: unknown): { name: string; at: LatLng } | undefined 
 
 function own(type: RecordType, record: ErpRecord): Geo | undefined {
   const v = record.values
+  // Exact coordinates, such as a geofence centre, win over anything named.
+  if (typeof v.lat === 'number' && typeof v.lng === 'number') return { at: [v.lat, v.lng], place: String(v[type.titleField] ?? record.id) }
   for (const key of ['city', 'region', 'province']) {
     const raw = String(v[key] ?? '')
     const at = CITIES[raw.toLowerCase()] ?? PROVINCES[raw.toLowerCase()]

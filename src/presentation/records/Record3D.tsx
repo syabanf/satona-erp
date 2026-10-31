@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Box } from 'lucide-react'
 import { dayOf } from '@/domain/calendar'
-import { stateOf, type ErpRecord, type Field, type RecordType, type StateTone } from '@/domain/records'
+import { stateOf, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { monthLabel } from '@/lib/format'
 import { useServices } from '../hooks/useServices'
@@ -10,7 +10,8 @@ import { buttonStyles } from '../ui/buttonStyles'
 import { Skeleton } from '../ui/States'
 import { Tabs } from '../ui/Tabs'
 import { RecordRows } from './RecordRows'
-import { fieldText, type AllRecords } from './text'
+import type { AllRecords } from './text'
+import { zoneField, zonesOf } from './zones'
 
 const RecordBars3D = lazy(() => import('../three/RecordBars3D'))
 const SingleLine3D = lazy(() => import('../three/RecordLayouts3D').then((m) => ({ default: m.SingleLine3D })))
@@ -18,7 +19,6 @@ const Shopfloor3D = lazy(() => import('../three/RecordLayouts3D').then((m) => ({
 
 const TOKEN: Record<StateTone, string> = { neutral: '--color-subtle', info: '--color-info', warning: '--color-warning', success: '--color-success', danger: '--color-danger', accent: '--color-accent' }
 const MONTHS = 6
-const MAX_ZONES = 12
 const MODES = [
   { value: 'bars', label: 'Grafik batang' },
   { value: 'line', label: 'Single line' },
@@ -34,10 +34,6 @@ const SCENES: Record<string, { to: string; label: string }> = {
 
 /** Three.js needs real colours, so read the theme tokens once per render. */
 const color = (token: string) => getComputedStyle(document.documentElement).getPropertyValue(token).trim() || '#888888'
-
-/** The field that splits records into shopfloor zones: the type's chart grouping, else its first pick, company or reference field. */
-const zoneField = (type: RecordType): Field | undefined =>
-  type.fields.find((f) => f.key === type.insight.groupBy && ['select', 'entity', 'ref'].includes(f.type)) ?? type.fields.find((f) => ['select', 'entity', 'ref'].includes(f.type))
 
 /**
  * Records in 3D, three ways: bars of status by month, a single line with the workflow's states as stations in
@@ -65,20 +61,7 @@ export function Record3D({ type, rows, all }: { type: RecordType; rows: readonly
   // Stations in workflow order, and zones by the grouping field with the smallest folded into "Lainnya".
   const groups = useMemo(() => {
     if (mode === 'line') return type.workflow.states.map((s) => ({ id: s.id, label: s.label, color: color(TOKEN[s.tone]), rows: rows.filter((r) => r.status === s.id) }))
-    const field = zoneField(type)
-    const by = new Map<string, ErpRecord[]>()
-    for (const r of rows) {
-      const k = field ? String(r.values[field.key] ?? '') || '(kosong)' : 'Semua'
-      by.set(k, [...(by.get(k) ?? []), r])
-    }
-    const sorted = [...by].sort((a, b) => b[1].length - a[1].length)
-    const head = sorted.slice(0, MAX_ZONES - 1)
-    const rest = sorted.slice(MAX_ZONES - 1).flatMap(([, rs]) => rs)
-    const label = (k: string) => (field && k !== '(kosong)' ? fieldText(field, k, all) : k)
-    return [
-      ...head.map(([k, rs]) => ({ id: k, label: label(k), color: color('--color-line-strong'), rows: rs })),
-      ...(rest.length ? [{ id: '__rest', label: 'Lainnya', color: color('--color-line-strong'), rows: rest }] : []),
-    ]
+    return zonesOf(type, rows, all).map((z) => ({ ...z, color: color('--color-line-strong') }))
   }, [mode, type, rows, all])
 
   const cells = groups.map((g) => ({ id: g.id, color: g.color, items: g.rows.map(tone) }))

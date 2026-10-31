@@ -8,7 +8,7 @@ import { chainTo, folderPath, walk, type MenuNode } from '@/domain/menu'
 import { moduleLabel, recordLabel } from '@/domain/uiLabels'
 import { canCreate, type ErpRecord, type RecordType, type StateTone } from '@/domain/records'
 import { cn } from '@/lib/cn'
-import { count } from '@/lib/format'
+import { count, moneyCompact } from '@/lib/format'
 import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useRecordDrawer } from '../../records/drawer'
@@ -17,6 +17,7 @@ import { RecordBoard } from '../../records/RecordBoard'
 import { RecordCalendar } from '../../records/RecordCalendar'
 import { RecordControls } from '../../records/RecordControls'
 import { RecordGantt } from '../../records/RecordGantt'
+import { RecordFloorplan } from '../../records/Floorplan'
 import { RecordInsight } from '../../records/RecordInsight'
 import { StateBadge } from '../../records/StateBadge'
 import { fieldText, recordPath, recordTitle, type AllRecords } from '../../records/text'
@@ -305,6 +306,7 @@ const FEATURE_VIEWS = [
   { value: 'calendar', label: 'Kalender' },
   { value: 'gantt', label: 'Gantt' },
   { value: 'map', label: 'Peta' },
+  { value: 'floorplan', label: 'Denah' },
   { value: '3d', label: '3D' },
   { value: 'chart', label: 'Grafik' },
 ] as const
@@ -332,6 +334,7 @@ function FeatureViews({ type, all }: { type: RecordType; all: AllRecords }) {
         </Suspense>
       )}
       {view === 'gantt' && <RecordGantt type={type} rows={rows} all={all} />}
+      {view === 'floorplan' && <RecordFloorplan type={type} rows={rows} all={all} />}
       {view === '3d' && <Record3D type={type} rows={rows} all={all} />}
       {view === 'chart' && <RecordInsight type={type} rows={rows} all={all} />}
     </Card>
@@ -373,7 +376,7 @@ export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type:
         <KpiTile label="Masih berjalan" value={stats.open} format={int} to={list} note="belum mencapai status akhir" />
         <KpiTile label="Menunggu persetujuan" value={stats.waiting} format={int} to={gate ? `${list}?status=${gate}` : list} note={gate ? 'buka antrean persetujuan' : 'tanpa gerbang persetujuan'} />
         <KpiTile label="Baru 30 hari" value={stats.recent} format={int} to={list} note="dibuat bulan ini" />
-        {stats.sum && <KpiTile label={`Total ${stats.sum.field.label.toLowerCase()}`} value={stats.sum.value} format={(v) => fieldText(stats.sum!.field, Math.round(v), all)} to={list} note="dari semua data" />}
+        {stats.sum && <KpiTile label={`Total ${stats.sum.field.label.toLowerCase()}`} value={stats.sum.value} format={(v) => (stats.sum!.field.type === 'money' || stats.sum!.field.unit === 'Rp' ? moneyCompact(v) : fieldText(stats.sum!.field, Math.round(v), all))} to={list} note="dari semua data" />}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">

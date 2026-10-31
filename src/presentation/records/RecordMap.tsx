@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CircleMarker, Polyline, Tooltip } from 'react-leaflet'
+import { Circle, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import { MapPin } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { placeOf, type Geo } from '@/domain/geo'
@@ -35,6 +35,7 @@ export function RecordMap({ type, rows, all, className = 'h-[420px]' }: { type: 
   const [picked, setPicked] = useState<string | null>(places.length === 1 ? (places[0]?.geo.place ?? null) : null)
   const chosen = places.find((p) => p.geo.place === picked)
   const most = Math.max(1, ...places.map((p) => p.records.length))
+  const fenced = type.fields.some((f) => f.key === 'radius')
   const located = places.reduce((n, p) => n + p.records.length, 0)
 
   return (
@@ -50,6 +51,11 @@ export function RecordMap({ type, rows, all, className = 'h-[420px]' }: { type: 
             />
           ) : null,
         )}
+        {/* Types with a radius (geofences) show their real coverage around the centre. */}
+        {fenced &&
+          places.flatMap(({ geo, records }) =>
+            records.map((r) => <Circle key={`fence-${r.id}`} center={[geo.at[0], geo.at[1]]} radius={Number(r.values.radius) || 0} pathOptions={{ className: geo.place === picked ? 'mark-fence-on' : 'mark-fence' }} />),
+          )}
         {places.map(({ geo, records }) => (
           <CircleMarker
             key={`pt-${geo.place}`}

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { BarChart3, CheckCheck, ChevronDown, Database, FileText, Folder, LayoutDashboard, Plus, Search, Settings2, Star, X, type LucideIcon } from 'lucide-react'
 import { folderPath, walk, type MenuKind, type MenuNode } from '@/domain/menu'
 import { cn } from '@/lib/cn'
+import { moduleIcon } from '../../ui/moduleIcons'
 import { useRecordDrawer } from '../../records/drawer'
 
 export const MENU_ICON: Record<MenuKind, LucideIcon> = {
@@ -52,6 +53,16 @@ interface Props {
 const isFeature = (n: MenuNode) => n.id.endsWith(':folder')
 const waitingIn = (n: MenuNode, counts: Record<string, number>) => [...walk([n])].reduce((s, x) => s + (x.approval ? (counts[`${x.approval.type}:${x.approval.status}`] ?? 0) : 0), 0)
 const shortLabel = (n: MenuNode) => n.label.split(' · ').at(-1) ?? n.label
+
+/** The module's picture on a tile; red when the current page belongs to it. */
+function ModuleIcon({ id, on }: { id: string; on: boolean }) {
+  const Icon = moduleIcon(id)
+  return (
+    <span className={cn('grid size-8 shrink-0 place-items-center rounded-xl', on ? 'bg-accent text-white' : 'bg-control text-muted')}>
+      <Icon aria-hidden className="size-4" />
+    </span>
+  )
+}
 
 /** A small count pill for approvals waiting. */
 function Waiting({ n }: { n: number }) {
@@ -117,7 +128,7 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
           to={hrefOf(n)}
           onClick={onNavigate}
           aria-current={here ? 'page' : undefined}
-          className={cn('flex min-h-9 items-center gap-2.5 rounded-xl py-1.5 pr-16 pl-2.5 text-sm transition-colors', here ? 'bg-accent-soft font-medium text-accent-text' : 'text-body hover:bg-raised hover:text-fg')}
+          className={cn('flex min-h-11 items-center gap-2.5 rounded-xl py-1.5 pr-16 pl-2.5 text-[15px] transition-colors', here ? 'bg-accent-soft font-medium text-accent-text' : 'text-body hover:bg-raised hover:text-fg')}
         >
           <Icon aria-hidden className={cn('size-4 shrink-0', here ? 'text-accent-text' : 'text-subtle')} />
           <span className="min-w-0 flex-1">
@@ -131,7 +142,6 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
             <button
               type="button"
               aria-label={`Buat ${shortLabel(n).toLowerCase()} baru`}
-              title={create.tcode}
               onClick={() => {
                 onNavigate?.()
                 openDrawer({ mode: 'create', type: typeKey })
@@ -157,9 +167,9 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
 
   return (
     <div className="space-y-3">
-      <label className="flex h-9 items-center gap-2 rounded-xl border border-line bg-raised px-2.5 text-sm focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+      <label className="flex h-11 items-center gap-2 rounded-xl border border-line bg-raised px-3 text-[15px] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
         <Search aria-hidden className="size-4 shrink-0 text-subtle" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari menu atau kode" aria-label="Cari di menu" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-subtle" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari menu, misalnya: cuti" aria-label="Cari di menu" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-subtle" />
         {query && (
           <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery('')} className="grid size-6 cursor-pointer place-items-center rounded-md text-subtle hover:bg-control">
             <X aria-hidden className="size-3.5" />
@@ -214,7 +224,7 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
                   const items = folders.find((f) => f.id === `${m.id}:${suffix}`)?.children ?? []
                   return items.length ? (
                     <div key={suffix}>
-                      <p className="px-2.5 pt-2 pb-0.5 text-[11px] font-medium text-subtle">{title}</p>
+                      <p className="px-2.5 pt-2 pb-0.5 text-xs font-medium text-subtle">{title}</p>
                       <ul className="space-y-0.5">{items.map((n) => row(n))}</ul>
                     </div>
                   ) : null
@@ -226,9 +236,9 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
                       type="button"
                       aria-expanded={open}
                       onClick={() => setOpenModule(open ? '' : m.id)}
-                      className={cn('flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm transition-colors hover:bg-raised', onTrail(m.id) ? 'font-semibold text-fg' : 'font-medium text-body')}
+                      className={cn('flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-2.5 text-left text-[15px] transition-colors hover:bg-raised', onTrail(m.id) ? 'font-semibold text-fg' : 'font-medium text-body')}
                     >
-                      <span className={cn('grid h-6 min-w-9 place-items-center rounded-lg px-1 font-mono text-[10px] font-semibold', onTrail(m.id) ? 'bg-accent text-white' : 'bg-control text-muted')}>{m.id.toUpperCase()}</span>
+                      <ModuleIcon id={m.id} on={onTrail(m.id)} />
                       <span className="min-w-0 flex-1 truncate">{shortLabel(m)}</span>
                       <Waiting n={waitingIn(m, counts)} />
                       <ChevronDown aria-hidden className={cn('size-4 shrink-0 text-subtle transition-transform', open && 'rotate-180')} />
@@ -236,10 +246,10 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
                     {open && (
                       <div className="animate-fade px-1">
                         <Link to={folderPath(m.id)} onClick={onNavigate} className="mx-1.5 mt-1 mb-1 block rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-control">
-                          Lihat ringkasan modul
+                          Buka halaman modul
                         </Link>
-                        {section('transactions', 'Transaksi')}
-                        {section('master', 'Data utama')}
+                        {section('transactions', 'Pekerjaan harian')}
+                        {section('master', 'Data acuan')}
                         {extras.length > 0 && (
                           <div className="flex flex-wrap gap-1 px-1.5 pt-2">
                             {extras.map((x) => (

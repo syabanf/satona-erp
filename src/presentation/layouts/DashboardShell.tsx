@@ -19,6 +19,7 @@ import { TourProvider } from '../tour/TourProvider'
 import { CommandPalette } from './dashboard/CommandPalette'
 import { BottomNav } from './dashboard/BottomNav'
 import { TaskLauncher } from './dashboard/TaskLauncher'
+import { CommandCenter } from '../features/overview/CommandCenter'
 import { usePalette } from './dashboard/palette'
 import { Sidebar, SidebarContent } from './dashboard/Sidebar'
 
@@ -130,7 +131,7 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
         <p className="mt-0.5 text-[11px] text-muted">Data demo · perubahan hanya di perangkat ini</p>
       </div>
       {leaf?.tcode && (
-        <span title="Transaction code" className="hidden h-10 items-center rounded-full border border-line bg-card px-3 font-mono text-xs font-semibold text-accent-text shadow-card md:inline-flex">
+        <span title="Transaction code" className="tcode hidden h-10 items-center rounded-full border border-line bg-card px-3 font-mono text-xs font-semibold text-accent-text shadow-card md:inline-flex">
           {leaf.tcode}
         </span>
       )}
@@ -206,7 +207,12 @@ export function DashboardShell() {
               <Header alerts={alerts} />
               <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
                 <Entrance key={pathname}>
-                  {tree.length > 0 && pathname === homeFor(role) && !role.external && <TaskLauncher role={role} accessFor={accessFor} approvals={approvals} />}
+                  {tree.length > 0 && pathname === homeFor(role) && !role.external && (
+                    <>
+                      <CommandCenter role={role} />
+                      <TaskLauncher role={role} accessFor={accessFor} approvals={approvals} />
+                    </>
+                  )}
                   <Outlet />
                 </Entrance>
               </main>

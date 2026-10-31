@@ -10,6 +10,9 @@
       // Light is the default; apply a saved dark choice before first paint so it never flashes.
       try {
         if (localStorage.getItem('satona-theme') === 'dark') document.documentElement.dataset.theme = 'dark'
+        // Large text and transaction codes are per-viewer comfort settings, applied before paint too.
+        if (localStorage.getItem('satona-text') === 'large') document.documentElement.dataset.text = 'large'
+        if (localStorage.getItem('satona-codes') === 'show') document.documentElement.dataset.codes = 'show'
       } catch {}
     </script>
   </head>

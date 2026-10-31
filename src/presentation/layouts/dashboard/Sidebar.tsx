@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router'
-import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, House, LayoutGrid, Moon, RotateCcw, Search, X } from 'lucide-react'
+import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, Hash, House, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
 import { homeFor } from '@/domain/menu'
 import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
+import { usePreference, type Preference } from '../../hooks/usePreference'
 import { useTheme } from '../../hooks/useTheme'
 import { BrandMark } from '../../ui/BrandMark'
 import { Button } from '../../ui/Button'
@@ -85,6 +86,25 @@ function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNa
   )
 }
 
+/** A comfort switch in the footer: large text for easier reading, transaction codes for expert users. */
+function PreferenceRow({ pref, label, icon: Icon, collapsed }: { pref: Preference; label: string; icon: LucideIcon; collapsed: boolean }) {
+  const [on, set] = usePreference(pref)
+  if (collapsed) {
+    return (
+      <button type="button" title={label} aria-label={label} aria-pressed={on} onClick={() => set(!on)} className={cn('grid h-10 w-full cursor-pointer place-items-center rounded-xl hover:bg-raised', on ? 'text-accent-text' : 'text-muted')}>
+        <Icon aria-hidden className="size-[18px]" />
+      </button>
+    )
+  }
+  return (
+    <div className="flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted">
+      <Icon aria-hidden className="size-[18px]" />
+      <span className="flex-1">{label}</span>
+      <Switch label={label} checked={on} onChange={set} />
+    </div>
+  )
+}
+
 function ThemeRow({ collapsed }: { collapsed: boolean }) {
   const [theme, setTheme] = useTheme()
   if (collapsed) {
@@ -120,7 +140,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
   const home = homeFor(role)
   const report = role.id === 'admin' ? '/analytics' : `/modules/${role.module}`
   const tasks = suggestedTasks(role, accessFor, approvals).filter((task) => task.id !== 'modules').slice(0, 3)
-  const mainLink = 'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-raised'
+  const mainLink = 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors hover:bg-raised'
 
   return (
     <div className="flex h-full flex-col">
@@ -190,7 +210,9 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
           <GraduationCap aria-hidden className="size-[18px]" />
           {collapsed ? <span className="sr-only">Tutorial penggunaan</span> : 'Tutorial penggunaan'}
         </button>
+        <PreferenceRow pref="text" label="Teks besar" icon={Type} collapsed={collapsed} />
         <ThemeRow collapsed={collapsed} />
+        <PreferenceRow pref="codes" label="Tampilkan kode transaksi" icon={Hash} collapsed={collapsed} />
         <button
           type="button"
           title={collapsed ? 'Atur ulang data demo' : undefined}

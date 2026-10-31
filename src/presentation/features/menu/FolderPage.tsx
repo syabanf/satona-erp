@@ -63,7 +63,7 @@ function FeatureCard({ node, counts }: { node: MenuNode; counts: Record<string, 
       </span>
       <span className="mt-auto flex items-center justify-between gap-2 pt-4 text-xs">
         <span className="text-muted">{KIND_LABEL[node.kind]}</span>
-        {node.tcode && <span className="rounded-full bg-raised px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-text">{node.tcode}</span>}
+        {node.tcode && <span className="tcode rounded-full bg-raised px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-text">{node.tcode}</span>}
       </span>
     </Link>
   )

@@ -74,7 +74,7 @@ export function TypeCard({ type, stats }: { type: RecordType; stats: FeatureStat
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-fg group-hover:underline">{featureName(type)}</span>
-          <span className="block font-mono text-[11px] text-subtle">
+          <span className="tcode block font-mono text-[11px] text-subtle">
             {type.prefix}01 · {type.prefix}02
           </span>
         </span>
@@ -157,7 +157,7 @@ function LeafLinks({ node }: { node: MenuNode }) {
           <Link key={l.id} to={l.to ?? '/'} className="inline-flex h-9 items-center gap-2 rounded-full border border-line-strong bg-raised px-3 text-sm hover:bg-control">
             {l.kind === 'config' ? <Settings2 aria-hidden className="size-4 text-muted" /> : <Boxes aria-hidden className="size-4 text-muted" />}
             {l.label}
-            {l.tcode && <span className="font-mono text-[11px] text-accent-text">{l.tcode}</span>}
+            {l.tcode && <span className="tcode font-mono text-[11px] text-accent-text">{l.tcode}</span>}
           </Link>
         ))}
       </div>
@@ -354,13 +354,13 @@ export function FeatureFolder({ node, type, tree, all }: { node: MenuNode; type:
         {canCreate(type, accessFor(type.module)) && (
           <Button variant="accent" size="sm" onClick={() => open({ mode: 'create', type: type.key })}>
             <Plus aria-hidden className="size-4" /> {type.singular} baru
-            <span className="font-mono text-[10px] opacity-80">{type.prefix}01</span>
+            <span className="tcode font-mono text-[10px] opacity-80">{type.prefix}01</span>
           </Button>
         )}
         {leaves.map((l) => (
           <Link key={l.id} to={l.to!} className={buttonStyles({ variant: l.kind === 'approval' ? 'solid' : 'card', size: 'sm' })}>
             {l.label}
-            {l.tcode && <span className="font-mono text-[10px] opacity-70">{l.tcode}</span>}
+            {l.tcode && <span className="tcode font-mono text-[10px] opacity-70">{l.tcode}</span>}
           </Link>
         ))}
         <Tag tone="neutral" className="ml-auto">

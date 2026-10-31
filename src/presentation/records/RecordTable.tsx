@@ -16,6 +16,8 @@ import { Record3D } from './Record3D'
 import { RecordBoard } from './RecordBoard'
 import { RecordCalendar } from './RecordCalendar'
 import { RecordControls } from './RecordControls'
+import { RecordGantt } from './RecordGantt'
+import { RecordInsight } from './RecordInsight'
 import { FieldFilters, FilterTags } from './FieldFilters'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
@@ -24,13 +26,15 @@ const PAGE = 20
 // Leaflet stays out of the list chunk until someone opens the map view.
 const RecordMap = lazy(() => import('./RecordMap').then((m) => ({ default: m.RecordMap })))
 const KEYS = ['status', 'q', 'f', 'w', 'sort', 'dir', 'page', 'from', 'to', 'view'] as const
-type View = 'table' | 'board' | 'calendar' | 'map' | '3d'
+type View = 'table' | 'board' | 'calendar' | 'gantt' | 'map' | '3d' | 'chart'
 const VIEWS: ReadonlyArray<{ value: View; label: string }> = [
   { value: 'table', label: 'Tabel' },
   { value: 'board', label: 'Papan' },
   { value: 'calendar', label: 'Kalender' },
+  { value: 'gantt', label: 'Gantt' },
   { value: 'map', label: 'Peta' },
   { value: '3d', label: '3D' },
+  { value: 'chart', label: 'Grafik' },
 ]
 
 /** Every record list: status chips with counts, a filter on every field, search, sort and pages, all in the URL. */
@@ -178,6 +182,16 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
       {view === 'board' && (
         <div className="p-4">
           <RecordBoard type={type} rows={shown} all={all ?? {}} />
+        </div>
+      )}
+      {view === 'gantt' && (
+        <div className="p-4">
+          <RecordGantt type={type} rows={shown} all={all ?? {}} />
+        </div>
+      )}
+      {view === 'chart' && (
+        <div className="p-4">
+          <RecordInsight type={type} rows={shown} all={all} />
         </div>
       )}
       {view === '3d' && (

@@ -16,6 +16,8 @@ import { Record3D } from '../../records/Record3D'
 import { RecordBoard } from '../../records/RecordBoard'
 import { RecordCalendar } from '../../records/RecordCalendar'
 import { RecordControls } from '../../records/RecordControls'
+import { RecordGantt } from '../../records/RecordGantt'
+import { RecordInsight } from '../../records/RecordInsight'
 import { StateBadge } from '../../records/StateBadge'
 import { fieldText, recordPath, recordTitle, type AllRecords } from '../../records/text'
 import { Tag } from '../../ui/Badge'
@@ -301,8 +303,10 @@ function RelatedList({ title, note, types, tree, all }: { title: string; note: s
 const FEATURE_VIEWS = [
   { value: 'board', label: 'Papan' },
   { value: 'calendar', label: 'Kalender' },
+  { value: 'gantt', label: 'Gantt' },
   { value: 'map', label: 'Peta' },
   { value: '3d', label: '3D' },
+  { value: 'chart', label: 'Grafik' },
 ] as const
 
 /** Every view of a feature's records on its page, each with create, edit, delete and workflow moves in place. */
@@ -313,7 +317,9 @@ function FeatureViews({ type, all }: { type: RecordType; all: AllRecords }) {
     <Card>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold">Tampilan</h2>
-        <Tabs label="Tampilan fitur" options={FEATURE_VIEWS} value={view} onChange={setView} />
+        <div className="no-scrollbar -mx-1 max-w-full overflow-x-auto px-1">
+          <Tabs label="Tampilan fitur" options={FEATURE_VIEWS} value={view} onChange={setView} />
+        </div>
         <Link to={`${recordPath(type)}${view === 'board' ? '?view=board' : `?view=${view}`}`} className="ml-auto text-xs font-medium text-accent-text hover:underline">
           Buka dengan filter
         </Link>
@@ -325,7 +331,9 @@ function FeatureViews({ type, all }: { type: RecordType; all: AllRecords }) {
           <RecordMap type={type} rows={rows} all={all} />
         </Suspense>
       )}
+      {view === 'gantt' && <RecordGantt type={type} rows={rows} all={all} />}
       {view === '3d' && <Record3D type={type} rows={rows} all={all} />}
+      {view === 'chart' && <RecordInsight type={type} rows={rows} all={all} />}
     </Card>
   )
 }

@@ -1,11 +1,16 @@
 import { Link, useParams } from 'react-router'
 import { ChevronRight, Folder } from 'lucide-react'
+import { typeOf } from '@/domain/catalog'
 import { chainTo, folderPath, walk, type MenuNode } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 import { useMenu } from '../../hooks/useMenu'
+import { useAllRecords } from '../../hooks/useRecords'
+import { useResource } from '../../hooks/useResource'
+import { useServices } from '../../hooks/useServices'
 import { MENU_ICON } from '../../layouts/dashboard/MenuTree'
 import { buttonStyles } from '../../ui/buttonStyles'
 import { CardSkeleton, EmptyState } from '../../ui/States'
+import { EntityFolder, FeatureFolder, ModuleFolder } from './FeaturePages'
 
 const tile =
   'group flex h-full flex-col rounded-card border border-line bg-card p-5 shadow-card transition-[background-color,translate] duration-300 active:scale-[0.97] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1'
@@ -64,11 +69,19 @@ function FeatureCard({ node, counts }: { node: MenuNode; counts: Record<string, 
   )
 }
 
-/** Landing page of a menu folder: every sub-feature as a card, folders first. */
+/**
+ * Landing page of a menu folder, shaped by what the folder holds: a feature gets its numbers, actions and
+ * related features; a module or its master data and transactions get one card per feature; a company gets
+ * one card per module. Other folders list their sub-features as cards.
+ */
 export default function FolderPage() {
   const { id = '' } = useParams()
   const { tree, counts } = useMenu()
-  if (!tree.length) return <CardSkeleton lines={6} />
+  const { erp } = useServices()
+  const all = useAllRecords()
+  const modules = useResource('erp.modules', () => erp.modules())
+  const entities = useResource('erp.entities', () => erp.entities())
+  if (!tree.length || !all.data || !modules.data || !entities.data) return <CardSkeleton lines={6} />
   const node = chainTo(tree, id).at(-1)
   if (!node?.children)
     return (
@@ -76,6 +89,12 @@ export default function FolderPage() {
         Your role may not reach it, or the link is out of date.
       </EmptyState>
     )
+  const type = id.endsWith(':folder') ? typeOf(id.replace(/:folder$/, '')) : undefined
+  if (type) return <FeatureFolder node={node} type={type} tree={tree} all={all.data} />
+  const module = modules.data.find((m) => m.id === id.replace(/:(master|transactions)$/, ''))
+  if (module && !/:(reports|config)$/.test(id)) return <ModuleFolder key={id} node={node} module={module} all={all.data} />
+  const entity = entities.data.find((e) => `entity:${e.id}` === id)
+  if (entity) return <EntityFolder node={node} entity={entity} modules={modules.data} all={all.data} />
   const folders = node.children.filter((c) => c.children)
   const screens = node.children.filter((c) => !c.children)
   const grid = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'

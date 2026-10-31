@@ -1,13 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { divIcon } from 'leaflet'
 import { Marker, Polyline, Tooltip } from 'react-leaflet'
-import { ArrowLeft, FileText, Gauge, PhoneCall, Search, Thermometer } from 'lucide-react'
+import { Activity, ArrowLeft, Cpu, Droplet, FileText, Fuel, Gauge, PhoneCall, Satellite, Search, Thermometer, Timer } from 'lucide-react'
 import { countBy } from '@/domain/erp'
 import { pointAlong, SPEED_LIMIT, TRUCK_LABEL, type Truck, type TruckState } from '@/domain/ops'
+import { truckTelemetry } from '@/domain/telemetry'
 import { cn } from '@/lib/cn'
 import { LineChart } from '../../charts/LineChart'
 import { useQueryState } from '../../hooks/useParams'
+import { useAllRecords } from '../../hooks/useRecords'
 import { useResource } from '../../hooks/useResource'
 import { useServices } from '../../hooks/useServices'
 import { useTicker } from '../../hooks/useTicker'
@@ -23,9 +25,24 @@ import { Meter } from '../../ui/Meter'
 import { Skeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { NewButtons } from '../../records/NewButtons'
+import { Tabs } from '../../ui/Tabs'
+import { KpiTile } from '../mes/KpiTile'
+import { ScadaMarkers, ScadaSitePanel, ScadaTable, useScadaSites } from './Scada'
 
 const STATE_TONE: Record<TruckState, Tone> = { moving: 'success', loading: 'neutral', alert: 'danger' }
 const STATES = (Object.keys(TRUCK_LABEL) as TruckState[]).map((value) => ({ value, label: TRUCK_LABEL[value] }))
+const LAYERS = [
+  { key: 'trucks', label: 'Truk' },
+  { key: 'routes', label: 'Rute' },
+  { key: 'scada', label: 'SCADA' },
+] as const
+const TRENDS = [
+  { value: 'speed', label: 'Kecepatan' },
+  { value: 'temp', label: 'Suhu tangki' },
+  { value: 'pressure', label: 'Tekanan' },
+] as const
+const TEMP_LIMIT = 45
+const PRESSURE_LIMIT = 3.5
 
 /** One icon per look, built once, so ticking positions never rebuild marker DOM. */
 const ICONS = new Map<string, ReturnType<typeof divIcon>>()
@@ -60,8 +77,10 @@ export default function FleetPage() {
   const trucks = useResource('ops.trucks', () => ops.trucks())
   const sites = useResource('ops.sites', () => ops.sites())
   const entities = useResource('erp.entities', () => erp.entities())
-  const [query, setQuery] = useQueryState(['truck', 'state', 'q'] as const)
+  const [query, setQuery] = useQueryState(['truck', 'state', 'q', 'site', 'hide'] as const)
+  const [trend, setTrend] = useState<(typeof TRENDS)[number]['value']>('speed')
   const elapsed = useTicker()
+  const records = useAllRecords()
   const state = query.state as TruckState | undefined
 
   const all = trucks.data ?? []
@@ -73,29 +92,68 @@ export default function FleetPage() {
   const now = picked ? live(picked, elapsed, pickedIndex) : null
   const routeMid = picked ? pointAlong(picked.route, 0.5) : undefined
   const depots = useMemo(() => (sites.data ?? []).filter((s) => s.entity === 'rotama' || s.entity === 'roasi'), [sites.data])
+  const scada = useScadaSites(sites.data ?? [])
+  const pickedSite = scada.find((x) => x.site.id === query.site)
+  const hidden = new Set((query.hide ?? '').split(',').filter(Boolean))
+  const toggleLayer = (key: string) => {
+    const next = new Set(hidden)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setQuery({ hide: [...next].join(',') || undefined })
+  }
+  const speeds = all.map((t, i) => live(t, elapsed, i).speed)
+  const tele = picked && now ? truckTelemetry(picked, elapsed, now.speed) : null
 
   return (
     <div className="space-y-4">
       <NewButtons types={['tms.trips', 'tms.checkins', 'tms.safety']} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiTile label="Truk bergerak" value={all.filter((t) => t.state !== 'loading').length} format={(v) => String(Math.round(v))} to="/fleet?state=moving" accent note={`${all.length} truk terpantau`} />
+        <KpiTile label="Melebihi batas" value={speeds.filter((v) => v > SPEED_LIMIT).length} format={(v) => String(Math.round(v))} to="/fleet/safety" note={`batas ${SPEED_LIMIT} km/h`} />
+        <KpiTile label="Alarm suhu tangki" value={all.filter((t) => t.tankTemp > TEMP_LIMIT).length} format={(v) => String(Math.round(v))} to="/fleet?state=alert" note={`di atas ${TEMP_LIMIT} °C`} />
+        <KpiTile label="Kecepatan rata-rata" value={speeds.filter(Boolean).reduce((a, b) => a + b, 0) / Math.max(1, speeds.filter(Boolean).length)} format={(v) => `${Math.round(v)} km/h`} to="/modules/tms/telemetry" note="truk yang bergerak" />
+        <KpiTile label="SCADA terhubung" value={scada.filter((x) => x.integrated && x.state === 'connected').length} format={(v) => `${Math.round(v)}/${scada.length}`} to="/modules/occ/sources" note={`${scada.filter((x) => x.state !== 'connected' || !x.integrated).length} lokasi perlu dicek`} />
+        <KpiTile label="Telemetri tangki" value={(records.data?.['tms.telemetry'] ?? []).filter((r) => r.status === 'logged' && r.values.alarm === 'Alarm').length} format={(v) => String(Math.round(v))} to="/modules/tms/telemetry?status=logged" note="alarm belum ditinjau" />
+      </div>
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="p-3 xl:col-span-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
+            <span className="text-xs font-medium text-muted">Lapisan peta</span>
+            {LAYERS.map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                aria-pressed={!hidden.has(l.key)}
+                onClick={() => toggleLayer(l.key)}
+                className={cn('h-9 cursor-pointer rounded-full px-4 text-sm font-medium transition-colors', hidden.has(l.key) ? 'bg-raised text-muted' : 'bg-invert text-on-invert')}
+              >
+                {l.label}
+              </button>
+            ))}
+            <span className="ml-auto flex items-center gap-3 text-xs text-muted">
+              <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-success" /> terhubung</span>
+              <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-warning" /> terganggu</span>
+              <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-danger" /> terputus</span>
+            </span>
+          </div>
           {trucks.data && entities.data ? (
             <BaseMap
               center={[-6.6, 109.2]}
               zoom={6}
-              focus={routeMid ? { at: routeMid, zoom: 8 } : { at: [-6.6, 109.2], zoom: 6 }}
+              focus={pickedSite ? { at: pickedSite.site.at, zoom: 9 } : routeMid ? { at: routeMid, zoom: 8 } : { at: [-6.6, 109.2], zoom: 6 }}
               className="h-[460px] xl:h-[640px]"
               label="Live fleet map"
             >
-              <SiteMarkers sites={depots} entities={entities.data} onSelect={(id) => navigate(`/entities/${depots.find((d) => d.id === id)?.entity ?? ''}`)} />
-              {rows.map((t) => (
+              {hidden.has('scada') && <SiteMarkers sites={depots} entities={entities.data} onSelect={(id) => navigate(`/entities/${depots.find((d) => d.id === id)?.entity ?? ''}`)} />}
+              {!hidden.has('scada') && <ScadaMarkers sites={scada} picked={query.site} onPick={(id) => setQuery({ site: id, truck: undefined })} />}
+              {!hidden.has('routes') && rows.map((t) => (
                 <Polyline
                   key={`r-${t.id}`}
                   positions={t.route.map((p) => [p[0], p[1]] as [number, number])}
                   pathOptions={{ className: t.id === query.truck ? 'mark-route-active' : 'mark-route', weight: t.id === query.truck ? 4 : 3 }}
                 />
               ))}
-              {rows.map((t) => {
+              {!hidden.has('trucks') && rows.map((t) => {
                 const i = all.indexOf(t)
                 const at = pointAlong(t.route, live(t, elapsed, i).progress)
                 return (
@@ -104,7 +162,7 @@ export default function FleetPage() {
                     position={[at[0], at[1]]}
                     icon={truckIcon(t.state, t.id === query.truck)}
                     zIndexOffset={t.id === query.truck ? 1000 : t.state === 'alert' ? 500 : 0}
-                    eventHandlers={{ click: () => setQuery({ truck: t.id === query.truck ? undefined : t.id }) }}
+                    eventHandlers={{ click: () => setQuery({ truck: t.id === query.truck ? undefined : t.id, site: undefined }) }}
                   >
                     <Tooltip direction="top" offset={[0, -14]}>
                       {t.plate} · {t.cargo}
@@ -118,11 +176,13 @@ export default function FleetPage() {
           )}
         </Card>
 
-        {picked && now ? (
+        {pickedSite ? (
+          <ScadaSitePanel key={pickedSite.site.id} scada={pickedSite} elapsed={elapsed} onBack={() => setQuery({ site: undefined })} />
+        ) : picked && now ? (
           <Card key={picked.id} className="animate-rise">
             <div className="mb-4 flex items-center justify-between gap-2">
               <Button variant="soft" size="sm" onClick={() => setQuery({ truck: undefined })}>
-                <ArrowLeft aria-hidden className="size-3.5" /> All trucks
+                <ArrowLeft aria-hidden className="size-3.5" /> Semua truk
               </Button>
               <StatusPill tone={STATE_TONE[picked.state]}>{TRUCK_LABEL[picked.state]}</StatusPill>
             </div>
@@ -137,9 +197,9 @@ export default function FleetPage() {
 
             <div className="mt-4 grid grid-cols-3 gap-2">
               {[
-                { icon: Gauge, label: 'Speed', value: `${now.speed}`, unit: 'km/h', bad: now.speed > SPEED_LIMIT },
-                { icon: Thermometer, label: 'Tank temp', value: `${picked.tankTemp}`, unit: '°C', bad: picked.state === 'alert' && picked.tankTemp > 45 },
-                { icon: Gauge, label: 'Pressure', value: picked.tankPressure.toFixed(1), unit: 'bar', bad: false },
+                { icon: Gauge, label: 'Kecepatan', value: `${now.speed}`, unit: 'km/h', bad: now.speed > SPEED_LIMIT },
+                { icon: Thermometer, label: 'Suhu tangki', value: `${picked.tankTemp}`, unit: '°C', bad: picked.state === 'alert' && picked.tankTemp > 45 },
+                { icon: Gauge, label: 'Tekanan tangki', value: picked.tankPressure.toFixed(1), unit: 'bar', bad: false },
               ].map((m) => (
                 <div key={m.label} className={cn('rounded-panel p-3', m.bad ? 'bg-accent-soft text-accent-text' : 'bg-raised')}>
                   <m.icon aria-hidden className="size-4 opacity-60" />
@@ -151,6 +211,27 @@ export default function FleetPage() {
               ))}
             </div>
 
+            {tele && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  { icon: Fuel, label: 'Solar', value: `${tele.fuel}`, unit: '%', bad: tele.fuel < 20 },
+                  { icon: Cpu, label: 'Putaran mesin', value: `${tele.rpm}`, unit: 'rpm', bad: tele.rpm > 2200 },
+                  { icon: Droplet, label: 'Suhu mesin', value: `${tele.coolant}`, unit: '°C', bad: tele.coolant > 95 },
+                  { icon: Satellite, label: 'Satelit GPS', value: `${tele.gpsSats}`, unit: 'sat', bad: tele.gpsSats < 8 },
+                  { icon: Timer, label: 'Sinyal terakhir', value: `${tele.pingSec}`, unit: 'dtk', bad: tele.pingSec > 8 },
+                  { icon: Activity, label: 'Kelelahan sopir', value: `${tele.fatigue}`, unit: 'skor', bad: tele.fatigue > 70 },
+                ].map((m) => (
+                  <div key={m.label} className={cn('rounded-panel p-2.5', m.bad ? 'bg-accent-soft text-accent-text' : 'bg-raised')}>
+                    <m.icon aria-hidden className="size-3.5 opacity-60" />
+                    <p className="mt-1 text-lg font-semibold tabular">{m.value}</p>
+                    <p className="text-[11px] opacity-70">
+                      {m.label}, {m.unit}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="mt-4">
               <div className="mb-1 flex justify-between text-xs text-muted">
                 <span>{picked.from}</span>
@@ -160,15 +241,25 @@ export default function FleetPage() {
               <Meter value={now.progress} tone="accent" label="Trip progress" />
             </div>
 
-            <p className="mt-5 mb-2 text-sm font-semibold">Speed, last 12 readings</p>
+            <div className="mt-5 mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Tren 12 pembacaan terakhir</p>
+              <Tabs label="Tren telemetri" variant="underline" options={TRENDS} value={trend} onChange={setTrend} />
+            </div>
             <LineChart
+              key={trend}
               labels={picked.speedTrace.map((_, i) => `-${(11 - i) * 5}m`)}
               series={[
-                { id: 'speed', label: 'Speed', values: picked.speedTrace, color: 'var(--color-series-1)', area: true },
-                { id: 'limit', label: 'Limit', values: picked.speedTrace.map(() => SPEED_LIMIT), color: 'var(--color-series-other)', muted: true },
+                {
+                  id: trend,
+                  label: TRENDS.find((x) => x.value === trend)!.label,
+                  values: trend === 'speed' ? picked.speedTrace : trend === 'temp' ? (tele?.tempTrace ?? []) : (tele?.pressureTrace ?? []),
+                  color: trend === 'speed' ? 'var(--color-series-1)' : trend === 'temp' ? 'var(--color-series-3)' : 'var(--color-series-2)',
+                  area: true,
+                },
+                { id: 'limit', label: 'Batas', values: picked.speedTrace.map(() => (trend === 'speed' ? SPEED_LIMIT : trend === 'temp' ? TEMP_LIMIT : PRESSURE_LIMIT)), color: 'var(--color-series-other)', muted: true },
               ]}
-              format={(v) => `${v} km/h`}
-              max={110}
+              format={(v) => (trend === 'speed' ? `${v} km/h` : trend === 'temp' ? `${v} °C` : `${v} bar`)}
+              max={trend === 'speed' ? 110 : trend === 'temp' ? 60 : 5}
               height={150}
               onPick={() => navigate(`/modules/tms/trips?q=${encodeURIComponent(picked.plate)}`)}
               label={`${picked.plate} speed trace`}
@@ -212,7 +303,7 @@ export default function FleetPage() {
                 const n = live(t, elapsed, i)
                 return (
                   <li key={t.id} data-motion="row">
-                    <button type="button" onClick={() => setQuery({ truck: t.id })} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-raised">
+                    <button type="button" onClick={() => setQuery({ truck: t.id, site: undefined })} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-raised">
                       <span className={cn('size-2.5 shrink-0 rounded-full', t.state === 'alert' ? 'bg-accent' : t.state === 'loading' ? 'bg-subtle' : 'bg-fg')} />
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold">{t.plate}</span>
@@ -237,6 +328,7 @@ export default function FleetPage() {
           </Card>
         )}
       </div>
+      <ScadaTable sites={scada} elapsed={elapsed} onPick={(id) => setQuery({ site: id, truck: undefined })} />
     </div>
   )
 }

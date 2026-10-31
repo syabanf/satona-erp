@@ -13,6 +13,10 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;
   }
+  /* Teks besar: every rem grows, so text, buttons and spacing scale together. */
+  :root[data-text='large'] {
+    font-size: 112.5%;
+  }
   ::selection {
     @apply bg-accent text-white;
   }
@@ -63,6 +67,12 @@
 .mark-5 { fill: var(--color-series-5); stroke: var(--color-series-5); }
 .mark-route { stroke: var(--color-fg); fill: none; opacity: 0.18; }
 .mark-route-active { stroke: var(--color-accent); fill: none; stroke-dasharray: 6 8; animation: route-flow 1.2s linear infinite; }
+.mark-scada-connected { fill: var(--color-success); stroke: var(--color-card); fill-opacity: 0.9; }
+.mark-scada-degraded { fill: var(--color-warning); stroke: var(--color-card); fill-opacity: 0.95; }
+.mark-scada-offline { fill: var(--color-danger); stroke: var(--color-card); fill-opacity: 0.95; animation: scada-blink 1.4s ease-in-out infinite; }
+@keyframes scada-blink {
+  50% { fill-opacity: 0.35; }
+}
 .mark-lane { stroke: var(--color-series-2); fill: none; opacity: 0.6; }
 .mark-place { fill: var(--color-accent); stroke: var(--color-card); stroke-width: 2; fill-opacity: 0.85; }
 .mark-place-on { fill: var(--color-fg); stroke: var(--color-accent); stroke-width: 3; }
@@ -128,4 +138,15 @@
 .animate-slide-left { animation: slide-left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-left { animation: none; }
+}
+
+/* Transaction codes are for expert users; they show only when the viewer turns them on. */
+:root:not([data-codes='show']) .tcode {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-scada-offline {
+    animation: none;
+  }
 }

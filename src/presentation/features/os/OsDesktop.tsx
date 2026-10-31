@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
-import { BarChart3, Bell, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, PanelsTopLeft, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X, type LucideIcon } from 'lucide-react'
+import { Navigate, useNavigate } from 'react-router'
+import { BarChart3, Bell, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { moduleLabel } from '@/domain/uiLabels'
 import { cn } from '@/lib/cn'
 import { useAlerts } from '../../hooks/useAlerts'
@@ -11,6 +11,7 @@ import { useSession } from '../../hooks/useSession'
 import { BrandMark } from '../../ui/BrandMark'
 import { prefersReducedMotion } from '../../ui/animate'
 import { moduleIcon } from '../../ui/moduleIcons'
+import { ViewSwitch } from '../../layouts/ViewSwitch'
 
 interface App {
   id: string
@@ -212,9 +213,8 @@ export default function OsDesktop() {
               <span className="max-w-52 truncate">{role.name}</span>
             </span>
           </div>
-          <Link to="/" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line-strong bg-card px-4 text-sm font-medium hover:bg-raised">
-            <PanelsTopLeft aria-hidden className="size-4" /> Tampilan biasa
-          </Link>
+          <ViewSwitch current="os" className="hidden sm:flex" />
+          <ViewSwitch current="os" compact className="flex-row rounded-full sm:hidden" />
           <button
             type="button"
             onClick={() => {

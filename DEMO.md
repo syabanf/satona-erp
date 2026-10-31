@@ -22,7 +22,7 @@ Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh y
 | 14-16 | Holding | Halaman **Scope coverage** (`/coverage`): 57 butir gap analysis dan layar yang menjawab tiap butir. **Group analytics** (`/analytics`): perputaran persediaan dan peta risiko. |
 | 16-18 | Peran lain | Ganti peran dari kartu akun di kiri bawah: **Driver (Driver App)** hanya melihat Transportasi, **Vendor / Supplier (B2B Portal)** mengisi penawaran. |
 | 18-20 | Bantuan | **Tutorial penggunaan**: tur singkat dan panduan langkah demi langkah. |
-| Bonus | Mode OS | **Mode OS (desktop)** di menu kiri, atau `/os`: buka Armada dan Persetujuan sebagai jendela, geser, kecilkan ke dock. Perubahan di satu jendela muncul di jendela lain. |
+| Bonus | Mode OS | **OS view** di menu kiri (sebelah Dashboard view), atau `/os`: buka Armada dan Persetujuan sebagai jendela, geser, kecilkan ke dock. Perubahan di satu jendela muncul di jendela lain. |
 | Bonus | Geofence dan denah | Transportasi → Data acuan → **Geofences** → satu geofence: klik peta untuk memindahkan pusat, geser radius, simpan. Tampilan **Denah** di daftar mana pun, dan denah lokasi di halaman pabrik (mis. `PLT-0009`). |
 
 ## Pintasan yang membantu

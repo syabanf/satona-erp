@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, House, LayoutGrid, Moon, RotateCcw, Search, X } from 'lucide-react'
+import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, House, LayoutGrid, Moon, RotateCcw, Search, X } from 'lucide-react'
 import { homeFor } from '@/domain/menu'
 import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
@@ -15,6 +15,7 @@ import { useMenu, useTrail } from '../../hooks/useMenu'
 import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
+import { useTour } from '../../tour/context'
 import { CommandField } from './CommandField'
 import { MenuTree } from './MenuTree'
 import { usePalette } from './palette'
@@ -47,6 +48,7 @@ function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNa
           {...props}
           type="button"
           aria-label="Ganti perusahaan"
+          data-tour="workspace"
           className={cn(
             'flex w-full cursor-pointer items-center gap-3 rounded-2xl text-left transition-colors hover:bg-control',
             collapsed ? 'justify-center p-1.5' : 'border border-line bg-raised p-2',
@@ -112,6 +114,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
   const accessFor = useAccess()
   const openSearch = usePalette()
   const toast = useToast()
+  const tour = useTour()
   const { tree, counts, approvals } = useMenu()
   const trail = useTrail()
   const home = homeFor(role)
@@ -139,7 +142,11 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
 
       <div className="space-y-3 px-3">
         <WorkspaceSwitcher collapsed={collapsed} onNavigate={onNavigate} />
-        {!collapsed && <CommandField />}
+        {!collapsed && (
+          <div data-tour="search">
+            <CommandField />
+          </div>
+        )}
       </div>
 
       <nav aria-label="Main" className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -153,13 +160,15 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
         ) : (
           <div className="space-y-1">
             <Link to={home} onClick={onNavigate} aria-current={pathname === home ? 'page' : undefined} className={cn(mainLink, pathname === home ? 'bg-accent-soft text-accent-text' : 'text-body')}><House aria-hidden className="size-[18px]" /> Beranda</Link>
-            <p className="px-3 pt-4 pb-1 eyebrow">Tugas saya</p>
-            {tasks.map((task) => (
-              <Link key={task.id} to={task.to} onClick={onNavigate} className={cn(mainLink, pathname === task.to ? 'bg-accent-soft text-accent-text' : 'text-body')}><CheckCheck aria-hidden className="size-[18px] shrink-0" /><span className="min-w-0 flex-1 truncate">{task.title}</span></Link>
-            ))}
+            <div data-tour="tasks">
+              <p className="px-3 pt-4 pb-1 eyebrow">Tugas saya</p>
+              {tasks.map((task) => (
+                <Link key={task.id} to={task.to} onClick={onNavigate} className={cn(mainLink, pathname === task.to ? 'bg-accent-soft text-accent-text' : 'text-body')}><CheckCheck aria-hidden className="size-[18px] shrink-0" /><span className="min-w-0 flex-1 truncate">{task.title}</span></Link>
+              ))}
+            </div>
             <button type="button" onClick={() => { onNavigate?.(); openSearch() }} className={cn(mainLink, 'w-full cursor-pointer text-left text-body')}><Search aria-hidden className="size-[18px]" /> Cari pekerjaan</button>
             {!role.external && <Link to={report} onClick={onNavigate} className={cn(mainLink, pathname === report ? 'bg-accent-soft text-accent-text' : 'text-body')}><BarChart3 aria-hidden className="size-[18px]" /> Laporan</Link>}
-            <details className="pt-3">
+            <details className="pt-3" data-tour="menu">
               <summary className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-body hover:bg-raised"><LayoutGrid aria-hidden className="size-[18px]" /> Semua menu</summary>
               <div className="pt-2"><MenuTree tree={tree} active={trail} counts={counts} onNavigate={onNavigate} /></div>
             </details>
@@ -168,6 +177,19 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
       </nav>
 
       <div className="shrink-0 space-y-1 border-t border-line px-3 pt-3 pb-4">
+        <button
+          type="button"
+          data-tour="help"
+          title={collapsed ? 'Tutorial penggunaan' : undefined}
+          onClick={() => {
+            onNavigate?.()
+            tour.openHelp()
+          }}
+          className={cn('flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl text-sm font-medium text-body hover:bg-raised hover:text-fg', collapsed ? 'justify-center' : 'px-3')}
+        >
+          <GraduationCap aria-hidden className="size-[18px]" />
+          {collapsed ? <span className="sr-only">Tutorial penggunaan</span> : 'Tutorial penggunaan'}
+        </button>
         <ThemeRow collapsed={collapsed} />
         <button
           type="button"
@@ -181,7 +203,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
           <RotateCcw aria-hidden className="size-[18px]" />
           {collapsed ? <span className="sr-only">Atur ulang data demo</span> : 'Atur ulang data demo'}
         </button>
-        <div className="pt-1">
+        <div className="pt-1" data-tour="role">
           <RoleSwitcher collapsed={collapsed} onNavigate={onNavigate} />
         </div>
       </div>

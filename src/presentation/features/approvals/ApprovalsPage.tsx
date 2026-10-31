@@ -96,7 +96,7 @@ export default function ApprovalsPage() {
           </EmptyState>
         </div>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul data-tour="approvals-list" className="divide-y divide-line">
           {shown.slice(0, visible).map(({ type, record, moves, step, levels }) => (
             <li key={`${type.key}-${record.id}`} data-motion="row" className="px-5 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

@@ -40,7 +40,7 @@ export default function RecordListPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
           <h2 className="text-lg font-semibold">{type.name}</h2>
           {creatable && (
-            <Button variant="accent" size="sm" onClick={() => open({ mode: 'create', type: type.key })} title="Shortcut: N">
+            <Button data-tour="record-new" variant="accent" size="sm" onClick={() => open({ mode: 'create', type: type.key })} title="Shortcut: N">
               <Plus aria-hidden className="size-4" /> New {type.singular.toLowerCase()}
               <kbd className="ml-1 hidden rounded border border-white/40 px-1 font-mono text-[10px] sm:inline">N</kbd>
             </Button>

@@ -88,16 +88,18 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   }
 
   return (
-    <div id="record-table" className="scroll-mt-4">
+    <div id="record-table" data-tour="record-table" className="scroll-mt-4">
       <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-        <FilterChips
-          label="Filter by status"
-          options={type.workflow.states.map((s) => ({ value: s.id, label: s.label }))}
-          value={query.status}
-          counts={counts}
-          total={base.length}
-          onChange={(v) => setQuery({ status: v, page: undefined })}
-        />
+        <div data-tour="record-status" className="min-w-0">
+          <FilterChips
+            label="Filter by status"
+            options={type.workflow.states.map((s) => ({ value: s.id, label: s.label }))}
+            value={query.status}
+            counts={counts}
+            total={base.length}
+            onChange={(v) => setQuery({ status: v, page: undefined })}
+          />
+        </div>
         {picker && (
           <Select
             compact
@@ -111,11 +113,12 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
           className="h-10 w-full sm:w-64"
           icon={<Search className="size-4" />}
           placeholder={`Search ${type.name.toLowerCase()}`}
+          data-tour="record-search"
           aria-label={`Search ${type.name.toLowerCase()}`}
           value={query.q ?? ''}
           onChange={(e) => setQuery({ q: e.target.value, page: undefined })}
         />
-        <Button variant={panel ? 'solid' : 'card'} size="sm" aria-expanded={panel} aria-controls="field-filters" onClick={() => setPanel((p) => !p)}>
+        <Button data-tour="record-filters" variant={panel ? 'solid' : 'card'} size="sm" aria-expanded={panel} aria-controls="field-filters" onClick={() => setPanel((p) => !p)}>
           <SlidersHorizontal aria-hidden className="size-4" /> Filters
           {fieldCount > 0 && <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent-strong px-1 text-[10px] font-semibold text-white tabular">{fieldCount}</span>}
         </Button>

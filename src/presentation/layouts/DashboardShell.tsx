@@ -15,6 +15,7 @@ import { Button } from '../ui/Button'
 import { Entrance } from '../ui/Motion'
 import { menuItem, Popover } from '../ui/Popover'
 import { RecordDrawerProvider } from '../records/RecordDrawer'
+import { TourProvider } from '../tour/TourProvider'
 import { CommandPalette } from './dashboard/CommandPalette'
 import { BottomNav } from './dashboard/BottomNav'
 import { TaskLauncher } from './dashboard/TaskLauncher'
@@ -40,7 +41,7 @@ function Notifications({ alerts }: { alerts: readonly Alert[] }) {
     <Popover
       width="w-80"
       trigger={(props) => (
-        <Button {...props} variant="card" size="icon-lg" aria-label={`Alerts, ${alerts.length} open`} className="relative">
+        <Button {...props} data-tour="alerts" variant="card" size="icon-lg" aria-label={`Alerts, ${alerts.length} open`} className="relative">
           <Bell aria-hidden className="size-5" />
           {urgent > 0 && <Dot tone="accent" className="absolute top-3 right-3.5 ring-2 ring-card" />}
         </Button>
@@ -191,36 +192,38 @@ export function DashboardShell() {
 
   return (
     <RecordDrawerProvider>
-      <CommandPalette>
-        <div className="flex h-dvh bg-canvas">
-          <a
-            href="#main"
-            className="sr-only z-50 rounded-full bg-invert px-4 py-2 text-on-invert focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-          >
-            Skip to content
-          </a>
-          <Sidebar collapsed={collapsed} onToggle={toggle} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Header alerts={alerts} />
-            <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
-              <Entrance key={pathname}>
-                {tree.length > 0 && pathname === homeFor(role) && !role.external && <TaskLauncher role={role} accessFor={accessFor} approvals={approvals} />}
-                <Outlet />
-              </Entrance>
-            </main>
-          </div>
-          <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />
-          {drawer && (
-            <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
-              <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />
-              <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 animate-slide-up overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
-                <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 rounded-full bg-line-strong" />
-                <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
-              </div>
+      <TourProvider>
+        <CommandPalette>
+          <div className="flex h-dvh bg-canvas">
+            <a
+              href="#main"
+              className="sr-only z-50 rounded-full bg-invert px-4 py-2 text-on-invert focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+            >
+              Skip to content
+            </a>
+            <Sidebar collapsed={collapsed} onToggle={toggle} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Header alerts={alerts} />
+              <main id="main" ref={main} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 outline-none md:px-6 md:pb-8 lg:px-8">
+                <Entrance key={pathname}>
+                  {tree.length > 0 && pathname === homeFor(role) && !role.external && <TaskLauncher role={role} accessFor={accessFor} approvals={approvals} />}
+                  <Outlet />
+                </Entrance>
+              </main>
             </div>
-          )}
-        </div>
-      </CommandPalette>
+            <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />
+            {drawer && (
+              <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
+                <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />
+                <div ref={panel} tabIndex={-1} className="absolute inset-x-0 top-6 bottom-0 animate-slide-up overflow-hidden rounded-t-[28px] bg-card pb-24 shadow-float outline-none">
+                  <span aria-hidden className="mx-auto mt-2.5 mb-1 block h-1.5 w-10 rounded-full bg-line-strong" />
+                  <SidebarContent collapsed={false} onNavigate={() => setDrawer(false)} onClose={closeDrawer} />
+                </div>
+              </div>
+            )}
+          </div>
+        </CommandPalette>
+      </TourProvider>
     </RecordDrawerProvider>
   )
 }

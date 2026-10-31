@@ -17,7 +17,7 @@ import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
 import { useTour } from '../../tour/context'
 import { CommandField } from './CommandField'
-import { MenuTree } from './MenuTree'
+import { MenuNavigator } from './MenuNavigator'
 import { usePalette } from './palette'
 import { RoleSwitcher } from './RoleSwitcher'
 
@@ -170,7 +170,7 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
             {!role.external && <Link to={report} onClick={onNavigate} className={cn(mainLink, pathname === report ? 'bg-accent-soft text-accent-text' : 'text-body')}><BarChart3 aria-hidden className="size-[18px]" /> Laporan</Link>}
             <details className="pt-3" data-tour="menu">
               <summary className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-body hover:bg-raised"><LayoutGrid aria-hidden className="size-[18px]" /> Semua menu</summary>
-              <div className="pt-2"><MenuTree tree={tree} active={trail} counts={counts} onNavigate={onNavigate} /></div>
+              <div className="pt-2"><MenuNavigator tree={tree} active={trail} counts={counts} onNavigate={onNavigate} /></div>
             </details>
           </div>
         )}

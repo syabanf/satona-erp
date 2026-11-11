@@ -39,3 +39,7 @@ Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh y
 - Ini demo frontend dengan data contoh. Telemetri truk dan nilai tag SCADA disimulasikan.
 - Integrasi Kafka, Debezium, ClickHouse, Keycloak dan Kong tampil sebagai konfigurasi; layanannya dibangun bersama backend.
 - Tanggal demo berpusat di akhir Oktober 2026.
+
+## Menjalankan dengan Docker
+
+`docker compose up -d --build` membangun aplikasi dan menyajikannya lewat nginx di http://localhost:8080. Port lain: `PORT=8091 docker compose up -d --build`. Tanpa compose: `docker build -t wit-manufacturing-platform .` lalu `docker run -p 8080:80 wit-manufacturing-platform`.

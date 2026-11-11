@@ -1,0 +1,7 @@
+services:
+  web:
+    build: .
+    image: wit-manufacturing-platform
+    ports:
+      - "${PORT:-8080}:80"
+    restart: unless-stopped

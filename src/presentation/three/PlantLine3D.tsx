@@ -9,6 +9,10 @@ export interface Station3D {
   id: string
   name: string
   oee: number
+  /** Overrides the OEE rule: red when true, grey when the station is stopped. */
+  state?: 'running' | 'alarm' | 'stopped'
+  /** Label text in place of the OEE. */
+  caption?: string
 }
 
 const GAP = 2.6
@@ -16,7 +20,7 @@ const GAP = 2.6
 /** A machine block whose height grows to its OEE; red below 65%. */
 function Station({ s, x, onSelect }: { s: Station3D; x: number; onSelect: () => void }) {
   const body = useRef<Mesh>(null)
-  const low = s.oee < 65
+  const low = s.state ? s.state === 'alarm' : s.oee < 65
   const h = 0.6 + (s.oee / 100) * 2.4
   useFrame((_, dt) => {
     const m = body.current
@@ -28,13 +32,13 @@ function Station({ s, x, onSelect }: { s: Station3D; x: number; onSelect: () => 
     <group position={[x, 0, 0]} onClick={(e) => (e.stopPropagation(), onSelect())} onPointerOver={() => (document.body.style.cursor = 'pointer')} onPointerOut={() => (document.body.style.cursor = '')}>
       <mesh ref={body} scale={[1, 0.01, 1]} castShadow>
         <boxGeometry args={[1.5, h, 1.5]} />
-        <meshStandardMaterial color={low ? cssColor('--color-accent') : cssColor('--color-series-2')} roughness={0.45} metalness={0.25} />
+        <meshStandardMaterial color={cssColor(low ? '--color-accent' : s.state === 'stopped' ? '--color-subtle' : '--color-series-2')} roughness={0.45} metalness={0.25} />
       </mesh>
       <mesh position={[0, 0.12, 0]} receiveShadow>
         <boxGeometry args={[1.9, 0.24, 1.9]} />
         <meshStandardMaterial color={cssColor('--color-line-strong')} />
       </mesh>
-      <Label text={`${s.name} · ${s.oee.toFixed(0)}%`} position={[0, h + 0.9, 0]} alert={low} />
+      <Label text={`${s.name} · ${s.caption ?? `${s.oee.toFixed(0)}%`}`} position={[0, h + 0.9, 0]} alert={low} />
     </group>
   )
 }
@@ -60,10 +64,10 @@ function Bags({ length }: { length: number }) {
 }
 
 /** The NPK line in 3D: one block per work centre, its height the OEE, a conveyor running past them. */
-export default function PlantLine3D({ stations, onSelect }: { stations: readonly Station3D[]; onSelect: (id: string) => void }) {
+export default function PlantLine3D({ stations, onSelect, label = 'Plant line in 3D' }: { stations: readonly Station3D[]; onSelect: (id: string) => void; label?: string }) {
   const length = stations.length * GAP
   return (
-    <Stage label="Plant line in 3D" camera={[4, 7, 13]} height={420}>
+    <Stage label={label} camera={[4, 7, 13]} height={420}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[length + 6, 8]} />
         <meshStandardMaterial color={cssColor('--color-raised')} />

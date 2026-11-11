@@ -4,6 +4,7 @@ import { cn } from '@/lib/cn'
 import { BrandMark } from '../../ui/BrandMark'
 import { ViewSwitch } from '../../layouts/ViewSwitch'
 import type { App, Win } from './types'
+import { APP_NAME } from '@/lib/brand'
 
 const DOCK = ['home', 'approvals', 'fleet', 'production']
 
@@ -43,7 +44,7 @@ function PhoneApp({ win, onChange, onClose }: { win: Win; onChange: (patch: Part
 }
 
 /**
- * Satona OS on a phone: a home screen with a status bar, a summary widget, every app as an icon and a dock.
+ * The OS view on a phone: a home screen with a status bar, a summary widget, every app as an icon and a dock.
  * Apps open full screen; going home keeps them running, and the open-apps row resumes or closes them.
  */
 export function PhoneOs({ apps, wins, now, roleName, waiting, approvals, onOpen, onPatch, onRemove, onSignOut }: {
@@ -74,10 +75,10 @@ export function PhoneOs({ apps, wins, now, roleName, waiting, approvals, onOpen,
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas bg-[radial-gradient(var(--color-line-strong)_1px,transparent_1px)] [background-size:22px_22px]">
-      <h1 className="sr-only">Satona OS</h1>
+      <h1 className="sr-only">{APP_NAME}</h1>
       <div className="flex h-10 shrink-0 items-center gap-2 px-6 text-sm">
         <span className="font-semibold tabular">{now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
-        <BrandMark className="mx-auto size-6" />
+        <span className="mx-auto"><BrandMark className="h-4" /></span>
         <span className="inline-flex items-center gap-1 font-medium">
           <Bell aria-hidden className="size-4" />
           <span className="tabular">{waiting}</span>

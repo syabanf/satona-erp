@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router'
 import { ArrowRight, ChevronDown, Database, FileText, LayoutDashboard, Lock, Settings2, type LucideIcon } from 'lucide-react'
 import { typesOf } from '@/domain/catalog'
 import { moduleStatus, SCOPE_LABEL } from '@/domain/erp'
+import { subModuleOf, subModulesOf } from '@/domain/subModules'
 import { moduleLabel, recordLabel } from '@/domain/uiLabels'
 import { cn } from '@/lib/cn'
 import { seriesColor } from '../../charts/colors'
@@ -137,9 +138,22 @@ export default function ModuleLayout() {
     waiting: approvals.filter((a) => a.type.key === t.key).length,
   })
   const home: Item = { to: `/modules/${m.id}`, label: 'Ringkasan modul', icon: LayoutDashboard, end: true }
+  const byArea = (t: (typeof types)[number]) => item(t, t.area === 'master' ? Database : FileText)
+  // A module with sub-modules gets one section per sub-module, master data first; the others split daily work from reference data.
+  const subs = subModulesOf(m.id)
+  const recordGroups: Group[] = subs.length
+    ? subs.map((label, i) => ({
+        id: `sub-${i}`,
+        title: label,
+        items: types.filter((t) => subModuleOf(t.key) === label).sort((a, b) => Number(a.area === 'transaction') - Number(b.area === 'transaction')).map(byArea),
+        folded: false,
+      }))
+    : [
+        { id: 'work', title: 'Pekerjaan harian', items: types.filter((t) => t.area === 'transaction').map(byArea), folded: false },
+        { id: 'reference', title: 'Data acuan', items: types.filter((t) => t.area === 'master').map(byArea), folded: true },
+      ]
   const groups: Group[] = [
-    { id: 'work', title: 'Pekerjaan harian', items: types.filter((t) => t.area === 'transaction').map((t) => item(t, FileText)), folded: false },
-    { id: 'reference', title: 'Data acuan', items: types.filter((t) => t.area === 'master').map((t) => item(t, Database)), folded: true },
+    ...recordGroups,
     {
       id: 'settings',
       title: 'Pengaturan',

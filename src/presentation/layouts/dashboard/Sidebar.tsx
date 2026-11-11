@@ -22,6 +22,7 @@ import { CommandField } from './CommandField'
 import { MenuNavigator } from './MenuNavigator'
 import { usePalette } from './palette'
 import { RoleSwitcher } from './RoleSwitcher'
+import { APP_NAME, APP_PRODUCT } from '@/lib/brand'
 
 interface SidebarProps {
   /** Icon-only column. The drawer on phones is never collapsed. */
@@ -147,11 +148,11 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
     // Open, the whole panel scrolls so the menu stays reachable on short screens; collapsed, only the icon list scrolls.
     <div className={cn('flex h-full flex-col', !collapsed && 'no-scrollbar overflow-y-auto overscroll-contain')}>
       <div className={cn('flex h-16 shrink-0 items-center gap-2.5', collapsed ? 'justify-center' : 'px-5')}>
-        <Link to={home} onClick={onNavigate} aria-label="Satona ERP, beranda" className="flex items-center gap-2.5">
-          <BrandMark className="size-8" />
+        <Link to={home} onClick={onNavigate} aria-label={`${APP_NAME}, beranda`} className="flex items-center gap-2.5">
+          {collapsed ? <BrandMark variant="mark" /> : <BrandMark className="h-5" />}
           {!collapsed && (
-            <span className="text-base font-bold tracking-tight">
-              Satona ERP<span className="text-accent">.</span>
+            <span className="text-[15px] leading-tight font-bold tracking-tight">
+              {APP_PRODUCT}<span className="text-accent">.</span>
             </span>
           )}
         </Link>

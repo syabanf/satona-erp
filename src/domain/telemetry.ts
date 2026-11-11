@@ -90,3 +90,43 @@ export function worstState(states: readonly string[]): ScadaState {
   if (states.includes('degraded')) return 'degraded'
   return 'connected'
 }
+
+/** Process tags of a granulation-line station by its work-centre kind, for the plant SCADA mimic. */
+export const PROCESS_TAGS: Record<string, readonly ScadaTag[]> = {
+  Mixer: [
+    { key: 'feed', label: 'Laju umpan', unit: 't/h', base: 42, limit: 55 },
+    { key: 'current', label: 'Arus motor', unit: 'A', base: 118, limit: 150 },
+  ],
+  Granulator: [
+    { key: 'speed', label: 'Putaran drum', unit: 'rpm', base: 11.5, limit: 14 },
+    { key: 'current', label: 'Arus motor', unit: 'A', base: 236, limit: 290 },
+    { key: 'bed', label: 'Suhu bed', unit: '°C', base: 78, limit: 95 },
+  ],
+  Dryer: [
+    { key: 'burner', label: 'Suhu burner', unit: '°C', base: 620, limit: 720 },
+    { key: 'moisture', label: 'Kadar air keluar', unit: '%', base: 1.6, limit: 2.5 },
+  ],
+  Cooler: [{ key: 'outlet', label: 'Suhu keluar', unit: '°C', base: 44, limit: 55 }],
+  Screen: [
+    { key: 'oversize', label: 'Oversize', unit: '%', base: 6, limit: 12 },
+    { key: 'vibration', label: 'Getaran', unit: 'mm/s', base: 3.1, limit: 7.1 },
+  ],
+  Bagging: [{ key: 'rate', label: 'Laju bagging', unit: 'karung/mnt', base: 22, limit: 30 }],
+}
+
+export type StationState = 'running' | 'alarm' | 'stopped'
+
+/** A station tag's live value; a stopped station reads zero, a drifting one climbs past its limit. */
+export function processReading(stationId: string, tag: ScadaTag, elapsed: number, mode: 'normal' | 'drift' | 'stopped') {
+  if (mode === 'stopped') return { value: 0, alarm: false }
+  const s = seed(`${stationId}:${tag.key}`)
+  const drift = mode === 'drift' ? (tag.limit - tag.base) * 1.2 : 0
+  const value = round1(tag.base + drift + tag.base * 0.025 * wave(elapsed, s, 0.7))
+  return { value, alarm: value > tag.limit }
+}
+
+/** A station stops when its machine is down or in maintenance, and alarms when a condition reading or a tag is over its limit. */
+export function stationState(assetStatus: string | undefined, conditionAlarm: boolean, tagAlarm: boolean): StationState {
+  if (assetStatus === 'down' || assetStatus === 'maintenance') return 'stopped'
+  return conditionAlarm || tagAlarm ? 'alarm' : 'running'
+}

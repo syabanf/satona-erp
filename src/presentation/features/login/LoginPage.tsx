@@ -15,6 +15,7 @@ import { Button } from '../../ui/Button'
 import { Input } from '../../ui/Field'
 import { POP } from '../../ui/pop'
 import { useToast } from '../../ui/useToast'
+import { APP_PRODUCT } from '@/lib/brand'
 
 /** Personas for quick login, by role name (or role id where two modules share a name), grouped the way a demo walks through them. */
 const PERSONAS: ReadonlyArray<{ group: string; names: readonly string[] }> = [
@@ -69,9 +70,9 @@ export default function LoginPage() {
     <div className="min-h-dvh bg-canvas lg:grid lg:grid-cols-[1.05fr_1fr]">
       <section className={cn('relative hidden overflow-hidden p-10 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col', POP.ink)}>
         <div className="flex items-center gap-3">
-          <BrandMark className="size-9" />
+          <BrandMark onDark className="h-8" />
           <span className="text-xl font-bold tracking-tight">
-            Satona ERP<span className="text-accent">.</span>
+            {APP_PRODUCT}<span className="text-accent">.</span>
           </span>
         </div>
         <div className="mt-auto max-w-lg">
@@ -99,9 +100,9 @@ export default function LoginPage() {
 
       <section className="mx-auto flex w-full max-w-xl flex-col justify-center px-5 py-10 sm:px-8">
         <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <BrandMark className="size-8" />
+          <BrandMark />
           <span className="text-lg font-bold tracking-tight">
-            Satona ERP<span className="text-accent">.</span>
+            {APP_PRODUCT}<span className="text-accent">.</span>
           </span>
         </div>
         <h2 className="text-2xl font-bold tracking-tight md:text-[28px]">

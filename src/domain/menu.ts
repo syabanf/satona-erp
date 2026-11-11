@@ -4,6 +4,7 @@
  */
 import { can, type Access, type Entity, type ErpModule, type Role } from './erp'
 import { canCreate, type RecordType } from './records'
+import { subModuleOf, subModulesOf } from './subModules'
 import { moduleLabel, recordLabel } from './uiLabels'
 
 export type MenuKind = 'folder' | 'create' | 'master' | 'transaction' | 'approval' | 'report' | 'config' | 'page'
@@ -35,7 +36,11 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
   tfm: [{ label: 'Tank farm 3D', to: '/tank-farm?view=3d' }],
   mrp: [{ label: 'Scheduling board & capacity', to: '/mrp/planning' }],
   bi: [{ label: 'Group analytics', to: '/analytics' }],
-  mes: [{ label: 'Plant line 3D', to: '/mes/cockpit?view=3d' }],
+  mes: [
+    { label: 'SCADA pabrik', to: '/mes/scada' },
+    { label: 'Plant line 3D', to: '/mes/cockpit?view=3d' },
+  ],
+  eam: [{ label: 'SCADA pabrik', to: '/mes/scada' }],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },
     { label: 'Health & environment', to: '/she?view=health' },
@@ -64,14 +69,18 @@ function typeItems(t: RecordType, access: Access): MenuNode[] {
 function moduleNode(m: MenuInput['modules'][number], types: readonly RecordType[], access: Access): MenuNode | null {
   if (access === 'none') return null
   const mine = types.filter((t) => t.module === m.id)
-  const group = (area: RecordType['area']) =>
-    mine.filter((t) => t.area === area).map((t) => (folder(`${t.key}:folder`, recordLabel(t.key, t.name).replace(/^\w/, (letter) => letter.toUpperCase()), typeItems(t, access)) as MenuNode))
+  const typeFolder = (t: RecordType) => folder(`${t.key}:folder`, recordLabel(t.key, t.name).replace(/^\w/, (letter) => letter.toUpperCase()), typeItems(t, access)) as MenuNode
+  const group = (area: RecordType['area']) => mine.filter((t) => t.area === area).map(typeFolder)
+  // Modules with sub-modules list their record types per sub-module instead of master data and activities.
+  const subs = subModulesOf(m.id)
+  const records = subs.length
+    ? subs.map((label, i) => folder(`${m.id}:sub${i}`, label, mine.filter((t) => subModuleOf(t.key) === label).map(typeFolder)))
+    : [folder(`${m.id}:master`, 'Data utama', group('master')), folder(`${m.id}:transactions`, 'Aktivitas', group('transaction'))]
   const reports: MenuNode[] = [{ id: `${m.id}:insight`, label: `Ringkasan ${moduleLabel(m.id, m.name)}`, kind: 'report', tcode: `${m.code}R1`, to: `/modules/${m.id}` }]
   if (m.live) reports.push({ id: `${m.id}:live`, label: m.live.label.replace(/^Open /, '').replace(/^\w/, (c) => c.toUpperCase()), kind: 'report', tcode: `${m.code}R2`, to: m.live.to })
   for (const [i, v] of (VIEWS[m.id] ?? []).entries()) reports.push({ id: `${m.id}:view${i}`, label: v.label, kind: 'report', tcode: `${m.code}R${i + 3}`, to: v.to })
   return folder(`${m.id}`, moduleLabel(m.id, m.name), present([
-    folder(`${m.id}:master`, 'Data utama', group('master')),
-    folder(`${m.id}:transactions`, 'Aktivitas', group('transaction')),
+    ...records,
     folder(`${m.id}:reports`, 'Laporan', reports),
     folder(`${m.id}:config`, 'Pengaturan', [
       { id: `${m.id}:schema`, label: 'Jenis data dan alur kerja', kind: 'config', tcode: `${m.code}C1`, to: `/modules/${m.id}/config` },

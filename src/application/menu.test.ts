@@ -16,7 +16,7 @@ describe('SAP-style menu', () => {
     expect(new Set(codes).size).toBe(codes.length)
   })
 
-  it('files every record type under master data or transactions with a create and a list item', () => {
+  it('gives every record type a create and a list item', () => {
     for (const t of RECORD_TYPES) {
       expect(findByTcode(tree, `${t.prefix}01`)?.to, t.key).toMatch(/\/new$/)
       expect(findByTcode(tree, `${t.prefix}02`)?.to, t.key).toContain(`/modules/${t.module}/`)
@@ -30,13 +30,14 @@ describe('SAP-style menu', () => {
   })
 
   it('finds the breadcrumb trail for records, lists and approval worklists', () => {
-    expect(trail(tree, '/modules/tms/trips/TRP-0001').map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Aktivitas', 'Perjalanan', 'Daftar perjalanan'])
+    expect(trail(tree, '/modules/tms/trips/TRP-0001').map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Rute dan lokasi', 'Perjalanan', 'Daftar perjalanan'])
     expect(trail(tree, '/modules/tms/trips', '?status=planned').at(-1)?.kind).toBe('approval')
     expect(trail(tree, '/').at(-1)?.tcode).toBe('ZOV')
   })
 
   it('gives a folder page the folder trail', () => {
-    expect(trail(tree, folderPath('tms:master')).map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Data utama'])
+    expect(trail(tree, folderPath('tms:sub0')).map((n) => n.label)).toEqual(['Rotama', 'Transportasi', 'Armada'])
+    expect(trail(tree, folderPath('gtr:master')).at(-1)?.label).toBe('Data utama')
     expect(trail(tree, folderPath('nope'))).toEqual([])
   })
 

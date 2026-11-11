@@ -1,4 +1,4 @@
-# Skenario demo Satona ERP
+# Skenario demo WIT Manufacturing Platform
 
 Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh yang tersimpan di browser; perubahan selama demo hanya ada di perangkat itu.
 
@@ -23,6 +23,7 @@ Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh y
 | 16-18 | Peran lain | Ganti peran dari kartu akun di kiri bawah: **Driver (Driver App)** hanya melihat Transportasi, **Vendor / Supplier (B2B Portal)** mengisi penawaran. |
 | 18-20 | Bantuan | **Tutorial penggunaan**: tur singkat dan panduan langkah demi langkah. |
 | Bonus | Mode OS | **OS view** di menu kiri (sebelah Dashboard view), atau `/os`: buka Armada dan Persetujuan sebagai jendela, geser, kecilkan ke dock. Di HP tampil sebagai layar utama dengan ikon aplikasi. Perubahan di satu jendela muncul di jendela lain. |
+| Bonus | SCADA pabrik | `/mes/scada` (atau Laporan di modul MES/EAM): mimik proses Line A dan B Gresik dengan tag langsung, alarm yang bisa diakui, tab **3D**. Klik Dryer A-3 yang alarm, lalu **Permintaan perawatan** untuk membuat MR dengan isian terisi. Menu samping modul besar (EAM, MES, MDM, SHE, dll.) kini dikelompokkan per sub-modul. |
 | Bonus | MES dan CMMS | **Reliability cockpit** (`/eam/reliability`): Predictive watch (Granulator B-1 menuju batas getaran 7,1 mm/s), PM berdasarkan jam jalan, nilai buku dan utilisasi aset. Buka reservasi part (`PI-`), klik **Issue from store**, stok part berkurang. **Scheduling board** (`/mrp/planning`): blok setup sebelum tiap job, merah bila lebih pendek dari matriks changeover. |
 | Bonus | Penawaran | Tagihan pengiriman → **Customer quotations** → **New quotation** (atau `/quotations/new`): pilih cabang, **Tarik dari inquiry** untuk mengisi pelanggan, PIC dan baris pertama, **Tambah produk** dari layanan standar atau tarif lane, isi diskon dan PPN 11%, lalu simpan. Inquiry yang ditarik pindah ke status Quoted. |
 | Bonus | Geofence dan denah | Transportasi → Data acuan → **Geofences** → satu geofence: klik peta untuk memindahkan pusat, geser radius, simpan. Tampilan **Denah** di daftar mana pun, dan denah lokasi di halaman pabrik (mis. `PLT-0009`). |

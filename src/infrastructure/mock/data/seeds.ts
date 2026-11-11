@@ -1143,6 +1143,8 @@ const PINNED: Record<string, (values: Values) => string | undefined> = {
   // Administration rows stay in force, except the delegation that already ended.
   'sys.matrix': () => 'active',
   'fbl.quotelines': () => 'active',
+  // The two machines whose vibration trends towards its limit keep running, so the SCADA view shows them drifting.
+  'eam.assets': (v) => (['Dryer A-2', 'Granulator B-1'].includes(String(v.name)) ? 'running' : undefined),
   'eam.partfits': () => 'active',
   'mrp.changeovers': () => 'active',
   'eam.issues': (v) => (Number(v.qty) > 2 ? 'reserved' : 'issued'),

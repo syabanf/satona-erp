@@ -14,6 +14,7 @@ import { moduleIcon } from '../../ui/moduleIcons'
 import { ViewSwitch } from '../../layouts/ViewSwitch'
 import { PhoneOs } from './PhoneOs'
 import type { App, Win } from './types'
+import { APP_NAME, APP_PRODUCT } from '@/lib/brand'
 
 const PINNED: readonly App[] = [
   { id: 'home', title: 'Beranda', icon: House, url: '/' },
@@ -191,11 +192,11 @@ export default function OsDesktop() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-card px-4">
-        <BrandMark className="size-6 shrink-0" />
-        <span className="text-sm font-semibold whitespace-nowrap">Satona OS</span>
-        {title && <span className="truncate text-sm text-muted">· {title}</span>}
-        <h1 className="sr-only">Satona OS</h1>
-        <div className="ml-auto flex items-center gap-2">
+        <BrandMark className="h-5" />
+        <span className="min-w-0 truncate text-sm font-semibold whitespace-nowrap">{APP_PRODUCT}</span>
+        {title && <span className="hidden truncate text-sm text-muted xl:inline">· {title}</span>}
+        <h1 className="sr-only">{APP_NAME}</h1>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <div className="flex h-10 items-center rounded-full border border-line bg-raised p-1">
             <button type="button" onClick={() => open(PINNED[1]!)} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium hover:bg-card">
               <Bell aria-hidden className="size-4" />
@@ -205,10 +206,10 @@ export default function OsDesktop() {
             <span aria-hidden className="h-5 w-px bg-line-strong" />
             <span className="inline-flex h-8 items-center gap-1.5 px-3 text-sm">
               <span className="font-semibold tabular">{clockText(now)}</span>
-              <span className="text-muted">{dateText(now)}</span>
+              <span className="hidden text-muted lg:inline">{dateText(now)}</span>
             </span>
-            <span aria-hidden className="hidden h-5 w-px bg-line-strong md:block" />
-            <span className="hidden h-8 items-center gap-2 pr-2 pl-1 text-sm md:inline-flex">
+            <span aria-hidden className="hidden h-5 w-px bg-line-strong xl:block" />
+            <span className="hidden h-8 items-center gap-2 pr-2 pl-1 text-sm xl:inline-flex">
               <span className="grid size-6 place-items-center rounded-full bg-accent text-[10px] font-bold text-white">{role.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('')}</span>
               <span className="max-w-52 truncate">{role.name}</span>
             </span>
@@ -243,7 +244,7 @@ export default function OsDesktop() {
         {wins.length === 0 && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center">
             <div>
-              <p className="text-2xl font-semibold">Selamat datang di Satona OS</p>
+              <p className="text-2xl font-semibold">Selamat datang di {APP_NAME}</p>
               <p className="mt-1 text-sm text-muted">Klik ikon aplikasi untuk membukanya sebagai jendela. Buka beberapa sekaligus dan atur posisinya.</p>
             </div>
           </div>

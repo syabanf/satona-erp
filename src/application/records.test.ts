@@ -47,6 +47,20 @@ describe('record use cases', () => {
     expect((await s.records.events())[0]?.topic).toBe('tms.trips')
   })
 
+  it('takes issued parts from stock and blocks an issue the store cannot cover', async () => {
+    const s = services()
+    const part = await s.records.get('eam.parts', 'SP-0001')
+    const onHand = Number(part.values.onHand)
+    const issue = await s.records.create(ADMIN_ROLE, 'eam.issues', { workorder: 'WO-0001', part: 'SP-0001', qty: 1, date: '2026-11-01' })
+    expect(issue.values.unitCost).toBe(part.values.unitCost)
+    if (onHand >= 1) {
+      await s.records.transition(ADMIN_ROLE, 'eam.issues', issue.id, 'issued')
+      expect((await s.records.get('eam.parts', 'SP-0001')).values.onHand).toBe(onHand - 1)
+    }
+    const big = await s.records.create(ADMIN_ROLE, 'eam.issues', { workorder: 'WO-0001', part: 'SP-0001', qty: 999, date: '2026-11-01' })
+    await expect(s.records.transition(ADMIN_ROLE, 'eam.issues', big.id, 'issued')).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
   it('computes derived fields on save', async () => {
     const s = services()
     const inv = await s.records.create(ADMIN_ROLE, 'fbl.invoices', { trip: 'TRP-0001', billTo: 'External customer', distance: 100, ratePerKm: 10000, margin: 10, issued: '2026-10-30' })

@@ -1,9 +1,11 @@
 /** PT Rodame Indonesia (fertiliser): BPF, MRP, QC, EAM, DMS. */
 import type { RecordType } from '../records'
+import { conditionOf } from '../maintenance'
 import { ACTIVE, APPROVAL, PROVINCES, calc, date, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
 const LINES = ['Line A Gresik', 'Line B Gresik', 'Urea Palembang'] as const
 const PRODUCTS = ['Urea', 'NPK 15-15-15', 'NPK 16-16-16', 'ZA'] as const
+export const CONDITION_PARAMETERS = ['Vibration (mm/s)', 'Bearing temperature (°C)', 'Motor current (A)'] as const
 
 export const RODAME: readonly RecordType[] = [
   master('bpf', 'formulas', ['Formulas', 'Formula', 'FRM'], 'grade', [
@@ -70,6 +72,7 @@ export const RODAME: readonly RecordType[] = [
     ref('order', 'Production order', 'bpf.orders', { required: true, list: true }),
     date('start', 'Start', { required: true, list: true }),
     num('hours', 'Duration', 'h', { required: true, min: 1, max: 72, list: true }),
+    num('setup', 'Setup / changeover', 'min', { min: 0, max: 480 }),
   ], flow(
     [
       ['scheduled', 'Scheduled', 'info'],
@@ -125,6 +128,10 @@ export const RODAME: readonly RecordType[] = [
     pick('site', 'Site', ['Gresik', 'Palembang'], { required: true, list: true }),
     pick('criticality', 'Criticality', ['A', 'B', 'C'], { required: true, list: true }),
     num('mtbf', 'MTBF', 'h', { min: 0 }),
+    num('runHours', 'Running hours', 'h', { min: 0, list: true }),
+    money('acquisitionCost', 'Acquisition cost'),
+    date('commissioned', 'Commissioned'),
+    num('usefulLife', 'Useful life', 'years', { min: 1, max: 40 }),
   ], flow(
     [
       ['running', 'Running', 'success'],
@@ -204,6 +211,7 @@ export const RODAME: readonly RecordType[] = [
     text('lab', 'Calibration lab'),
     date('date', 'Calibrated', { required: true }),
     date('nextDue', 'Next due', { required: true, list: true }),
+    calc('usable', 'Fit for use', (v) => (v.result === 'Fail' ? 'Do not use' : 'Usable'), { list: true }),
   ], flow(
     [
       ['recorded', 'Recorded', 'info'],
@@ -232,6 +240,44 @@ export const RODAME: readonly RecordType[] = [
       ['actions', 'closed', 'Close', 'approve'],
     ],
   ), { groupBy: 'trigger' }),
+  type('eam', 'meters', ['Meter readings', 'Meter reading', 'MTR'], 'asset', [
+    ref('asset', 'Asset', 'eam.assets', { required: true, list: true }),
+    num('reading', 'Running hours', 'h', { required: true, min: 0, list: true }),
+    date('date', 'Read on', { required: true, list: true }),
+    text('readBy', 'Read by'),
+  ], flow([['logged', 'Logged', 'success']], []), { dateField: 'date' }),
+  type('eam', 'conditions', ['Condition readings', 'Condition reading', 'CM'], 'parameter', [
+    ref('asset', 'Asset', 'eam.assets', { required: true, list: true }),
+    pick('parameter', 'Parameter', CONDITION_PARAMETERS, { required: true, list: true }),
+    num('value', 'Value', undefined, { required: true, min: 0, list: true }),
+    num('limit', 'Alarm limit', undefined, { required: true, min: 0 }),
+    date('date', 'Measured', { required: true, list: true }),
+    calc('condition', 'Condition', (v) => conditionOf(n(v, 'value'), n(v, 'limit')), { list: true }),
+  ], flow(
+    [
+      ['logged', 'Logged', 'info'],
+      ['reviewed', 'Reviewed', 'success'],
+    ],
+    [['logged', 'reviewed', 'Mark reviewed']],
+  ), { groupBy: 'condition', dateField: 'date' }),
+  type('eam', 'issues', ['Part issues', 'Part issue', 'PI'], 'part', [
+    ref('workorder', 'Work order', 'eam.workorders', { required: true, list: true, parent: true }),
+    ref('part', 'Spare part', 'eam.parts', { required: true, list: true }),
+    num('qty', 'Quantity', 'pcs', { required: true, min: 1, list: true }),
+    money('unitCost', 'Unit cost'),
+    calc('cost', 'Cost', (v) => n(v, 'qty') * n(v, 'unitCost'), { unit: 'Rp', list: true }),
+    date('date', 'Needed', { required: true, list: true }),
+  ], flow(
+    [
+      ['reserved', 'Reserved', 'info'],
+      ['issued', 'Issued', 'success'],
+      ['cancelled', 'Cancelled', 'neutral'],
+    ],
+    [
+      ['reserved', 'issued', 'Issue from store'],
+      ['reserved', 'cancelled', 'Cancel reservation'],
+    ],
+  ), { sumField: 'cost', dateField: 'date' }),
 
   master('dms', 'distributors', ['Distributors', 'Distributor', 'DST'], 'name', [
     text('name', 'Distributor', { required: true, list: true }),
@@ -308,6 +354,9 @@ export const RODAME_MASTERS: readonly RecordType[] = [
     pick('strategy', 'Strategy', ['Time based', 'Meter based', 'Condition based'], { required: true, list: true }),
     num('interval', 'Interval', 'days', { required: true, min: 1, list: true }),
     date('nextDue', 'Next due', { list: true }),
+    num('meterInterval', 'Meter interval', 'h', { min: 1 }),
+    num('lastDoneAt', 'Last done at', 'h', { min: 0 }),
+    calc('nextAtHours', 'Next due at', (v) => (v.strategy === 'Meter based' ? n(v, 'lastDoneAt') + n(v, 'meterInterval') : ''), { unit: 'h' }),
   ], ACTIVE, { groupBy: 'strategy', dateField: 'nextDue' }),
   master('dms', 'kiosks', ['Kiosks', 'Kiosk', 'KSK'], 'name', [
     text('name', 'Kiosk', { required: true, list: true }),
@@ -365,6 +414,18 @@ export const CMMS_MASTERS: readonly RecordType[] = [
       ['calibration', 'available', 'Return'],
     ],
   ), { groupBy: 'category' }),
+  master('eam', 'partfits', ['Spare parts per machine', 'Part fit', 'SPB'], 'part', [
+    ref('asset', 'Machine', 'eam.assets', { required: true, list: true, parent: true }),
+    ref('part', 'Spare part', 'eam.parts', { required: true, list: true }),
+    num('qty', 'Quantity installed', 'pcs', { required: true, min: 1, list: true }),
+    pick('critical', 'Critical spare', ['Yes', 'No'], { required: true, list: true }),
+  ], ACTIVE, { groupBy: 'critical' }),
+  master('mrp', 'changeovers', ['Changeover matrix', 'Changeover', 'CO'], 'to', [
+    ref('from', 'From grade', 'bpf.formulas', { required: true, list: true }),
+    ref('to', 'To grade', 'bpf.formulas', { required: true, list: true }),
+    num('minutes', 'Setup time', 'min', { required: true, min: 0, max: 480, list: true }),
+    pick('cleaning', 'Cleaning', ['Dry clean', 'Wash down', 'None'], { required: true, list: true }),
+  ], ACTIVE, { groupBy: 'cleaning' }),
 ]
 
 /** MES, ported from the WIT MES and fitted to a granulation plant: shifts, routing, shop-floor orders, OEE, downtime and quality. */

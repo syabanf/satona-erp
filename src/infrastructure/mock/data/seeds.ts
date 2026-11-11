@@ -67,6 +67,30 @@ function quoteLines(q: number) {
 }
 const QUOTE_LINES = Array.from({ length: QUOTES }, (_, q) => quoteLines(q)).flat()
 
+const PART_COSTS = [4_800_000, 18_500_000, 6_200_000, 1_150_000, 2_400_000, 9_700_000, 3_300_000, 5_600_000, 7_900_000, 1_850_000]
+const ASSET_COSTS: Record<string, number> = { Granulator: 4_200_000_000, Dryer: 3_600_000_000, Mixer: 1_100_000_000, Conveyor: 450_000_000, Weighbridge: 600_000_000, Boiler: 2_800_000_000 }
+/** Days since asset `i` was commissioned, and its running hours at 45 to 77% utilisation. */
+const assetAge = (i: number) => 400 + ((i * 137) % 3000)
+const assetHours = (i: number) => Math.round(assetAge(i) * 24 * (0.45 + (i % 5) * 0.08))
+
+function assetBase(i: number, pick: Ctx['pick'], int: Ctx['int']): Values {
+  if (i >= 16) {
+    // Components: motors, gearboxes and burners filed under the machine they drive.
+    const host = (i - 16) % 16
+    const kind = (['Motor', 'Gearbox', 'Burner'] as const)[Math.floor((i - 16) / 6) % 3] ?? 'Motor'
+    return { name: `${kind} ${host + 1}.${Math.floor((i - 16) / 16) + 1}`, parent: `AST-${String(host + 1).padStart(4, '0')}`, kind, site: host % 3 === 2 ? 'Palembang' : 'Gresik', criticality: 'B', mtbf: int(300, 1200) }
+  }
+  const kind = ['Granulator', 'Dryer', 'Mixer', 'Conveyor', 'Weighbridge', 'Boiler'][i % 6] ?? 'Mixer'
+  return { name: `${kind} ${String.fromCharCode(65 + Math.floor(i / 6))}-${(i % 6) + 1}`, kind, site: i % 3 === 2 ? 'Palembang' : 'Gresik', criticality: pick(['A', 'B', 'B', 'C']), mtbf: int(180, 900) }
+}
+
+/** Cost, commissioning date, useful life and meter of asset `i`; components are cheaper and wear out sooner. */
+function assetValueSeed(i: number, day: Ctx['day']): Values {
+  const kind = ['Granulator', 'Dryer', 'Mixer', 'Conveyor', 'Weighbridge', 'Boiler'][i % 6] ?? 'Mixer'
+  const age = assetAge(i)
+  return { runHours: assetHours(i), acquisitionCost: i < 16 ? (ASSET_COSTS[kind] ?? 500_000_000) : 80_000_000 + (i % 5) * 45_000_000, commissioned: day(-age, -age), usefulLife: i < 16 ? (i % 2 ? 20 : 15) : 8 }
+}
+
 const SEEDS: Record<string, { count: number; make: Make }> = {
   ...SUPPORT_SEEDS,
   ...SCOPE_SEEDS,
@@ -446,11 +470,24 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'eam.parts': {
     count: 20,
-    make: ({ i, int }) => ({ partNo: `SP-${int(10000, 99999)}`, name: ['Bearing SKF 22320', 'Granulator liner plate', 'Dryer flight', 'V-belt SPC 5000', 'Gearbox oil 220', 'Load cell 30 t', 'Screen mesh 4 mm', 'Mechanical seal 60 mm', 'Chain ANSI 120', 'Burner nozzle'][i % 10] ?? '', onHand: int(0, 24), minStock: int(2, 8), unitCost: int(3, 180) * 100_000 }),
+    make: ({ i, int }) => ({ partNo: `SP-${int(10000, 99999)}`, name: ['Bearing SKF 22320', 'Granulator liner plate', 'Dryer flight', 'V-belt SPC 5000', 'Gearbox oil 220', 'Load cell 30 t', 'Screen mesh 4 mm', 'Mechanical seal 60 mm', 'Chain ANSI 120', 'Burner nozzle'][i % 10] ?? '', onHand: int(0, 24), minStock: int(2, 8), unitCost: PART_COSTS[i % PART_COSTS.length]! }),
   },
   'eam.plans': {
     count: 16,
-    make: ({ pick, day, ref }) => ({ task: pick(['Lubrication round', 'Bearing inspection', 'Liner replacement', 'Load cell calibration', 'Vibration route', 'Burner service']), asset: ref('eam.assets'), strategy: pick(['Time based', 'Time based', 'Meter based', 'Condition based']), interval: pick([7, 14, 30, 90, 180]), nextDue: day(-5, 60) }),
+    make: ({ i, pick, day }) => {
+      // Meter-based plans sit on a main machine; half have passed their next service reading.
+      const meter = i % 3 === 0
+      const machine = i % 16
+      const interval = pick([250, 500, 1000])
+      return {
+        task: pick(['Lubrication round', 'Bearing inspection', 'Liner replacement', 'Load cell calibration', 'Vibration route', 'Burner service']),
+        asset: seedId('AST', machine),
+        strategy: meter ? 'Meter based' : pick(['Time based', 'Time based', 'Condition based']),
+        interval: pick([7, 14, 30, 90, 180]),
+        nextDue: day(-5, 60),
+        ...(meter ? { meterInterval: interval, lastDoneAt: assetHours(machine) - interval + (i % 2 ? 120 : -60) } : {}),
+      }
+    },
   },
   'dms.kiosks': {
     count: 40,
@@ -768,7 +805,19 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'mrp.schedule': {
     count: 56,
-    make: ({ int, day, ref }) => ({ machine: ref('mrp.workcenters'), order: ref('bpf.orders'), start: day(-3, 10), hours: int(10, 40) }),
+    make: ({ int, day, ref, pick }) => ({ machine: ref('mrp.workcenters'), order: ref('bpf.orders'), start: day(-3, 10), hours: int(10, 40), setup: pick([0, 30, 45, 45, 120]) }),
+  },
+  'mrp.changeovers': {
+    // Every ordered pair of grades: NPK to NPK is a dry clean, anything touching urea or ZA needs a wash down.
+    count: FORMULAS.length * (FORMULAS.length - 1),
+    make: ({ i }) => {
+      const from = Math.floor(i / (FORMULAS.length - 1))
+      const step = i % (FORMULAS.length - 1)
+      const to = step >= from ? step + 1 : step
+      const npk = (f: number) => FORMULAS[f]![0].startsWith('NPK')
+      const wash = !npk(from) || !npk(to)
+      return { from: seedId('FRM', from), to: seedId('FRM', to), minutes: wash ? 120 : 30 + Math.abs(from - to) * 10, cleaning: wash ? 'Wash down' : 'Dry clean' }
+    },
   },
   'qc.samples': {
     count: 34,
@@ -780,15 +829,40 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'eam.assets': {
     count: 34,
-    make: ({ i, pick, int }) => {
-      if (i >= 16) {
-        // Components: motors, gearboxes and burners filed under the machine they drive.
-        const host = (i - 16) % 16
-        const kind = (['Motor', 'Gearbox', 'Burner'] as const)[Math.floor((i - 16) / 6) % 3] ?? 'Motor'
-        return { name: `${kind} ${host + 1}.${Math.floor((i - 16) / 16) + 1}`, parent: `AST-${String(host + 1).padStart(4, '0')}`, kind, site: host % 3 === 2 ? 'Palembang' : 'Gresik', criticality: 'B', mtbf: int(300, 1200) }
+    make: ({ i, pick, int, day }) => ({ ...assetBase(i, pick, int), ...assetValueSeed(i, day) }),
+  },
+  'eam.meters': {
+    count: 64,
+    // Four monthly readings per main machine, the last one equal to the asset's meter.
+    make: ({ i, day }) => {
+      const machine = i % 16
+      const back = 3 - Math.floor(i / 16)
+      return { asset: seedId('AST', machine), reading: assetHours(machine) - back * 480, date: day(-back * 30, -back * 30), readBy: ['Andi (Mechanical)', 'Sari (Instrument)'][machine % 2] }
+    },
+  },
+  'eam.conditions': {
+    count: 80,
+    make: ({ i, day }) => {
+      if (i >= 64) {
+        const machine = i - 64
+        return { asset: seedId('AST', machine), parameter: 'Bearing temperature (°C)', value: 55 + ((machine * 7) % 30), limit: 90, date: day(-2, -2) }
       }
-      const kind = ['Granulator', 'Dryer', 'Mixer', 'Conveyor', 'Weighbridge', 'Boiler'][i % 6] ?? 'Mixer'
-      return { name: `${kind} ${String.fromCharCode(65 + Math.floor(i / 6))}-${(i % 6) + 1}`, kind, site: i % 3 === 2 ? 'Palembang' : 'Gresik', criticality: pick(['A', 'B', 'B', 'C']), mtbf: int(180, 900) }
+      // Vibration every ten days; three machines trend towards the ISO 10816 alarm at 7.1 mm/s.
+      const machine = i % 16
+      const k = Math.floor(i / 16)
+      const trend = ({ 1: 1.2, 6: 1.4, 9: 0.9 } as Record<number, number>)[machine] ?? 0.05
+      return { asset: seedId('AST', machine), parameter: 'Vibration (mm/s)', value: Math.round((2 + (machine % 5) * 0.4 + trend * k) * 10) / 10, limit: 7.1, date: day(-(3 - k) * 10, -(3 - k) * 10) }
+    },
+  },
+  'eam.partfits': {
+    count: 32,
+    make: ({ i }) => ({ asset: seedId('AST', i % 16), part: seedId('SP', (i * 3) % 20), qty: 1 + (i % 4), critical: i % 3 === 0 ? 'Yes' : 'No' }),
+  },
+  'eam.issues': {
+    count: 30,
+    make: ({ i, day, ref }) => {
+      const part = (i * 7) % 20
+      return { workorder: ref('eam.workorders'), part: seedId('SP', part), qty: 1 + (i % 3), unitCost: PART_COSTS[part % PART_COSTS.length]!, date: day(-60, 7) }
     },
   },
   'eam.workorders': {
@@ -1069,6 +1143,9 @@ const PINNED: Record<string, (values: Values) => string | undefined> = {
   // Administration rows stay in force, except the delegation that already ended.
   'sys.matrix': () => 'active',
   'fbl.quotelines': () => 'active',
+  'eam.partfits': () => 'active',
+  'mrp.changeovers': () => 'active',
+  'eam.issues': (v) => (Number(v.qty) > 2 ? 'reserved' : 'issued'),
   // A task that breaks hazard segregation cannot be confirmed, so it waits in progress.
   'wms.tasks': (v) => (v.segregation === 'Compatible' ? undefined : 'progress'),
   'tms.telemetry': (v) => (v.alarm === 'Alarm' ? 'logged' : undefined),

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertTriangle, ArrowUpRight, Wrench } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowUpRight, Gauge, Landmark, Wrench } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { backlog, pareto, perMonth, pmCompliance, reliability, workMix } from '@/domain/kpi'
+import { assetValue, meterDue, predict, type Condition } from '@/domain/maintenance'
+import { cn } from '@/lib/cn'
 import { count, moneyCompact, percent } from '@/lib/format'
 import { seriesColor } from '../../charts/colors'
 import { Donut } from '../../charts/Donut'
@@ -19,6 +21,7 @@ import { NewButtons } from '../../records/NewButtons'
 import { RecordControls } from '../../records/RecordControls'
 
 const WO_KINDS = ['Preventive', 'Corrective', 'Emergency', 'Inspection', 'Calibration', 'Improvement']
+const TONE: Record<Condition, string> = { Normal: 'text-muted', Warning: 'text-warning', Alarm: 'font-semibold text-accent-text' }
 
 /** Maintenance and reliability cockpit, ported from the WIT CMMS and fed by Rodame's EAM records. */
 export default function ReliabilityCockpit() {
@@ -38,7 +41,33 @@ export default function ReliabilityCockpit() {
     for (const r of failures) downtimeBy.set(String(r.values.asset), (downtimeBy.get(String(r.values.asset)) ?? 0) + Number(r.values.downtimeHours ?? 0))
     const techLoad = new Map<string, number>()
     for (const r of orders.filter((o) => ['open', 'assigned', 'progress', 'waiting'].includes(o.status))) techLoad.set(String(r.values.technician), (techLoad.get(String(r.values.technician)) ?? 0) + Math.max(1, Number(r.values.labourHours ?? 0)))
+    // Predictive watch: one trend per asset and parameter, alarms first, then the nearest to its limit.
+    const series = new Map<string, { asset: string; parameter: string; limit: number; readings: Array<{ date: string; value: number }> }>()
+    for (const r of all.data['eam.conditions'] ?? []) {
+      const key = `${String(r.values.asset)}|${String(r.values.parameter)}`
+      const s = series.get(key) ?? { asset: String(r.values.asset), parameter: String(r.values.parameter), limit: Number(r.values.limit), readings: [] }
+      s.readings.push({ date: String(r.values.date), value: Number(r.values.value) })
+      series.set(key, s)
+    }
+    const rank = { Alarm: 0, Warning: 1, Normal: 2 }
+    const watch = [...series.values()]
+      .map((s) => ({ ...s, ...predict(s.readings, s.limit, today) }))
+      .sort((a, b) => rank[a.condition] - rank[b.condition] || (a.daysToLimit ?? 999) - (b.daysToLimit ?? 999))
+    const hours = new Map(assets.map((a) => [a.id, Number(a.values.runHours) || 0]))
+    const meterPlans = (all.data['eam.plans'] ?? [])
+      .filter((p) => p.values.strategy === 'Meter based')
+      .map((p) => ({ plan: p, ...meterDue(Number(p.values.lastDoneAt) || 0, Number(p.values.meterInterval) || 0, hours.get(String(p.values.asset)) ?? 0) }))
+      .sort((a, b) => a.remaining - b.remaining)
+    const costBy = new Map<string, number>()
+    for (const r of orders) costBy.set(String(r.values.asset), (costBy.get(String(r.values.asset)) ?? 0) + Number(r.values.cost ?? 0))
+    const register = assets
+      .filter((a) => !a.values.parent && a.values.commissioned)
+      .map((a) => ({ asset: a, cost: Number(a.values.acquisitionCost) || 0, upkeep: costBy.get(a.id) ?? 0, ...assetValue(Number(a.values.acquisitionCost) || 0, String(a.values.commissioned), Number(a.values.usefulLife) || 10, Number(a.values.runHours) || 0, today) }))
+      .sort((a, b) => b.book - a.book)
     return {
+      watch,
+      meterPlans,
+      register,
       rel: reliability(orders, assets.length, today, 90),
       pm: pmCompliance(orders, today, 30),
       backlog: backlog(orders, (all.data['eam.technicians'] ?? []).length),
@@ -64,7 +93,7 @@ export default function ReliabilityCockpit() {
 
   return (
     <div className="space-y-4">
-      <NewButtons types={['eam.workorders', 'eam.requests', 'eam.rca', 'eam.calibrations']} />
+      <NewButtons types={['eam.workorders', 'eam.requests', 'eam.conditions', 'eam.meters', 'eam.issues', 'eam.rca', 'eam.calibrations']} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="MTBF, 90 days" value={k.rel.mtbf} format={(v) => `${count(Math.round(v))} h`} to={`${recordPath(wo)}?f=Corrective`} accent note={`${k.rel.failures} breakdowns`} />
         <KpiTile label="MTTR" value={k.rel.mttr} format={(v) => `${v.toFixed(1)} h`} to={`${recordPath(wo)}?f=Corrective`} note="hands-on repair time" />
@@ -91,6 +120,94 @@ export default function ReliabilityCockpit() {
           <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-series-2" /> Preventive, inspection, calibration</span>
           <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-series-1" /> Corrective and emergency</span>
         </p>
+      </Card>
+
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader title="Predictive watch" icon={<Activity aria-hidden className="size-5 text-muted" />} action={<Link to={recordPath(typeOf('eam.conditions')!)} className="text-xs text-accent-text hover:underline">condition readings</Link>} />
+          <ul className="divide-y divide-line">
+            {k.watch.slice(0, 6).map((w) => (
+              <li key={`${w.asset}|${w.parameter}`} data-motion="row">
+                <Link to={recordPath(typeOf('eam.assets')!, w.asset)} className="block py-2.5 hover:opacity-80">
+                  <span className="flex items-baseline gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{short('eam.assets', w.asset)}</span>
+                    <span className={cn('shrink-0 text-xs tabular', TONE[w.condition])}>
+                      {w.condition === 'Alarm' ? 'Alarm now' : w.daysToLimit === undefined ? 'Stable' : `Limit in ~${w.daysToLimit} days`}
+                    </span>
+                  </span>
+                  <span className="mt-1 flex items-center gap-3 text-xs text-muted">
+                    <span className="w-40 shrink-0 truncate">{w.parameter}</span>
+                    <Meter value={Math.min(1, w.latest / w.limit)} tone={w.condition === 'Normal' ? 'info' : 'accent'} className="flex-1" label={`${w.parameter} against its limit`} />
+                    <span className="shrink-0 tabular">
+                      {w.latest} / {w.limit}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">A straight-line trend of the readings projects the day each one reaches its alarm limit.</p>
+        </Card>
+
+        <Card>
+          <CardHeader title="PM due by running hours" icon={<Gauge aria-hidden className="size-5 text-muted" />} action={<Link to={`${recordPath(typeOf('eam.plans')!)}?f=${encodeURIComponent('Meter based')}`} className="text-xs text-accent-text hover:underline">meter plans</Link>} />
+          {k.meterPlans.length === 0 ? (
+            <p className="text-sm text-muted">No meter-based plans yet.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {k.meterPlans.slice(0, 6).map((m) => (
+                <li key={m.plan.id} data-motion="row">
+                  <Link to={recordPath(typeOf('eam.plans')!, m.plan.id)} className="flex items-center gap-3 py-2.5 text-sm hover:underline">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{String(m.plan.values.task)}</span>
+                      <span className="block truncate text-xs text-muted">
+                        {short('eam.assets', String(m.plan.values.asset))} · every {count(Number(m.plan.values.meterInterval))} h
+                      </span>
+                    </span>
+                    <span className={cn('shrink-0 text-right text-xs tabular', m.due ? 'font-semibold text-accent-text' : 'text-muted')}>
+                      {m.due ? `Overdue ${count(-m.remaining)} h` : `${count(m.remaining)} h left`}
+                      <span className="block text-subtle">at {count(m.nextAt)} h</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader title="Asset value and utilisation" icon={<Landmark aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">straight-line depreciation</span>} />
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ['Register value', moneyCompact(k.register.reduce((s, r) => s + r.cost, 0))],
+            ['Book value', moneyCompact(k.register.reduce((s, r) => s + r.book, 0))],
+            ['Maintenance spend', moneyCompact(k.register.reduce((s, r) => s + r.upkeep, 0))],
+            ['Average utilisation', percent(k.register.reduce((s, r) => s + r.utilisation, 0) / Math.max(1, k.register.length), { digits: 0 })],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-panel bg-raised p-3">
+              <p className="text-xs text-muted">{label}</p>
+              <p className="mt-1 text-lg font-semibold tabular">{value}</p>
+            </div>
+          ))}
+        </div>
+        <ul className="divide-y divide-line">
+          {k.register.slice(0, 8).map((r) => (
+            <li key={r.asset.id} data-motion="row">
+              <Link to={recordPath(typeOf('eam.assets')!, r.asset.id)} className="grid grid-cols-2 items-center gap-x-3 gap-y-1 py-2.5 text-sm hover:opacity-80 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_9rem]">
+                <span className="col-span-2 truncate font-medium sm:col-span-1">{String(r.asset.values.name)}</span>
+                <span className="text-xs text-muted tabular sm:text-right">book {moneyCompact(r.book)}</span>
+                <span className="text-xs text-muted tabular sm:text-right">{r.ageYears.toFixed(1)} of {String(r.asset.values.usefulLife)} yr</span>
+                <span className="text-xs text-muted tabular sm:text-right">upkeep {moneyCompact(r.upkeep)}</span>
+                <span className="flex items-center gap-2 text-xs tabular">
+                  <Meter value={r.utilisation} tone="fg" className="flex-1" label={`Utilisation ${String(r.asset.values.name)}`} />
+                  {Math.round(r.utilisation * 100)}%
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-3">

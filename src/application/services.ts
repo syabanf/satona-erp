@@ -2,6 +2,7 @@ import { typeOf } from '@/domain/catalog'
 import { approvalMoves, isRejection, moveBlocker, overridesFrom, type Matrix } from '@/domain/approval'
 import { can, effectiveAccess, type Access, type Action, type ErpModule, type Role } from '@/domain/erp'
 import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors'
+import { issueParts } from '@/domain/maintenance'
 import { allowedTransitions, canCreate, computeValues, nextId, validate, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import type { Ports } from './ports'
 
@@ -41,6 +42,15 @@ export function createServices(ports: Ports) {
 
   const stamp = () => new Date().toISOString()
 
+  /** Issuing a part reservation takes the parts from stock; short stock blocks the issue before anything is saved. */
+  async function stockAfterIssue(issue: ErpRecord) {
+    const part = await records.get('eam.parts', String(issue.values.part))
+    const qty = Number(issue.values.qty) || 0
+    const { blocker, onHand } = issueParts(Number(part.values.onHand) || 0, qty)
+    if (blocker) throw new ForbiddenError(blocker)
+    return { part, qty, onHand }
+  }
+
   return {
     ...ports,
     records: {
@@ -49,7 +59,9 @@ export function createServices(ports: Ports) {
       async create(role: Role, typeKey: string, values: Values): Promise<ErpRecord> {
         const { type, access } = await guard(role, typeKey, 'read')
         if (!canCreate(type, access)) throw new ForbiddenError(`${role.name} cannot create ${type.name.toLowerCase()}`)
-        const clean = checked(type, values)
+        // A part issue without a unit cost takes the part's own.
+        const part = typeKey === 'eam.issues' && !values.unitCost && values.part ? await records.get('eam.parts', String(values.part)).catch(() => undefined) : undefined
+        const clean = checked(type, part ? { ...values, unitCost: part.values.unitCost } : values)
         const at = stamp()
         const record: ErpRecord = {
           id: nextId(type, await records.list(typeKey)),
@@ -92,9 +104,15 @@ export function createServices(ports: Ports) {
         }
         const move = gate?.needs === 'approve' ? gate : allowedTransitions(type, current.status, access).find((t) => t.to === to)
         if (!move) throw new ForbiddenError(`${role.name} cannot move this ${type.singular.toLowerCase()} to ${to}`)
+        const stock = typeKey === 'eam.issues' && to === 'issued' ? await stockAfterIssue(current) : undefined
         // A rejection or a return to the first state starts the approval round again.
         const record = { ...current, status: to, approvals: isRejection(type, to) || to === type.workflow.initial ? undefined : current.approvals, updatedAt: at, history: [...current.history, { at, by: role.name, action: move.label }] }
-        return records.save(record, { action: move.label, by: role.name })
+        const saved = await records.save(record, { action: move.label, by: role.name })
+        if (stock) {
+          const action = `Issued ${stock.qty} to ${String(current.values.workorder)} (${current.id})`
+          await records.save({ ...stock.part, values: computeValues(typeOf('eam.parts')!, { ...stock.part.values, onHand: stock.onHand }), updatedAt: at, history: [...stock.part.history, { at, by: role.name, action }] }, { action, by: role.name })
+        }
+        return saved
       },
     },
   }

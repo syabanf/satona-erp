@@ -57,6 +57,11 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
     ['Mata uang', ['fx', 'revaluations']],
     ['Anggaran', ['budgets', 'forecasts']],
   ],
+  dvm: [
+    ['Perangkat', ['models', 'devices']],
+    ['Firmware dan OTA', ['firmware', 'rollouts']],
+    ['Operasi', ['commands', 'alerts']],
+  ],
   occ: [
     ['Pemantauan', ['units', 'sources', 'cameras', 'energy']],
     ['Alarm', ['register', 'escalation', 'alarms']],

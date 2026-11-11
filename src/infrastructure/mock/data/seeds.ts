@@ -1,6 +1,7 @@
 /** Deterministic seed rows for every record type, relative to "today" so dates always look current. */
 import { RECORD_TYPES } from '@/domain/catalog'
 import { PROVINCES } from '@/domain/catalog/kit'
+import { DEVICE_COMMANDS } from '@/domain/catalog/devices'
 import { QUOTE_PRODUCTS, QUOTE_SERVICES } from '@/domain/catalog/rotama'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
@@ -56,6 +57,30 @@ const FORMULAS: ReadonlyArray<[string, number, number, number]> = [
   ['NPK 20-10-10', 20, 10, 10],
 ]
 
+const DEVICE_MODELS: ReadonlyArray<[name: string, vendor: string, kind: string, protocol: string]> = [
+  ['S7-1500 CPU 1515', 'Siemens', 'PLC', 'OPC UA'],
+  ['ControlLogix 5580', 'Rockwell', 'PLC', 'OPC UA'],
+  ['IoT2050 gateway', 'Siemens', 'Edge gateway', 'MQTT'],
+  ['Teltonika RUT956', 'Teltonika', 'Edge gateway', 'MQTT'],
+  ['Vibration sensor VSA005', 'ifm', 'Sensor', 'LoRaWAN'],
+  ['Temperature transmitter TT300', 'Endress+Hauser', 'Sensor', 'Modbus TCP'],
+  ['Comfort Panel TP1200', 'Siemens', 'HMI panel', 'OPC UA'],
+  ['Zebra TC52', 'Zebra', 'Barcode scanner', 'HTTPS'],
+  ['Galaxy Tab Active5', 'Samsung', 'Tablet', 'HTTPS'],
+  ['Hikvision DS-2CD2T', 'Hikvision', 'IP camera', 'HTTPS'],
+]
+const DEVICE_SITES: ReadonlyArray<[entity: string, site: string, code: string]> = [
+  ['rodame', 'Plant Gresik', 'GRS'],
+  ['rodame', 'Plant Palembang', 'PLM'],
+  ['roasi', 'Plant Cilegon', 'CLG'],
+  ['roasi', 'Tank farm Merak', 'MRK'],
+  ['rotama', 'Depot Cilegon', 'DCL'],
+  ['rotama', 'Fleet pool Cikampek', 'CKP'],
+  ['holding', 'Head office Jakarta', 'JKT'],
+]
+const DEVICE_CODES: Record<string, string> = { PLC: 'PLC', 'Edge gateway': 'GW', Sensor: 'SNS', 'HMI panel': 'HMI', 'Barcode scanner': 'SCN', Tablet: 'TAB', 'IP camera': 'CAM' }
+const latestFirmware = (m: number) => `${1 + (m % 3)}.${4 + (m % 5)}.0`
+const olderFirmware = (m: number) => `${1 + (m % 3)}.${3 + (m % 5)}.2`
 const QUOTES = 24
 const seedId = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(4, '0')}`
 /** The lines of seeded quotation `q`; its subtotal is their sum, so the demo totals add up. */
@@ -785,6 +810,71 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fbl.quotelines': { count: QUOTE_LINES.length, make: ({ i }) => QUOTE_LINES[i]! },
 
+  'dvm.models': {
+    count: DEVICE_MODELS.length,
+    make: ({ i }) => {
+      const [name, vendor, kind, protocol] = DEVICE_MODELS[i]!
+      return { name, vendor, kind, protocol, latestFirmware: latestFirmware(i) }
+    },
+  },
+  'dvm.firmware': {
+    // Two releases per model, the newer one first; the newer one is the model's latest firmware.
+    count: DEVICE_MODELS.length * 2,
+    make: ({ i, day }) => {
+      const m = i % DEVICE_MODELS.length
+      const newer = i < DEVICE_MODELS.length
+      return { model: seedId('DMD', m), version: newer ? latestFirmware(m) : olderFirmware(m), released: newer ? day(-40 - m * 3, -40 - m * 3) : day(-220 - m * 5, -220 - m * 5), severity: ['Security', 'Bug fix', 'Feature'][(i + m) % 3], notes: newer ? 'Patches TLS stack and adds MQTT keep-alive tuning.' : 'Initial release for the current hardware revision.', _status: 'approved' }
+    },
+  },
+  'dvm.devices': {
+    count: 64,
+    make: ({ i, day }) => {
+      const m = i % DEVICE_MODELS.length
+      const [, , kind] = DEVICE_MODELS[m]!
+      const [entity, site, code] = DEVICE_SITES[i % DEVICE_SITES.length]!
+      // Most devices report today; every ninth has gone quiet, a few sit in maintenance or wait for activation.
+      const state = i % 9 === 4 ? 'offline' : i % 13 === 6 ? 'maintenance' : i === 63 ? 'provisioned' : 'online'
+      const quiet = state === 'offline' ? 2 + (i % 4) : state === 'maintenance' ? 1 : 0
+      return {
+        name: `${DEVICE_CODES[kind] ?? 'DEV'}-${code}-${String(i + 1).padStart(2, '0')}`,
+        model: seedId('DMD', m),
+        entity,
+        site,
+        asset: entity === 'rodame' && ['PLC', 'Sensor', 'HMI panel'].includes(kind) ? seedId('AST', i % 16) : '',
+        serial: `SN${(240_000 + i * 7919).toString(36).toUpperCase()}`,
+        ip: `10.${20 + (i % 4)}.${10 + Math.floor(i / 16)}.${20 + (i % 200)}`,
+        firmware: i % 10 < 7 ? latestFirmware(m) : olderFirmware(m),
+        lastSeen: day(-quiet, -quiet),
+        battery: ['Sensor', 'Barcode scanner', 'Tablet'].includes(kind) ? (i % 11 === 3 ? 12 : 45 + ((i * 17) % 55)) : '',
+        certExpiry: day(i % 8 === 2 ? 9 : 60 + i * 5, i % 8 === 2 ? 9 : 60 + i * 5),
+        _status: state,
+      }
+    },
+  },
+  'dvm.rollouts': {
+    count: 6,
+    make: ({ i, day }) => {
+      const state = ['completed', 'completed', 'running', 'running', 'planned', 'rolledback'][i]!
+      const targets = 6 + i * 2
+      const updated = state === 'completed' ? targets : state === 'running' ? Math.round(targets * (0.4 + i * 0.1)) : state === 'rolledback' ? 2 : 0
+      return { title: `${DEVICE_MODELS[i]![0]} to ${latestFirmware(i)}`, firmware: seedId('FW', i), targets, updated, failed: state === 'rolledback' ? 3 : state === 'running' ? 1 : 0, window: day(state === 'planned' ? 5 : -30 + i * 6, state === 'planned' ? 5 : -30 + i * 6), _status: state }
+    },
+  },
+  'dvm.commands': {
+    count: 30,
+    make: ({ i, day }) => {
+      const state = ['done', 'done', 'done', 'failed', 'sent', 'queued'][i % 6]!
+      return { device: seedId('IOT', (i * 5) % 64), command: DEVICE_COMMANDS[i % DEVICE_COMMANDS.length], requested: day(-(i % 20), -(i % 20)), result: state === 'done' ? 'OK' : state === 'failed' ? 'Timeout after 30 s' : '', _status: state }
+    },
+  },
+  'dvm.alerts': {
+    count: 18,
+    make: ({ i, day }) => {
+      const kind = ['Offline', 'Battery low', 'Certificate expiring', 'High temperature', 'Firmware outdated'][i % 5]!
+      return { device: seedId('IOT', (i * 9 + 4) % 64), kind, severity: kind === 'Offline' || kind === 'High temperature' ? 'High' : 'Medium', raised: day(-(i % 12), -(i % 12)), _status: i < 7 ? 'open' : i < 11 ? 'acknowledged' : 'resolved' }
+    },
+  },
+
   'bpf.formulas': {
     count: FORMULAS.length,
     make: ({ i }) => {
@@ -1236,9 +1326,11 @@ export function seedRecords(today: string): Record<string, ErpRecord[]> {
     }
     all[type.key] = Array.from({ length: seed.count }, (_, i) => {
       ctx.i = i
-      const values = computeValues(type, seed.make(ctx))
+      // A seed may name its row's status in `_status` when the status follows from the row itself.
+      const { _status, ...made } = seed.make(ctx)
+      const values = computeValues(type, made)
       const age = Math.floor(r() * 170)
-      const status = PINNED[type.key]?.(values) ?? statusFor(type, age, r)
+      const status = (_status as string | undefined) ?? PINNED[type.key]?.(values) ?? statusFor(type, age, r)
       const created = iso(-age)
       const label = type.workflow.states.find((s) => s.id === status)?.label ?? status
       return {

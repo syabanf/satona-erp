@@ -5,7 +5,7 @@ const MODULE_NAMES: Record<string, string> = {
   tms: 'Transportasi', wms: 'Gudang', haz: 'Angkutan bahan berbahaya', fbl: 'Tagihan pengiriman',
   bpf: 'Produksi batch', mrp: 'Perencanaan produksi', qc: 'Pengendalian mutu', eam: 'Perawatan aset',
   mes: 'Operasi produksi', dms: 'Distribusi', cfp: 'Produksi berkelanjutan', ehs: 'Keselamatan bahan kimia',
-  tfm: 'Tangki penyimpanan', gtr: 'Pelacakan dan penarikan produk',
+  tfm: 'Tangki penyimpanan', gtr: 'Pelacakan dan penarikan produk', dvm: 'Manajemen perangkat',
 }
 
 const RECORD_NAMES: Record<string, string> = {

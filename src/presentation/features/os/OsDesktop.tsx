@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { BarChart3, Bell, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X } from 'lucide-react'
+import { BarChart3, Bell, Cpu, CheckCheck, Factory, HardHat, House, LayoutGrid, LogOut, Maximize2, Minimize2, Minus, Search, ShieldCheck, Truck, Users, Wallet, X } from 'lucide-react'
 import { moduleLabel } from '@/domain/uiLabels'
 import { cn } from '@/lib/cn'
 import { useAlerts } from '../../hooks/useAlerts'
@@ -25,6 +25,7 @@ const PINNED: readonly App[] = [
   { id: 'finance', title: 'Keuangan', icon: Wallet, url: '/finance' },
   { id: 'hris', title: 'SDM', icon: Users, url: '/hris' },
   { id: 'analytics', title: 'Analitik', icon: BarChart3, url: '/analytics' },
+  { id: 'devices', title: 'Perangkat', icon: Cpu, url: '/devices' },
   { id: 'coverage', title: 'Cakupan', icon: ShieldCheck, url: '/coverage' },
 ]
 

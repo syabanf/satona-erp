@@ -193,6 +193,15 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Days without LTI', value: '418' },
     { label: 'Permits active', value: '9' },
   ], { to: '/she', label: 'Open SHE cockpit' }),
+  mod('holding', 'DVM', 'Device Management (IoT & OT)', [
+    ['Device registry for PLCs, gateways, sensors, HMIs, scanners and cameras', 'live'],
+    ['Heartbeat monitoring and device alerts', 'live'],
+    ['Firmware releases and over-the-air rollouts', 'live'],
+    ['Remote commands: ping, reboot, configuration sync, certificate rotation', 'live'],
+  ], ['IT Security', 'Plant Maintenance / Engineering'], ['OT Engineer', 'IoT Administrator'], [
+    { label: 'Devices online', value: '94%' },
+    { label: 'On latest firmware', value: '71%' },
+  ], { to: '/devices', label: 'Open device console' }),
   mod('holding', 'SYS', 'System Administration', [
     ['Roles and permission overrides', 'live'],
     ['Multilevel approval matrix with delegations', 'live'],

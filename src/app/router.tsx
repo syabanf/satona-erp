@@ -32,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'fleet/safety', lazy: page(() => import('@/presentation/features/fleet/SafetyPage')) },
       { path: 'occ', lazy: page(() => import('@/presentation/features/occ/CommandCentre')) },
       { path: 'mes/cockpit', lazy: page(() => import('@/presentation/features/mes/ProductionCockpit')) },
+      { path: 'devices', lazy: page(() => import('@/presentation/features/devices/DeviceConsole')) },
       { path: 'mes/scada', lazy: page(() => import('@/presentation/features/mes/PlantScada')) },
       { path: 'eam/reliability', lazy: page(() => import('@/presentation/features/mes/ReliabilityCockpit')) },
       { path: 'she', lazy: page(() => import('@/presentation/features/she/SheCockpit')) },

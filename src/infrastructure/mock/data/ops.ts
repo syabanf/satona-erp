@@ -1,17 +1,17 @@
 import type { Alert, Distributor, IntegrationComponent, LatLng, Lot, Region, Site, Tank, Truck } from '@/domain/ops'
 
 export const SITES: readonly Site[] = [
-  { id: 'hq-jakarta', name: 'Satona HQ', entity: 'holding', kind: 'hq', at: [-6.2088, 106.8456], city: 'Jakarta', staff: 214, utilisation: 0.82 },
-  { id: 'rt-cilegon', name: 'Rotama Depot Cilegon', entity: 'rotama', kind: 'depot', at: [-6.0171, 106.0539], city: 'Cilegon', staff: 96, utilisation: 0.77 },
-  { id: 'rt-cikampek', name: 'Rotama Fleet Pool Cikampek', entity: 'rotama', kind: 'depot', at: [-6.419, 107.456], city: 'Karawang', staff: 142, utilisation: 0.88 },
-  { id: 'rt-surabaya', name: 'Rotama Depot Surabaya', entity: 'rotama', kind: 'warehouse', at: [-7.2575, 112.7521], city: 'Surabaya', staff: 168, utilisation: 0.91 },
-  { id: 'rt-semarang', name: 'Rotama Hub Semarang', entity: 'rotama', kind: 'depot', at: [-6.95, 110.42], city: 'Semarang', staff: 80, utilisation: 0.64 },
-  { id: 'rd-gresik', name: 'Rodame NPK Plant Gresik', entity: 'rodame', kind: 'plant', at: [-7.1554, 112.6337], city: 'Gresik', staff: 612, utilisation: 0.93 },
-  { id: 'rd-palembang', name: 'Rodame Urea Plant Palembang', entity: 'rodame', kind: 'plant', at: [-2.99, 104.76], city: 'Palembang', staff: 388, utilisation: 0.79 },
-  { id: 'rd-lampung', name: 'Rodame Bulk Warehouse Lampung', entity: 'rodame', kind: 'warehouse', at: [-5.45, 105.26], city: 'Bandar Lampung', staff: 120, utilisation: 0.71 },
-  { id: 'rs-cilegon', name: 'Roasi Acid Plant Cilegon', entity: 'roasi', kind: 'plant', at: [-5.97, 106.01], city: 'Cilegon', staff: 498, utilisation: 0.96 },
-  { id: 'rs-merak', name: 'Roasi Tank Farm Merak', entity: 'roasi', kind: 'tank-farm', at: [-5.93, 105.99], city: 'Merak', staff: 64, utilisation: 0.68 },
-  { id: 'rs-gresik', name: 'Roasi Tank Farm Gresik', entity: 'roasi', kind: 'tank-farm', at: [-7.17, 112.68], city: 'Gresik', staff: 52, utilisation: 0.74 },
+  { id: 'hq-jakarta', name: 'Kantor Pusat', entity: 'holding', kind: 'hq', at: [-6.2088, 106.8456], city: 'Jakarta', staff: 214, utilisation: 0.82 },
+  { id: 'rt-cilegon', name: 'Depot Cilegon', entity: 'logistics', kind: 'depot', at: [-6.0171, 106.0539], city: 'Cilegon', staff: 96, utilisation: 0.77 },
+  { id: 'rt-cikampek', name: 'Fleet Pool Cikampek', entity: 'logistics', kind: 'depot', at: [-6.419, 107.456], city: 'Karawang', staff: 142, utilisation: 0.88 },
+  { id: 'rt-surabaya', name: 'Depot Surabaya', entity: 'logistics', kind: 'warehouse', at: [-7.2575, 112.7521], city: 'Surabaya', staff: 168, utilisation: 0.91 },
+  { id: 'rt-semarang', name: 'Hub Semarang', entity: 'logistics', kind: 'depot', at: [-6.95, 110.42], city: 'Semarang', staff: 80, utilisation: 0.64 },
+  { id: 'rd-gresik', name: 'Pabrik Pupuk NPK Gresik', entity: 'fertiliser', kind: 'plant', at: [-7.1554, 112.6337], city: 'Gresik', staff: 612, utilisation: 0.93 },
+  { id: 'rd-palembang', name: 'Pabrik Pupuk Urea Palembang', entity: 'fertiliser', kind: 'plant', at: [-2.99, 104.76], city: 'Palembang', staff: 388, utilisation: 0.79 },
+  { id: 'rd-lampung', name: 'Pabrik Pupuk Bulk Warehouse Lampung', entity: 'fertiliser', kind: 'warehouse', at: [-5.45, 105.26], city: 'Bandar Lampung', staff: 120, utilisation: 0.71 },
+  { id: 'rs-cilegon', name: 'Pabrik Kimia asam Cilegon', entity: 'chemicals', kind: 'plant', at: [-5.97, 106.01], city: 'Cilegon', staff: 498, utilisation: 0.96 },
+  { id: 'rs-merak', name: 'Pabrik Kimia Tank Farm Merak', entity: 'chemicals', kind: 'tank-farm', at: [-5.93, 105.99], city: 'Merak', staff: 64, utilisation: 0.68 },
+  { id: 'rs-gresik', name: 'Pabrik Kimia Tank Farm Gresik', entity: 'chemicals', kind: 'tank-farm', at: [-7.17, 112.68], city: 'Gresik', staff: 52, utilisation: 0.74 },
 ]
 
 const ROUTES: Record<string, readonly LatLng[]> = {
@@ -66,10 +66,10 @@ const level = (now: number, drift: number) => Array.from({ length: 24 }, (_, i) 
 export const TANKS: readonly Tank[] = [
   { id: 't-101', product: 'Liquid ammonia', capacity: 2_400, level: 64, reorderAt: 30, temp: -33, pressure: 1.1, trend: level(64, -8), supplier: 'Pupuk Kaltim' },
   { id: 't-102', product: 'Phosphoric acid 52%', capacity: 3_200, level: 27, reorderAt: 30, temp: 38, pressure: 1.0, trend: level(27, -22), supplier: 'OCP Morocco' },
-  { id: 't-103', product: 'Sulfuric acid 98%', capacity: 5_000, level: 81, reorderAt: 25, temp: 34, pressure: 1.0, trend: level(81, 14), supplier: 'In-house (Roasi CFP)' },
+  { id: 't-103', product: 'Sulfuric acid 98%', capacity: 5_000, level: 81, reorderAt: 25, temp: 34, pressure: 1.0, trend: level(81, 14), supplier: 'In-house (Pabrik Kimia CFP)' },
   { id: 't-104', product: 'Molten sulfur', capacity: 1_800, level: 46, reorderAt: 35, temp: 138, pressure: 1.2, trend: level(46, -12), supplier: 'Aramco Trading' },
   { id: 't-105', product: 'Caustic soda 48%', capacity: 1_200, level: 94, reorderAt: 20, temp: 31, pressure: 1.0, trend: level(94, 18), supplier: 'Asahimas Chemical' },
-  { id: 't-106', product: 'Oleum 20%', capacity: 900, level: 52, reorderAt: 30, temp: 36, pressure: 1.1, trend: level(52, -4), supplier: 'In-house (Roasi CFP)' },
+  { id: 't-106', product: 'Oleum 20%', capacity: 900, level: 52, reorderAt: 30, temp: 36, pressure: 1.1, trend: level(52, -4), supplier: 'In-house (Pabrik Kimia CFP)' },
 ]
 
 export const REGIONS: readonly Region[] = [
@@ -133,9 +133,9 @@ function lot(id: string, product: string, produced: string, qty: number, state: 
 }
 
 export const LOTS: readonly Lot[] = [
-  lot('RSI-H2SO4-261028', 'Sulfuric acid 98%', '2026-10-28', 640, 'released', ['Aramco Trading · SUL-88213', 'Pertamina · SUL-40177'], 'T-104', [['B 9412 TRA', 'Rodame NPK Plant Gresik'], ['B 9208 TRA', 'PT Petrokimia Mitra'], ['L 8754 RT', 'PT Indo Detergent']]),
-  lot('RSI-H3PO4-261026', 'Phosphoric acid 52%', '2026-10-26', 410, 'hold', ['OCP Morocco · PHA-20931'], 'T-102', [['L 8754 RT', 'Rodame NPK Plant Gresik'], ['L 8671 RT', 'PT Nusantara Feed']]),
-  lot('RSI-NH3-261021', 'Ammonia solution', '2026-10-21', 280, 'recalled', ['Pupuk Kaltim · AMM-7740', 'Pupuk Kaltim · AMM-7741'], 'T-101', [['B 9037 TRA', 'Rodame Urea Plant Palembang'], ['B 9550 TRA', 'PT Textile Prima']]),
+  lot('RSI-H2SO4-261028', 'Sulfuric acid 98%', '2026-10-28', 640, 'released', ['Aramco Trading · SUL-88213', 'Pertamina · SUL-40177'], 'T-104', [['B 9412 TRA', 'Pabrik Pupuk NPK Gresik'], ['B 9208 TRA', 'PT Petrokimia Mitra'], ['L 8754 RT', 'PT Indo Detergent']]),
+  lot('RSI-H3PO4-261026', 'Phosphoric acid 52%', '2026-10-26', 410, 'hold', ['OCP Morocco · PHA-20931'], 'T-102', [['L 8754 RT', 'Pabrik Pupuk NPK Gresik'], ['L 8671 RT', 'PT Nusantara Feed']]),
+  lot('RSI-NH3-261021', 'Ammonia solution', '2026-10-21', 280, 'recalled', ['Pupuk Kaltim · AMM-7740', 'Pupuk Kaltim · AMM-7741'], 'T-101', [['B 9037 TRA', 'Pabrik Pupuk Urea Palembang'], ['B 9550 TRA', 'PT Textile Prima']]),
   lot('RSI-OLM-261019', 'Oleum 20%', '2026-10-19', 190, 'released', ['In-house · SAP-2610-19'], 'T-106', [['B 9412 TRA', 'PT Kimia Farma Plant'], ['B 9208 TRA', 'PT Unggul Polymer']]),
 ]
 

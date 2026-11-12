@@ -1,4 +1,4 @@
-/** PT Satona (Holding): MDM, EPM, VMS, GRC, BI. */
+/** Kantor Pusat: MDM, EPM, VMS, GRC, BI. */
 import type { RecordType } from '../records'
 import { ACTIVE, APPROVAL, B3_CLASSES, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 

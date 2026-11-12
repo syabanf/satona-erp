@@ -76,22 +76,17 @@ function Waiting({ n }: { n: number }) {
 }
 
 /**
- * The full menu without the deep folder walk: pick a company, open one module at a time, and its features sit in a
- * flat list with a quick + and their approval count. Typing searches every feature, screen and T-code at once.
+ * The full menu as one list: the overview pages, then every module under its function group. One module opens at a
+ * time and lists its features with a quick + and their approval count. Typing searches every feature, screen and T-code.
  */
 export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
   const openDrawer = useRecordDrawer()
   const [query, setQuery] = useState('')
-  const [favs, setFavs] = useStored<string[]>('satona-menu-favs', ['approvals'])
+  const [favs, setFavs] = useStored<string[]>('wit-menu-favs', ['approvals'])
   const onTrail = (id: string) => active.some((a) => a.id === id)
-  const entities = tree.filter((n) => n.id.startsWith('entity:'))
+  const groups = tree.filter((n) => n.id.startsWith('group:'))
   const cockpit = tree.find((n) => n.id === 'cockpit')
-  const [pickedEntity, setEntity] = useStored('satona-menu-entity', entities[0]?.id ?? 'cockpit')
-  // A chip the user just picked wins over the company of the page they are on.
-  const [chosen, setChosen] = useState<string | null>(null)
-  const entityId = chosen ?? active.find((a) => a.id.startsWith('entity:'))?.id ?? pickedEntity
-  const entity = tree.find((n) => n.id === entityId) ?? (entityId === 'cockpit' ? cockpit : entities[0])
-  const modules = (entity?.children ?? []).filter((c) => c.children)
+  const modules = groups.flatMap((g) => (g.children ?? []).filter((c) => c.children))
   const [openModule, setOpenModule] = useState<string | null>(() => modules.find((m) => onTrail(m.id))?.id ?? null)
   const shownModule = openModule ?? modules.find((m) => onTrail(m.id))?.id
 
@@ -191,82 +186,64 @@ export function MenuNavigator({ tree, active, counts, onNavigate }: Props) {
             </section>
           )}
 
-          <div role="tablist" aria-label="Perusahaan" className="flex flex-wrap gap-1.5">
-            {[...(cockpit ? [{ id: 'cockpit', label: 'Grup' }] : []), ...entities.map((e) => ({ id: e.id, label: shortLabel(e) }))].map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                role="tab"
-                aria-selected={entity?.id === e.id}
-                onClick={() => {
-                  setEntity(e.id)
-                  setChosen(e.id)
-                  setOpenModule(null)
-                }}
-                className={cn('h-8 cursor-pointer rounded-full px-3 text-xs font-medium transition-colors', entity?.id === e.id ? 'bg-invert text-on-invert' : 'bg-raised text-body hover:bg-control')}
-              >
-                {e.label}
-              </button>
-            ))}
-          </div>
-
-          {entity?.id === 'cockpit' ? (
+          <section>
+            <p className="px-2.5 pb-1 eyebrow">Ringkasan</p>
             <ul className="space-y-0.5">{(cockpit?.children ?? []).map((n) => row(n))}</ul>
-          ) : (
-            <ul className="space-y-1">
-              {(entity?.children ?? [])
-                .filter((c) => c.to)
-                .map((n) => row(n))}
-              {modules.map((m) => {
-                const open = shownModule === m.id
-                const folders = m.children ?? []
-                const section = (suffix: string, title: string) => {
-                  const items = folders.find((f) => f.id === `${m.id}:${suffix}`)?.children ?? []
-                  return items.length ? (
-                    <div key={suffix}>
-                      <p className="px-2.5 pt-2 pb-0.5 text-xs font-medium text-subtle">{title}</p>
-                      <ul className="space-y-0.5">{items.map((n) => row(n))}</ul>
-                    </div>
-                  ) : null
-                }
-                const extras = folders.filter((f) => f.id.endsWith(':reports') || f.id.endsWith(':config')).flatMap((f) => f.children ?? [])
-                return (
-                  <li key={m.id} className={cn('rounded-2xl transition-colors', open && 'bg-raised/70 pb-2')}>
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      onClick={() => setOpenModule(open ? '' : m.id)}
-                      className={cn('flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-2.5 text-left text-[15px] transition-colors hover:bg-raised', onTrail(m.id) ? 'font-semibold text-fg' : 'font-medium text-body')}
-                    >
-                      <ModuleIcon id={m.id} on={onTrail(m.id)} />
-                      <span className="min-w-0 flex-1 truncate">{shortLabel(m)}</span>
-                      <Waiting n={waitingIn(m, counts)} />
-                      <ChevronDown aria-hidden className={cn('size-4 shrink-0 text-subtle transition-transform', open && 'rotate-180')} />
-                    </button>
-                    {open && (
-                      <div className="animate-fade px-1">
-                        <Link to={folderPath(m.id)} onClick={onNavigate} className="mx-1.5 mt-1 mb-1 block rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-control">
-                          Buka halaman modul
-                        </Link>
-                        {section('transactions', 'Pekerjaan harian')}
-                        {section('master', 'Data acuan')}
-                        {extras.length > 0 && (
-                          <div className="flex flex-wrap gap-1 px-1.5 pt-2">
-                            {extras.map((x) => (
-                              <Link key={x.id} to={x.to ?? '/'} onClick={onNavigate} title={x.tcode} className="inline-flex h-7 items-center gap-1 rounded-full bg-card px-2.5 text-[11px] text-body shadow-card hover:text-fg">
-                                {x.kind === 'config' ? <Settings2 aria-hidden className="size-3" /> : <BarChart3 aria-hidden className="size-3" />}
-                                <span className="max-w-36 truncate">{x.label}</span>
-                              </Link>
+          </section>
+
+          {groups.map((g) => (
+            <section key={g.id}>
+              <p className="px-2.5 pb-1 eyebrow">{g.label}</p>
+              <ul className="space-y-1">
+                {(g.children ?? []).filter((c) => c.children).map((m) => {
+                  const open = shownModule === m.id
+                  const folders = m.children ?? []
+                  const isExtra = (f: MenuNode) => f.id.endsWith(':reports') || f.id.endsWith(':config')
+                  const extras = folders.filter(isExtra).flatMap((f) => f.children ?? [])
+                  return (
+                    <li key={m.id} className={cn('rounded-2xl transition-colors', open && 'bg-raised/70 pb-2')}>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        onClick={() => setOpenModule(open ? '' : m.id)}
+                        className={cn('flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-2.5 text-left text-[15px] transition-colors hover:bg-raised', onTrail(m.id) ? 'font-semibold text-fg' : 'font-medium text-body')}
+                      >
+                        <ModuleIcon id={m.id} on={onTrail(m.id)} />
+                        <span className="min-w-0 flex-1 truncate">{shortLabel(m)}</span>
+                        <Waiting n={waitingIn(m, counts)} />
+                        <ChevronDown aria-hidden className={cn('size-4 shrink-0 text-subtle transition-transform', open && 'rotate-180')} />
+                      </button>
+                      {open && (
+                        <div className="animate-fade px-1">
+                          <Link to={folderPath(m.id)} onClick={onNavigate} className="mx-1.5 mt-1 mb-1 block rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-control">
+                            Buka halaman modul
+                          </Link>
+                          {folders
+                            .filter((f) => !isExtra(f) && f.children?.length)
+                            .map((f) => (
+                              <div key={f.id}>
+                                <p className="px-2.5 pt-2 pb-0.5 text-xs font-medium text-subtle">{f.label}</p>
+                                <ul className="space-y-0.5">{(f.children ?? []).map((n) => row(n))}</ul>
+                              </div>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                          {extras.length > 0 && (
+                            <div className="flex flex-wrap gap-1 px-1.5 pt-2">
+                              {extras.map((x) => (
+                                <Link key={x.id} to={x.to ?? '/dashboard'} onClick={onNavigate} title={x.tcode} className="inline-flex h-7 items-center gap-1 rounded-full bg-card px-2.5 text-[11px] text-body shadow-card hover:text-fg">
+                                  {x.kind === 'config' ? <Settings2 aria-hidden className="size-3" /> : <BarChart3 aria-hidden className="size-3" />}
+                                  <span className="max-w-36 truncate">{x.label}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ))}
         </>
       )}
     </div>

@@ -49,7 +49,7 @@ export default function GroupAnalytics() {
       campaigns,
       availability: assets.length ? 1 - [...downtime.values()].reduce((s, h) => s + h, 0) / (assets.length * 90 * 24) : 1,
       downtime: [...downtime].sort((a, b) => b[1] - a[1]).slice(0, 6),
-      depreciation: ['holding', 'rotama', 'rodame', 'roasi'].map((e) => ({ entity: e, value: sum((d['fin.assets'] ?? []).filter((a) => a.values.entity === e), 'depreciation') })),
+      depreciation: ['holding', 'logistics', 'fertiliser', 'chemicals'].map((e) => ({ entity: e, value: sum((d['fin.assets'] ?? []).filter((a) => a.values.entity === e), 'depreciation') })),
       months,
       sales: byMonth(d['fin.receivables'] ?? [], 'due', 'amount'),
       purchases: byMonth(d['vms.orders'] ?? [], 'delivery', 'value'),

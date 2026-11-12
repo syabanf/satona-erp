@@ -5,13 +5,13 @@ import type { Tone } from '../ui/Badge'
 import type { Pop } from '../ui/pop'
 
 /** Icon and pop surface per entity, shared by the overview, entity pages and the user matrix. */
-export const ENTITY_ICON: Record<EntityId, LucideIcon> = { holding: Building2, rotama: Truck, rodame: Sprout, roasi: FlaskConical }
-export const ENTITY_POP: Record<EntityId, Pop> = { holding: 'ink', rotama: 'blush', rodame: 'sun', roasi: 'red' }
+export const ENTITY_ICON: Record<EntityId, LucideIcon> = { holding: Building2, logistics: Truck, fertiliser: Sprout, chemicals: FlaskConical }
+export const ENTITY_POP: Record<EntityId, Pop> = { holding: 'ink', logistics: 'blush', fertiliser: 'blue', chemicals: 'red' }
 export const ENTITY_OPTIONS: ReadonlyArray<{ value: EntityId; label: string }> = [
   { value: 'holding', label: 'Holding' },
-  { value: 'rotama', label: 'Rotama' },
-  { value: 'rodame', label: 'Rodame' },
-  { value: 'roasi', label: 'Roasi' },
+  { value: 'logistics', label: 'Unit Logistik' },
+  { value: 'fertiliser', label: 'Pabrik Pupuk' },
+  { value: 'chemicals', label: 'Pabrik Kimia' },
 ]
 
 /** Twelve month labels ending with the current month. */

@@ -1,7 +1,7 @@
-/** Satona Group ERP: entities, modules, roles and the access rules between them. */
+/** Semua unit ERP: entities, modules, roles and the access rules between them. */
 import { moduleLabel } from './uiLabels'
 
-export type EntityId = 'holding' | 'rotama' | 'rodame' | 'roasi'
+export type EntityId = 'holding' | 'logistics' | 'fertiliser' | 'chemicals'
 
 export interface Entity {
   id: EntityId

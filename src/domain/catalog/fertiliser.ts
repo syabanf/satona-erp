@@ -1,4 +1,4 @@
-/** PT Rodame Indonesia (fertiliser): BPF, MRP, QC, EAM, DMS. */
+/** Pabrik Pupuk (fertiliser): BPF, MRP, QC, EAM, DMS. */
 import type { RecordType } from '../records'
 import { conditionOf } from '../maintenance'
 import { ACTIVE, APPROVAL, PROVINCES, calc, date, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
@@ -7,7 +7,7 @@ const LINES = ['Line A Gresik', 'Line B Gresik', 'Urea Palembang'] as const
 const PRODUCTS = ['Urea', 'NPK 15-15-15', 'NPK 16-16-16', 'ZA'] as const
 export const CONDITION_PARAMETERS = ['Vibration (mm/s)', 'Bearing temperature (°C)', 'Motor current (A)'] as const
 
-export const RODAME: readonly RecordType[] = [
+export const FERTILISER: readonly RecordType[] = [
   master('bpf', 'formulas', ['Formulas', 'Formula', 'FRM'], 'grade', [
     text('grade', 'Grade', { required: true, list: true }),
     num('n', 'Nitrogen (N)', '%', { required: true, min: 0, max: 46, list: true }),
@@ -319,7 +319,7 @@ export const RODAME: readonly RecordType[] = [
   ), { sumField: 'value', groupBy: 'product', dateField: 'date' }),
 ]
 
-export const RODAME_MASTERS: readonly RecordType[] = [
+export const FERTILISER_MASTERS: readonly RecordType[] = [
   master('bpf', 'bom', ['Bills of materials', 'BOM line', 'BOM'], 'material', [
     ref('formula', 'Formula', 'bpf.formulas', { required: true, list: true }),
     ref('material', 'Component', 'mdm.materials', { required: true, list: true }),

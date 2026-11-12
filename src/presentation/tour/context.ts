@@ -15,7 +15,7 @@ export function useTour() {
   return tour
 }
 
-const DONE_KEY = 'satona-tutorials-done'
+const DONE_KEY = 'wit-tutorials-done'
 
 /** Finished tutorials per viewer; storage may be blocked, so every access is guarded. */
 export function readDone(): ReadonlySet<string> {

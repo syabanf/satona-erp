@@ -19,8 +19,8 @@ export function usePreference(pref: Preference) {
       if (next) document.documentElement.dataset[pref] = ON[pref]
       else delete document.documentElement.dataset[pref]
       try {
-        if (next) localStorage.setItem(`satona-${pref}`, ON[pref])
-        else localStorage.removeItem(`satona-${pref}`)
+        if (next) localStorage.setItem(`wit-${pref}`, ON[pref])
+        else localStorage.removeItem(`wit-${pref}`)
       } catch {
         // Blocked storage: the choice lasts for this page only.
       }

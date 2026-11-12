@@ -12,7 +12,7 @@ import { Input } from '../../ui/Field'
 import { menuItem, Popover } from '../../ui/Popover'
 import { useToast } from '../../ui/useToast'
 
-const ENTITY = { holding: 'Holding', rotama: 'Rotama', rodame: 'Rodame', roasi: 'Roasi' } as const
+const ENTITY = { holding: 'Holding', logistics: 'Unit Logistik', fertiliser: 'Pabrik Pupuk', chemicals: 'Pabrik Kimia' } as const
 
 /** The account row: shows the signed-in role and switches to any role from the user matrix. */
 export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {

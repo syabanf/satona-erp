@@ -1,4 +1,4 @@
-/** PT Rotama Indonesia (logistics): TMS, WMS, HAZ, FBL. */
+/** Unit Logistik (logistics): TMS, WMS, HAZ, FBL. */
 import type { RecordType } from '../records'
 import { ACTIVE, B3_CLASSES, calc, date, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
@@ -14,7 +14,7 @@ export const QUOTE_PRODUCTS: ReadonlyArray<{ item: string; unit: (typeof QUOTE_U
   { item: 'Loading supervision', unit: 'lot', price: 850_000 },
 ]
 
-export const ROTAMA: readonly RecordType[] = [
+export const LOGISTICS: readonly RecordType[] = [
   master('tms', 'vehicles', ['Vehicles', 'Vehicle', 'VEH'], 'plate', [
     text('plate', 'Plate', { required: true, list: true }),
     pick('kind', 'Body', ['Iso tank', 'Bulk tipper', 'Box truck', 'Flatbed'], { required: true, list: true }),
@@ -144,7 +144,7 @@ export const ROTAMA: readonly RecordType[] = [
   ], ACTIVE),
   type('fbl', 'invoices', ['Freight invoices', 'Freight invoice', 'FIN'], 'billTo', [
     ref('trip', 'Trip', 'tms.trips', { required: true, list: true }),
-    pick('billTo', 'Bill to', ['PT Rodame Indonesia', 'PT Roasi Sinergi Industri', 'External customer'], { required: true, list: true }),
+    pick('billTo', 'Bill to', ['Pabrik Pupuk', 'Pabrik Kimia', 'External customer'], { required: true, list: true }),
     num('distance', 'Distance', 'km', { required: true, min: 1 }),
     money('ratePerKm', 'Cost per km', { required: true }),
     num('margin', 'Margin', '%', { required: true, min: 0, max: 50 }),
@@ -230,7 +230,7 @@ export const ROTAMA: readonly RecordType[] = [
   ], ACTIVE, { sumField: 'amount' }),
 ]
 
-export const ROTAMA_MASTERS: readonly RecordType[] = [
+export const LOGISTICS_MASTERS: readonly RecordType[] = [
   master('tms', 'drivers', ['Drivers', 'Driver', 'DRV'], 'name', [
     text('name', 'Name', { required: true, list: true }),
     text('sim', 'Licence (SIM B2 Umum)', { required: true }),

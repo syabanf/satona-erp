@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { ADMIN_ROLE, type Role } from '@/domain/erp'
 import { SessionContext } from './useSession'
 
-const KEY = 'satona-session'
+const KEY = 'wit-session'
 
 /** The sign-in lasts for the browser tab; storage may be blocked, so every access is guarded. */
 function restore(): Role | null {

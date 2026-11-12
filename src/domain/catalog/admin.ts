@@ -23,7 +23,7 @@ export function adminTypes(approvable: readonly string[]): readonly RecordType[]
     master('sys', 'matrix', ['Approval matrix', 'Approval rule', 'AM'], 'name', [
       text('name', 'Rule', { required: true, list: true }),
       pick('docType', 'Document', approvable, { required: true, list: true }),
-      pick('entity', 'Entity', ['all', 'holding', 'rotama', 'rodame', 'roasi'], { required: true, list: true }),
+      pick('entity', 'Entity', ['all', 'holding', 'logistics', 'fertiliser', 'chemicals'], { required: true, list: true }),
       money('min', 'From amount', { required: true }),
       money('max', 'Up to amount (0 = no limit)'),
     ], ACTIVE, { groupBy: 'docType' }),

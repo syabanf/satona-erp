@@ -24,8 +24,8 @@ describe('modules', () => {
   })
 
   it('filters by entity, status and text', () => {
-    const list = [mod('tms', 'rotama', [item('live', 4)]), mod('qc', 'rodame', [item('build', 1)])]
-    expect(filterModules(list, { entity: 'rotama' }).map((m) => m.id)).toEqual(['tms'])
+    const list = [mod('tms', 'logistics', [item('live', 4)]), mod('qc', 'fertiliser', [item('build', 1)])]
+    expect(filterModules(list, { entity: 'logistics' }).map((m) => m.id)).toEqual(['tms'])
     expect(filterModules(list, { status: 'build' }).map((m) => m.id)).toEqual(['qc'])
     expect(filterModules(list, { q: 'module q' }).map((m) => m.id)).toEqual(['qc'])
     expect(filterModules(list, { q: 'transportasi' }).map((m) => m.id)).toEqual(['tms'])
@@ -34,23 +34,23 @@ describe('modules', () => {
 })
 
 describe('access', () => {
-  const tms = { id: 'tms', entity: 'rotama' as const }
-  const wms = { id: 'wms', entity: 'rotama' as const }
+  const tms = { id: 'tms', entity: 'logistics' as const }
+  const wms = { id: 'wms', entity: 'logistics' as const }
   it('gives a role its own module, leads approve there', () => {
-    expect(accessOf(role('Fleet Manager', 'rotama', 'tms'), tms)).toBe('approve')
-    expect(accessOf(role('Transport Dispatcher', 'rotama', 'tms'), tms)).toBe('full')
+    expect(accessOf(role('Fleet Manager', 'logistics', 'tms'), tms)).toBe('approve')
+    expect(accessOf(role('Transport Dispatcher', 'logistics', 'tms'), tms)).toBe('full')
   })
   it('lets leads read their entity and holding executives read everything', () => {
-    expect(accessOf(role('Fleet Manager', 'rotama', 'tms'), wms)).toBe('view')
-    expect(accessOf(role('Transport Dispatcher', 'rotama', 'tms'), wms)).toBe('none')
+    expect(accessOf(role('Fleet Manager', 'logistics', 'tms'), wms)).toBe('view')
+    expect(accessOf(role('Transport Dispatcher', 'logistics', 'tms'), wms)).toBe('none')
     expect(accessOf(role('CFO / Finance Director', 'holding', 'epm'), wms)).toBe('view')
   })
   it('keeps external users in their own portal', () => {
-    expect(accessOf(role('Driver (Driver App)', 'rotama', 'tms', true), tms)).toBe('portal')
+    expect(accessOf(role('Driver (Driver App)', 'logistics', 'tms', true), tms)).toBe('portal')
     expect(can('portal', 'step')).toBe(true)
     expect(can('portal', 'create')).toBe(false)
     expect(can('full', 'approve')).toBe(false)
-    expect(accessOf(role('Driver (Driver App)', 'rotama', 'tms', true), wms)).toBe('none')
-    expect(filterRoles([role('Driver', 'rotama', 'tms', true), role('Fleet Manager', 'rotama', 'tms')], { kind: 'external' })).toHaveLength(1)
+    expect(accessOf(role('Driver (Driver App)', 'logistics', 'tms', true), wms)).toBe('none')
+    expect(filterRoles([role('Driver', 'logistics', 'tms', true), role('Fleet Manager', 'logistics', 'tms')], { kind: 'external' })).toHaveLength(1)
   })
 })

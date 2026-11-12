@@ -1,9 +1,9 @@
-/** Seed rows for the record types that close the Satona scope gap analysis. */
+/** Seed rows for the record types that close the scope gap analysis. */
 import { round1 as round } from '@/domain/catalog/kit'
 import type { Values } from '@/domain/records'
 import type { Make } from './seeds'
 
-const ENTITIES = ['holding', 'rotama', 'rodame', 'roasi']
+const ENTITIES = ['holding', 'logistics', 'fertiliser', 'chemicals']
 const id = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(4, '0')}`
 const month = (offset: number) => {
   const d = new Date(Date.UTC(2026, 9 + offset, 1))
@@ -80,8 +80,8 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 10,
     make: ({ i, ref }) => {
       const [name, kind, radius, speedLimit, lat, lng] = ([
-        ['Roasi Cilegon plant gate', 'Plant', 400, 20, -5.97, 106.01],
-        ['Rodame Gresik plant gate', 'Plant', 500, 20, -7.1554, 112.6337],
+        ['Pabrik Kimia Cilegon plant gate', 'Plant', 400, 20, -5.97, 106.01],
+        ['Pabrik Pupuk Gresik plant gate', 'Plant', 500, 20, -7.1554, 112.6337],
         ['Cikampek depot', 'Plant', 300, 20, -6.419, 107.456],
         ['PT Petrokimia Mitra unloading', 'Customer site', 250, 15, -7.16, 112.65],
         ['PT Indo Detergent receiving', 'Customer site', 200, 15, -7.29, 112.73],
@@ -174,8 +174,8 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 4,
     make: ({ i }) =>
       ([
-        { name: 'Satona employees', protocol: 'OIDC', mfa: 'Required', realm: 'satona', users: 2562 },
-        { name: 'Corporate Active Directory', protocol: 'LDAP / AD', mfa: 'Required', realm: 'satona', users: 2410 },
+        { name: 'Employee accounts', protocol: 'OIDC', mfa: 'Required', realm: 'wit', users: 2562 },
+        { name: 'Corporate Active Directory', protocol: 'LDAP / AD', mfa: 'Required', realm: 'wit', users: 2410 },
         { name: 'Vendor portal', protocol: 'OIDC', mfa: 'Optional', realm: 'vendors', users: 312 },
         { name: 'Distributors and kiosks', protocol: 'OIDC', mfa: 'Optional', realm: 'partners', users: 1840 },
       ] as const)[i]!,
@@ -198,19 +198,19 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
         ['Merge kiosk records in Lamongan', 'Customer', 'Merge duplicate'],
         ['New vendor PT Katalis Nusantara', 'Vendor', 'Create'],
       ] as const)[i]!
-      return { subject, object, change, partner: object === 'Material' ? '' : ref('mdm.partners'), duplicateOf: change === 'Merge duplicate' ? ref('mdm.partners') : '', distribute: i % 3 === 0 ? 'All entities' : ['Rotama', 'Rodame', 'Roasi'][i % 3]!, reason: 'Raised from the group master data hub.' }
+      return { subject, object, change, partner: object === 'Material' ? '' : ref('mdm.partners'), duplicateOf: change === 'Merge duplicate' ? ref('mdm.partners') : '', distribute: i % 3 === 0 ? 'All entities' : ['Unit Logistik', 'Pabrik Pupuk', 'Pabrik Kimia'][i % 3]!, reason: 'Raised from the group master data hub.' }
     },
   },
   'epm.adjustments': {
     count: 14,
     make: ({ i, int, ref }) => {
       const [kind, description, debit, credit] = ([
-        ['Intercompany elimination', 'Eliminate Rotama freight to Rodame', 15, 16],
+        ['Intercompany elimination', 'Eliminate Unit Logistik freight to Pabrik Pupuk', 15, 16],
         ['Intercompany elimination', 'Eliminate IC receivable and payable', 8, 4],
-        ['Intercompany elimination', 'Eliminate acid sales Roasi to Rodame', 13, 16],
+        ['Intercompany elimination', 'Eliminate acid sales Pabrik Kimia to Pabrik Pupuk', 13, 16],
         ['Equity elimination', 'Eliminate investment in subsidiaries', 9, 10],
         ['Reclassification', 'Reclass freight accrual to payables', 6, 5],
-        ['CTA', 'Translate USD balances of Roasi', 21, 11],
+        ['CTA', 'Translate USD balances of Pabrik Kimia', 21, 11],
         ['Intercompany elimination', 'Eliminate shared service fee', 12, 19],
       ] as const)[i % 7]!
       return { consolidation: ref('epm.consolidations'), kind, description, debit: id('GCOA', debit), credit: id('GCOA', credit), amount: int(2, 30) * 1e9 }
@@ -225,7 +225,7 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
         ['SGD', 11_790, 11_930],
         ['CNY', 2_190, 2_230],
       ] as const)[i % 4]!
-      return { period: month(-1 - Math.floor(i / 4)), entity: ['roasi', 'rodame', 'holding', 'rotama'][i % 4]!, currency, exposure: int(2, 40) * 100_000 * (i % 5 === 4 ? -1 : 1), bookRate: book, closingRate: close - Math.floor(i / 4) * 20, kind: i % 4 === 2 ? 'Translation (CTA)' : i % 3 === 0 ? 'Realised' : 'Unrealised' }
+      return { period: month(-1 - Math.floor(i / 4)), entity: ['chemicals', 'fertiliser', 'holding', 'logistics'][i % 4]!, currency, exposure: int(2, 40) * 100_000 * (i % 5 === 4 ? -1 : 1), bookRate: book, closingRate: close - Math.floor(i / 4) * 20, kind: i % 4 === 2 ? 'Translation (CTA)' : i % 3 === 0 ? 'Realised' : 'Unrealised' }
     },
   },
   'epm.forecasts': {
@@ -238,7 +238,7 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'vms.demands': {
     count: 8,
-    make: ({ i, int, ref }) => ({ material: id('MAT', i % 6), period: month(1 + Math.floor(i / 6)), rodame: int(400, 3200), roasi: int(100, 1800), rotama: i % 3 === 0 ? int(20, 120) : 0, contract: ref('vms.contracts') }),
+    make: ({ i, int, ref }) => ({ material: id('MAT', i % 6), period: month(1 + Math.floor(i / 6)), fertiliser: int(400, 3200), chemicals: int(100, 1800), logistics: i % 3 === 0 ? int(20, 120) : 0, contract: ref('vms.contracts') }),
   },
   'vms.rfqs': {
     count: 8,
@@ -247,7 +247,7 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
         ['Liquid ammonia Q1 2027 supply', 'Sealed tender'],
         ['Phosphoric acid 52% spot cargo', 'RFQ'],
         ['Molten sulfur annual contract', 'E-auction'],
-        ['Caustic soda 48% for Roasi', 'RFQ'],
+        ['Caustic soda 48% for Pabrik Kimia', 'RFQ'],
         ['Granulator spare rollers', 'RFQ'],
         ['Tank truck freight Sumatra lanes', 'E-auction'],
         ['V₂O₅ catalyst replacement', 'Sealed tender'],
@@ -268,16 +268,16 @@ export const SCOPE_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 10,
     make: ({ i, int, day }) => {
       const [title, regulator, entity] = ([
-        ['Semester B3 waste report', 'KLHK (SIMPEL)', 'roasi'],
-        ['Stack emission CEMS quarterly', 'KLHK (SIMPEL)', 'roasi'],
-        ['Wastewater discharge monthly', 'KLHK (SIMPEL)', 'rodame'],
-        ['B3 transport permit renewal pack', 'Kemenhub', 'rotama'],
+        ['Semester B3 waste report', 'KLHK (SIMPEL)', 'chemicals'],
+        ['Stack emission CEMS quarterly', 'KLHK (SIMPEL)', 'chemicals'],
+        ['Wastewater discharge monthly', 'KLHK (SIMPEL)', 'fertiliser'],
+        ['B3 transport permit renewal pack', 'Kemenhub', 'logistics'],
         ['P2K3 quarterly K3 report', 'Disnaker', 'holding'],
-        ['Subsidised fertiliser realisation', 'BKPM (OSS)', 'rodame'],
-        ['Hazardous goods fleet audit', 'Kemenhub', 'rotama'],
-        ['RKL-RPL implementation report', 'KLHK (SIMPEL)', 'roasi'],
-        ['Boiler and pressure vessel inspection', 'Disnaker', 'roasi'],
-        ['Energy audit and usage report', 'ESDM', 'rodame'],
+        ['Subsidised fertiliser realisation', 'BKPM (OSS)', 'fertiliser'],
+        ['Hazardous goods fleet audit', 'Kemenhub', 'logistics'],
+        ['RKL-RPL implementation report', 'KLHK (SIMPEL)', 'chemicals'],
+        ['Boiler and pressure vessel inspection', 'Disnaker', 'chemicals'],
+        ['Energy audit and usage report', 'ESDM', 'fertiliser'],
       ] as const)[i]!
       return { title, regulator, entity, period: month(-1 - (i % 3)), evidence: int(3, 40), signedBy: i % 3 ? 'Dian Prasetyo, SHE Manager' : '', due: day(-15, 40) }
     },

@@ -13,7 +13,7 @@ export function filterKind(field: Field, rows: readonly ErpRecord[]): FilterKind
   return 'text'
 }
 
-/** `amount:100..500;entity:roasi` with each value URI-encoded, so colons and semicolons in values survive. */
+/** `amount:100..500;entity:chemicals` with each value URI-encoded, so colons and semicolons in values survive. */
 export function parseWhere(raw: string | undefined): Where {
   if (!raw) return {}
   return Object.fromEntries(

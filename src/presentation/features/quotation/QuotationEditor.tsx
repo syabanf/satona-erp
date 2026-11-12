@@ -2,13 +2,14 @@ import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
-import { QUOTE_PRODUCTS, QUOTE_UNITS } from '@/domain/catalog/rotama'
+import { QUOTE_PRODUCTS, QUOTE_UNITS } from '@/domain/catalog/logistics'
 import { canCreate, type ErpRecord, type Values } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { money } from '@/lib/format'
 import { useAccess, useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
+import { BrandMark } from '../../ui/BrandMark'
 import { Button } from '../../ui/Button'
 import { PageBar } from '../../ui/PageBar'
 import { Popover } from '../../ui/Popover'
@@ -164,11 +165,11 @@ export default function QuotationEditor() {
 
       <article className="overflow-hidden rounded-card border border-line bg-card shadow-card">
         <header className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-7">
-          <img src="/satona-logo.png" alt="Satona" className="size-20 object-contain" />
+          <BrandMark className="h-10" />
           <div className="min-w-0 text-right">
-            <p className="text-xl font-bold tracking-tight">PT ROTAMA INDONESIA</p>
+            <p className="text-xl font-bold tracking-tight">UNIT LOGISTIK</p>
             <p className="mt-1 text-xs text-muted italic">Jl. Raya Anyer KM 10, Cilegon, Banten 42445</p>
-            <p className="mt-1 text-xs text-accent-text">sales@rotama.co.id</p>
+            <p className="mt-1 text-xs text-accent-text">sales@wit.id</p>
             <p className="mt-1 text-xs text-muted">NPWP: 01.234.567.8-417.000</p>
           </div>
         </header>

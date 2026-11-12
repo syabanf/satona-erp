@@ -30,7 +30,6 @@ export const QUICK_TOUR: Tutorial = {
   minutes: 1,
   steps: [
     { route: 'home', title: `Selamat datang di ${APP_NAME}`, body: 'Satu sistem untuk holding, logistik, pupuk dan kimia. Tur ini menunjukkan tempat semua hal penting.' },
-    { target: 'workspace', title: 'Perusahaan aktif', body: 'Anda bekerja di Satona Group. Klik untuk berpindah konteks perusahaan atau membuka aplikasi ponsel.' },
     { target: 'search', title: 'Cari apa saja', body: 'Ketik nomor dokumen, nama, atau kode transaksi seperti TRP01. Tekan ⌘K atau / dari halaman mana pun.' },
     { target: 'tasks', title: 'Tugas saya', body: 'Pekerjaan yang paling sering Anda lakukan, disusun sesuai peran Anda.' },
     { target: 'menu', title: 'Semua menu', body: 'Menu lengkap per perusahaan dan modul. Klik folder untuk membuka halaman kartu fiturnya.' },

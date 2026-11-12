@@ -1,4 +1,4 @@
-/** Record types that close the Satona scope gap analysis of 30 Oct 2026, grouped by module. */
+/** Record types that close the scope gap analysis of 30 Oct 2026, grouped by module. */
 import type { RecordType } from '../records'
 import { ACTIVE, APPROVAL, B3_CLASSES, calc, date, entity, flow, master, money, n, note, num, pick, ref, round1, text, type } from './kit'
 
@@ -104,7 +104,7 @@ export const SCOPE: readonly RecordType[] = [
     pick('change', 'Change', ['Create', 'Update', 'Merge duplicate', 'Block'], { required: true, list: true }),
     ref('partner', 'Golden record', 'mdm.partners'),
     ref('duplicateOf', 'Duplicate of', 'mdm.partners'),
-    pick('distribute', 'Distribute to', ['All entities', 'Rotama', 'Rodame', 'Roasi'], { required: true }),
+    pick('distribute', 'Distribute to', ['All entities', 'Unit Logistik', 'Pabrik Pupuk', 'Pabrik Kimia'], { required: true }),
     note('reason', 'Reason'),
   ], flow(
     [
@@ -163,10 +163,10 @@ export const SCOPE: readonly RecordType[] = [
   type('vms', 'demands', ['Group demand plans', 'Demand plan', 'DP'], 'material', [
     ref('material', 'Material', 'mdm.materials', { required: true, list: true }),
     period(),
-    num('rodame', 'Rodame need', 't', { required: true, min: 0 }),
-    num('roasi', 'Roasi need', 't', { required: true, min: 0 }),
-    num('rotama', 'Rotama need', 't', { required: true, min: 0 }),
-    calc('total', 'Group volume', (v) => n(v, 'rodame') + n(v, 'roasi') + n(v, 'rotama'), { unit: 't', list: true }),
+    num('fertiliser', 'Pabrik Pupuk need', 't', { required: true, min: 0 }),
+    num('chemicals', 'Pabrik Kimia need', 't', { required: true, min: 0 }),
+    num('logistics', 'Unit Logistik need', 't', { required: true, min: 0 }),
+    calc('total', 'Group volume', (v) => n(v, 'fertiliser') + n(v, 'chemicals') + n(v, 'logistics'), { unit: 't', list: true }),
     ref('contract', 'Umbrella contract', 'vms.contracts'),
   ], flow(
     [

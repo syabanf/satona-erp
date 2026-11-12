@@ -6,9 +6,9 @@ import type { ErpRecord } from './records'
 const type = typeOf('epm.intercompany')!
 const row = (id: string, values: ErpRecord['values']): ErpRecord => ({ id, type: type.key, status: 'unmatched', values, createdAt: '', updatedAt: '', history: [] })
 const rows = [
-  row('ICE-1', { from: 'rotama', to: 'rodame', description: 'Freight NPK Gresik', amount: 400, date: '2026-10-02', difference: 0 }),
-  row('ICE-2', { from: 'holding', to: 'roasi', description: 'Management fee', amount: 900, date: '2026-09-15', difference: 35 }),
-  row('ICE-3', { from: 'rotama', to: 'roasi', description: 'Freight acid Cilegon', amount: 1200, date: '2026-10-20', difference: 0 }),
+  row('ICE-1', { from: 'logistics', to: 'fertiliser', description: 'Freight NPK Gresik', amount: 400, date: '2026-10-02', difference: 0 }),
+  row('ICE-2', { from: 'holding', to: 'chemicals', description: 'Management fee', amount: 900, date: '2026-09-15', difference: 35 }),
+  row('ICE-3', { from: 'logistics', to: 'chemicals', description: 'Freight acid Cilegon', amount: 1200, date: '2026-10-20', difference: 0 }),
 ]
 const ids = (where: Record<string, string>) => applyWhere(type, rows, where).map((r) => r.id)
 
@@ -19,10 +19,10 @@ describe('field filters', () => {
   })
 
   it('combines pick, open ranges, date ranges and words', () => {
-    expect(ids({ from: 'rotama' })).toEqual(['ICE-1', 'ICE-3'])
+    expect(ids({ from: 'logistics' })).toEqual(['ICE-1', 'ICE-3'])
     expect(ids({ amount: '500..' })).toEqual(['ICE-2', 'ICE-3'])
     expect(ids({ amount: '..1000', date: '2026-10-01..2026-10-31' })).toEqual(['ICE-1'])
-    expect(ids({ description: 'freight', to: 'roasi' })).toEqual(['ICE-3'])
+    expect(ids({ description: 'freight', to: 'chemicals' })).toEqual(['ICE-3'])
     expect(ids({ nope: 'x' })).toEqual(['ICE-1', 'ICE-2', 'ICE-3'])
   })
 

@@ -7,7 +7,7 @@ export function NotFound() {
     <EmptyState
       title="This page does not exist"
       action={
-        <Link to="/" className={buttonStyles({ variant: 'solid' })}>
+        <Link to="/dashboard" className={buttonStyles({ variant: 'solid' })}>
           Back to the overview
         </Link>
       }

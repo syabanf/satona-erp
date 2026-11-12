@@ -21,15 +21,15 @@ import { APP_PRODUCT } from '@/lib/brand'
 const PERSONAS: ReadonlyArray<{ group: string; names: readonly string[] }> = [
   { group: 'Grup', names: ['Group IT Program Lead', 'CFO / Finance Director', 'Head of Procurement', 'Operations Director'] },
   { group: 'Layanan bersama dan keselamatan', names: ['SHE Manager', 'she-k3-officer', 'Safety Inspector', 'Contractor Safety Rep', 'HR Director', 'hrs-hr-manager', 'Employee (ESS)', 'Finance Controller', 'Chief Accountant', 'System Administrator'] },
-  { group: 'Logistik Rotama', names: ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)', 'Warehouse Manager'] },
-  { group: 'Pabrik Rodame dan Roasi', names: ['Production Manager', 'Plant Operator', 'Maintenance Head', 'QC Manager', 'Tank Farm Supervisor', 'Distributor'] },
+  { group: 'Logistik Unit Logistik', names: ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)', 'Warehouse Manager'] },
+  { group: 'Pabrik Pabrik Pupuk dan Pabrik Kimia', names: ['Production Manager', 'Plant Operator', 'Maintenance Head', 'QC Manager', 'Tank Farm Supervisor', 'Distributor'] },
 ]
 
 const FEATURED = [
   { group: 'Coba peran berikut', names: ['Group IT Program Lead', 'Operations Director', 'Head of Procurement', 'Driver (Driver App)'] },
 ]
 
-const ENTITY_LABEL = { holding: 'Holding', rotama: 'Rotama', rodame: 'Rodame', roasi: 'Roasi' } as const
+const ENTITY_LABEL = { holding: 'Holding', logistics: 'Unit Logistik', fertiliser: 'Pabrik Pupuk', chemicals: 'Pabrik Kimia' } as const
 
 export default function LoginPage() {
   const { erp } = useServices()
@@ -38,7 +38,7 @@ export default function LoginPage() {
   const toast = useToast()
   const roles = useResource('erp.roles', () => erp.roles())
   const modules = useResource('erp.modules', () => erp.modules())
-  const [email, setEmail] = useState('raka.pradana@satona.co.id')
+  const [email, setEmail] = useState('raka.pradana@wit.id')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [showAllRoles, setShowAllRoles] = useState(false)
@@ -76,7 +76,7 @@ export default function LoginPage() {
           </span>
         </div>
         <div className="mt-auto max-w-lg">
-          <p className="eyebrow text-on-ink-muted!">Satona Group</p>
+          <p className="eyebrow text-on-ink-muted!">Semua unit</p>
           <h1 className="mt-3 text-[44px] leading-[1.05] font-bold tracking-tight">
             Satu tempat untuk logistik, pupuk, dan bahan kimia<span className="text-accent">.</span>
           </h1>
@@ -84,9 +84,9 @@ export default function LoginPage() {
         </div>
         <ul className="mt-10 grid grid-cols-3 gap-3">
           {[
-            { icon: Truck, label: 'Rotama', note: 'Peta armada' },
-            { icon: Factory, label: 'Rodame', note: '41,300 t NPK' },
-            { icon: FlaskConical, label: 'Roasi', note: '98,7% waktu aktif' },
+            { icon: Truck, label: 'Unit Logistik', note: 'Peta armada' },
+            { icon: Factory, label: 'Pabrik Pupuk', note: '41,300 t NPK' },
+            { icon: FlaskConical, label: 'Pabrik Kimia', note: '98,7% waktu aktif' },
           ].map((c, i) => (
             <li key={c.label} className="animate-rise rounded-panel bg-white/8 p-4 ring-1 ring-white/10" style={{ animationDelay: `${150 + i * 120}ms` }}>
               <c.icon aria-hidden className="size-5 text-accent" />
@@ -108,7 +108,7 @@ export default function LoginPage() {
         <h2 className="text-2xl font-bold tracking-tight md:text-[28px]">
           Masuk<span className="text-accent">.</span>
         </h2>
-        <p className="mt-1 text-sm text-muted">Gunakan akun Satona, atau pilih peran di bawah untuk mencoba demo.</p>
+        <p className="mt-1 text-sm text-muted">Gunakan akun kerja Anda, atau pilih peran di bawah untuk mencoba demo.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-3">
           <label className="block">

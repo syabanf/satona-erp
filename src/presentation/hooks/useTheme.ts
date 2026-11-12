@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 export type Theme = 'light' | 'dark'
 
-const KEY = 'satona-theme'
+const KEY = 'wit-theme'
 const THEME_COLOR: Record<Theme, string> = { light: '#f1f0f1', dark: '#0d0d0f' }
 
 const current = (): Theme => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')

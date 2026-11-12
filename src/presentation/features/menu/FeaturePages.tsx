@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router'
 import { ArrowUpRight, Boxes, CheckCheck, Database, FileText, Plus, Settings2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
-import type { Entity, ErpModule } from '@/domain/erp'
+import type { ErpModule } from '@/domain/erp'
 import { approvalStates, featureStats, relatedTypes, type FeatureStats } from '@/domain/featureStats'
 import { chainTo, folderPath, walk, type MenuNode } from '@/domain/menu'
 import { moduleLabel, recordLabel } from '@/domain/uiLabels'
@@ -132,7 +132,7 @@ function Totals({ types, all, label }: { types: readonly RecordType[]; all: AllR
   const first = (k: 'open' | 'waiting' | 'recent') => [...rows].sort((a, b) => b.s[k] - a.s[k])[0]
   const to = (k: 'open' | 'waiting' | 'recent') => {
     const top = first(k)
-    if (!top) return '/'
+    if (!top) return '/dashboard'
     if (k === 'waiting') return `${recordPath(top.t)}?status=${[...approvalStates(top.t)][0] ?? ''}`
     return recordPath(top.t)
   }
@@ -155,7 +155,7 @@ function LeafLinks({ node }: { node: MenuNode }) {
       <CardHeader title="Laporan dan konfigurasi" />
       <div className="flex flex-wrap gap-2">
         {leaves.map((l) => (
-          <Link key={l.id} to={l.to ?? '/'} className="inline-flex h-9 items-center gap-2 rounded-full border border-line-strong bg-raised px-3 text-sm hover:bg-control">
+          <Link key={l.id} to={l.to ?? '/dashboard'} className="inline-flex h-9 items-center gap-2 rounded-full border border-line-strong bg-raised px-3 text-sm hover:bg-control">
             {l.kind === 'config' ? <Settings2 aria-hidden className="size-4 text-muted" /> : <Boxes aria-hidden className="size-4 text-muted" />}
             {l.label}
             {l.tcode && <span className="tcode font-mono text-[11px] text-accent-text">{l.tcode}</span>}
@@ -219,61 +219,6 @@ export function ModuleFolder({ node, module, all }: { node: MenuNode; module: Er
           </ul>
         </Card>
       )}
-    </div>
-  )
-}
-
-/** A company: its totals and one card per module with that module's numbers. */
-export function EntityFolder({ node, entity, modules, all }: { node: MenuNode; entity: Entity; modules: readonly ErpModule[]; all: AllRecords }) {
-  const stats = useStats()
-  const mods = (node.children ?? []).flatMap((c) => {
-    const module = modules.find((m) => m.id === c.id)
-    return module ? [{ node: c, module, types: typesUnder(c) }] : []
-  })
-  const home = (node.children ?? []).find((c) => c.to)
-  return (
-    <div className="space-y-6">
-      <Totals types={mods.flatMap((m) => m.types)} all={all} label={entity.short} />
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Modul {entity.short}</h2>
-          {home?.to && (
-            <Link to={home.to} className={buttonStyles({ variant: 'card', size: 'sm' })}>
-              {home.label} <ArrowUpRight aria-hidden className="size-3.5" />
-            </Link>
-          )}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {mods.map(({ node: n, module, types }) => {
-            const s = types.map((t) => stats(t, all))
-            const total = (k: 'total' | 'open' | 'waiting') => s.reduce((acc, x) => acc + x[k], 0)
-            return (
-              <Link key={module.id} to={folderPath(n.id)} data-motion="rise" className="flex h-full flex-col rounded-card border border-line bg-card p-5 shadow-card transition-[translate] duration-300 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1">
-                <span className="flex items-center gap-2">
-                  <span className="rounded-md bg-raised px-1.5 py-0.5 font-mono text-xs font-semibold">{module.code}</span>
-                  {total('waiting') > 0 && <Tag tone="accent">{int(total('waiting'))} menunggu</Tag>}
-                </span>
-                <span className="mt-2 font-semibold text-fg">{moduleLabel(module.id, module.name)}</span>
-                <span className="mt-1 line-clamp-2 text-xs text-muted">{types.map(featureName).join(' · ')}</span>
-                <span className="mt-auto grid grid-cols-3 gap-2 pt-4 text-center">
-                  {(
-                    [
-                      ['Fitur', types.length],
-                      ['Data', total('total')],
-                      ['Berjalan', total('open')],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <span key={label} className="rounded-panel bg-raised py-2">
-                      <span className="block text-lg font-semibold tabular">{int(value)}</span>
-                      <span className="block text-[11px] text-muted">{label}</span>
-                    </span>
-                  ))}
-                </span>
-              </Link>
-            )
-          })}
-        </div>
-      </section>
     </div>
   )
 }

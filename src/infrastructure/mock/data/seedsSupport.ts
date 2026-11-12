@@ -3,7 +3,7 @@ import { GRADES } from '@/domain/catalog/support'
 import { ROLES } from './erp'
 import type { Make } from './seeds'
 
-const ENTITIES = ['holding', 'rotama', 'rodame', 'roasi']
+const ENTITIES = ['holding', 'logistics', 'fertiliser', 'chemicals']
 const id = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(4, '0')}`
 const roleId = (name: string) => id('ROL', Math.max(0, ROLES.findIndex((r) => r.name === name)))
 
@@ -15,16 +15,16 @@ const ORG: ReadonlyArray<[string, string, number | null, string]> = [
   ['Human Capital & GA Directorate', 'Directorate', 0, 'holding'],
   ['Accounting Division', 'Division', 1, 'holding'],
   ['Treasury & Tax Division', 'Division', 1, 'holding'],
-  ['Rotama Logistics Division', 'Division', 2, 'rotama'],
-  ['Rodame Production Division', 'Division', 2, 'rodame'],
-  ['Roasi Chemical Division', 'Division', 2, 'roasi'],
+  ['Unit Logistik Logistics Division', 'Division', 2, 'logistics'],
+  ['Pabrik Pupuk Production Division', 'Division', 2, 'fertiliser'],
+  ['Pabrik Kimia Chemical Division', 'Division', 2, 'chemicals'],
   ['SHE / K3 Department', 'Department', 2, 'holding'],
   ['HR Department', 'Department', 3, 'holding'],
   ['GA & IT Department', 'Department', 3, 'holding'],
-  ['Acid Plant Section', 'Section', 8, 'roasi'],
-  ['Tank Farm Section', 'Section', 8, 'roasi'],
-  ['NPK Plant Section', 'Section', 7, 'rodame'],
-  ['Fleet Operations Section', 'Section', 6, 'rotama'],
+  ['Acid Plant Section', 'Section', 8, 'chemicals'],
+  ['Tank Farm Section', 'Section', 8, 'chemicals'],
+  ['NPK Plant Section', 'Section', 7, 'fertiliser'],
+  ['Fleet Operations Section', 'Section', 6, 'logistics'],
 ]
 const POSITIONS = ['Plant Operator', 'Process Technician', 'Shift Supervisor', 'Area Superintendent', 'Department Manager', 'Tanker Driver', 'Lab Analyst', 'K3 Officer', 'Accountant', 'HR Generalist', 'Storekeeper', 'Maintenance Technician']
 const FIRST = ['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina', 'Made', 'Nanda', 'Oki', 'Putri', 'Rizky', 'Sari', 'Teguh', 'Wulan']
@@ -143,7 +143,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 6,
     make: ({ i, day }) => ({ ...[
       { title: 'Annual MCU schedule for plant crews', audience: 'Plant crews' },
-      { title: 'Roasi acid plant turnaround: shift changes', audience: 'Plant crews' },
+      { title: 'Pabrik Kimia acid plant turnaround: shift changes', audience: 'Plant crews' },
       { title: 'Year-end collective leave 24 and 26 December', audience: 'All employees' },
       { title: 'New fatigue rule for tanker drivers', audience: 'Drivers' },
       { title: 'Payroll date moves to the 25th', audience: 'All employees' },
@@ -153,7 +153,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
 
   'fin.journals': {
     count: 40,
-    make: ({ i, day, int, pick, ref }) => ({ description: pick(['Accrued freight Rotama', 'FX revaluation USD payables', 'Depreciation tank farm', 'Intercompany sulfur sale', 'Payroll accrual', 'Inventory write-down off-spec NPK']), entity: ENTITIES[i % 4], account: ref('mdm.accounts'), costcenter: ref('mdm.costcenters'), amount: int(40, 2400) * 1e6, date: day(-160, 0) }),
+    make: ({ i, day, int, pick, ref }) => ({ description: pick(['Accrued freight Unit Logistik', 'FX revaluation USD payables', 'Depreciation tank farm', 'Intercompany sulfur sale', 'Payroll accrual', 'Inventory write-down off-spec NPK']), entity: ENTITIES[i % 4], account: ref('mdm.accounts'), costcenter: ref('mdm.costcenters'), amount: int(40, 2400) * 1e6, date: day(-160, 0) }),
   },
   'fin.payables': {
     count: 36,
@@ -325,7 +325,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
       [
         { role: roleId('Operations Director'), module: 'SHE', access: 'approve', reason: 'Signs off major-hazard permits' },
         { role: roleId('Business Analyst'), module: 'SHE', access: 'view', reason: 'Safety KPIs in the board pack' },
-        { role: roleId('Plant Manager'), module: 'SHE', access: 'full', reason: 'Raises permits for Roasi units' },
+        { role: roleId('Plant Manager'), module: 'SHE', access: 'full', reason: 'Raises permits for Pabrik Kimia units' },
         { role: roleId('Fleet Manager'), module: 'HRS', access: 'view', reason: 'Checks driver attendance and licences' },
       ][i]!,
   },
@@ -354,7 +354,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 12,
     make: ({ i }) =>
       ([
-        ['Group name', 'Company', 'PT Satona (Holding)'],
+        ['Group name', 'Company', 'Kantor Pusat'],
         ['Fiscal year starts', 'Company', 'January'],
         ['Base currency', 'Company', 'IDR'],
         ['Time zone', 'Locale', 'Asia/Jakarta (WIB)'],
@@ -376,10 +376,10 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
         ['Christmas Day', '2026-12-25', 'National holiday'],
         ['Boxing Day collective leave', '2026-12-26', 'Collective leave'],
         ["New Year's Day", '2027-01-01', 'National holiday'],
-        ['Roasi acid plant turnaround', '2026-11-16', 'Plant shutdown'],
+        ['Pabrik Kimia acid plant turnaround', '2026-11-16', 'Plant shutdown'],
         ['Isra Miraj', '2027-01-16', 'National holiday'],
         ['Chinese New Year', '2027-02-06', 'National holiday'],
-        ['Rodame NPK line 2 shutdown', '2026-12-07', 'Plant shutdown'],
+        ['Pabrik Pupuk NPK line 2 shutdown', '2026-12-07', 'Plant shutdown'],
       ] as const).map(([name, date, kind]) => ({ name, date, kind }))[i]!,
   },
   'sys.templates': {

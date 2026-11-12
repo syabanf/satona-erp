@@ -144,7 +144,7 @@ export default function OverviewPage() {
                 zoom={6}
                 focus={picked ? { at: picked.at, zoom: 8 } : { at: [-5.6, 109.5], zoom: 6 }}
                 className="h-[360px] sm:h-[420px]"
-                label="Map of Satona sites"
+                label="Map of all sites"
               >
                 <SiteMarkers sites={shown} entities={list} selected={site} onSelect={(id) => setQuery({ site: id === site ? undefined : id })} />
               </BaseMap>

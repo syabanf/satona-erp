@@ -8,7 +8,7 @@ const row = (id: string, values: ErpRecord['values'], status = 'active'): ErpRec
 const rules = [
   row('AM-1', { docType: 'vms.orders', entity: 'all', min: 0, max: 500_000_000 }),
   row('AM-2', { docType: 'vms.orders', entity: 'all', min: 500_000_001, max: 0 }),
-  row('AM-3', { docType: 'vms.orders', entity: 'roasi', min: 500_000_001, max: 0 }),
+  row('AM-3', { docType: 'vms.orders', entity: 'chemicals', min: 500_000_001, max: 0 }),
 ]
 const levels = [
   row('L1', { rule: 'AM-1', level: 1, approver: 'Head of Procurement', sla: 24 }),
@@ -21,12 +21,12 @@ const levels = [
 
 describe('approval matrix', () => {
   it('picks the amount band and sorts levels', () => {
-    expect(approvalChain(type, { values: { value: 100_000_000, entity: 'rodame' } }, { rules, levels }).map((s) => s.role)).toEqual(['Head of Procurement'])
-    expect(approvalChain(type, { values: { value: 900_000_000, entity: 'rodame' } }, { rules, levels }).map((s) => s.level)).toEqual([1, 2])
+    expect(approvalChain(type, { values: { value: 100_000_000, entity: 'fertiliser' } }, { rules, levels }).map((s) => s.role)).toEqual(['Head of Procurement'])
+    expect(approvalChain(type, { values: { value: 900_000_000, entity: 'fertiliser' } }, { rules, levels }).map((s) => s.level)).toEqual([1, 2])
   })
 
   it('prefers an entity rule and skips inactive levels', () => {
-    expect(approvalChain(type, { values: { value: 900_000_000, entity: 'roasi' } }, { rules, levels }).map((s) => s.role)).toEqual(['Plant Manager', 'CFO / Finance Director'])
+    expect(approvalChain(type, { values: { value: 900_000_000, entity: 'chemicals' } }, { rules, levels }).map((s) => s.role)).toEqual(['Plant Manager', 'CFO / Finance Director'])
   })
 
   it('returns no chain for a document without a rule', () => {
@@ -34,7 +34,7 @@ describe('approval matrix', () => {
   })
 
   it('walks the levels and honours delegations', () => {
-    const chain = approvalChain(type, { values: { value: 900_000_000, entity: 'rodame' } }, { rules, levels })
+    const chain = approvalChain(type, { values: { value: 900_000_000, entity: 'fertiliser' } }, { rules, levels })
     expect(pendingStep(chain, [{ level: 1, role: 'Head of Procurement', by: 'x', at: '' }])?.role).toBe('CFO / Finance Director')
     const step = chain[1]!
     const delegation = row('DLG-1', { fromRole: 'CFO / Finance Director', toRole: 'Finance Controller', from: '2026-10-01', to: '2026-10-31' })

@@ -130,3 +130,6 @@ export function stationState(assetStatus: string | undefined, conditionAlarm: bo
   if (assetStatus === 'down' || assetStatus === 'maintenance') return 'stopped'
   return conditionAlarm || tagAlarm ? 'alarm' : 'running'
 }
+
+/** A live platform metric: `base` plus a slow wave of `swing`, deterministic per key so the demo replays. */
+export const liveMetric = (key: string, elapsed: number, base: number, swing: number) => round1(base + swing * wave(elapsed, seed(key), 0.5))

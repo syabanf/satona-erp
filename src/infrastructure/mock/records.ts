@@ -21,7 +21,7 @@ type SyncMessage =
  */
 function channel(onMessage: (m: SyncMessage) => void) {
   if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return undefined
-  const c = new BroadcastChannel('satona-records')
+  const c = new BroadcastChannel('wit-records')
   c.onmessage = (e: MessageEvent<SyncMessage>) => onMessage(e.data)
   return (m: SyncMessage) => c.postMessage(m)
 }

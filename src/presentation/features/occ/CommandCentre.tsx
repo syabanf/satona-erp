@@ -34,7 +34,7 @@ const pin = (n: number, worst?: string) =>
     html: `<span class="relative grid size-[30px] place-items-center rounded-full ${worst === 'Critical' ? 'bg-accent text-white' : n ? 'bg-warning text-white' : 'bg-success text-white'} text-[11px] font-bold ring-2 ring-card shadow-float">${worst === 'Critical' ? '<span class="absolute inset-0 rounded-full border-2 border-accent animate-ping-ring"></span>' : ''}${n}</span>`,
   })
 
-/** Group operations command centre, ported from the WIT GPI Command Center onto Satona's plants, depots and fleet. */
+/** Group operations command centre, ported from the WIT GPI Command Center onto the group's plants, depots and fleet. */
 export default function CommandCentre() {
   const navigate = useNavigate()
   const { ops, records, clock } = useServices()

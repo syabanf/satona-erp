@@ -13,9 +13,18 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;
   }
-  /* Teks besar: every rem grows, so text, buttons and spacing scale together. */
+  /* From tablets up the whole UI sits at 90%: every rem shrinks, so text, buttons and spacing scale together.
+     Phones keep 100% so inputs stay at 16px and iOS does not zoom into them. Teks besar grows from there. */
   :root[data-text='large'] {
     font-size: 112.5%;
+  }
+  @media (min-width: 768px) {
+    :root {
+      font-size: 90%;
+    }
+    :root[data-text='large'] {
+      font-size: 101.25%;
+    }
   }
   ::selection {
     @apply bg-accent text-white;
@@ -199,4 +208,43 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .scada-flow { animation: none; }
+}
+
+/* Public site motion: sections fade up as they scroll in, hero lines rise on load, the hero glow drifts, logos scroll. */
+.reveal {
+  opacity: 0;
+  translate: 0 28px;
+  transition: opacity 0.7s ease, translate 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.reveal[data-in] {
+  opacity: 1;
+  translate: 0 0;
+}
+.hero-rise {
+  animation: hero-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes hero-rise {
+  from { opacity: 0; translate: 0 32px; }
+}
+.site-glow {
+  animation: site-glow 9s ease-in-out infinite alternate;
+}
+@keyframes site-glow {
+  to { translate: -120px 80px; scale: 1.15; }
+}
+.site-grid {
+  background-image: linear-gradient(var(--color-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+.marquee {
+  animation: marquee 40s linear infinite;
+}
+@keyframes marquee {
+  to { translate: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; translate: none; transition: none; }
+  .hero-rise, .site-glow, .marquee { animation: none; }
 }

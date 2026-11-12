@@ -95,10 +95,10 @@ export function geoOf(type: RecordType, record: ErpRecord, all: All, typeOf: Typ
 
 /** Each company's main site, where records without a place of their own go on the map. */
 const HOME: Record<string, { city: string; site: string }> = {
-  holding: { city: 'jakarta', site: 'Satona HQ Jakarta' },
-  rotama: { city: 'cikampek', site: 'Rotama Fleet Pool Cikampek' },
-  rodame: { city: 'gresik', site: 'Rodame NPK Plant Gresik' },
-  roasi: { city: 'cilegon', site: 'Roasi Acid Plant Cilegon' },
+  holding: { city: 'jakarta', site: 'Kantor Pusat Jakarta' },
+  logistics: { city: 'cikampek', site: 'Fleet Pool Cikampek' },
+  fertiliser: { city: 'gresik', site: 'Pabrik Pupuk NPK Gresik' },
+  chemicals: { city: 'cilegon', site: 'Pabrik Kimia asam Cilegon' },
 }
 
 /**

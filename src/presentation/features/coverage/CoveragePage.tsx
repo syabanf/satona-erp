@@ -10,10 +10,10 @@ import { Button } from '../../ui/Button'
 import { GAP_ITEMS, type Entity } from './items'
 
 const ENTITIES: ReadonlyArray<{ value: Entity; label: string }> = [
-  { value: 'holding', label: 'Satona holding' },
-  { value: 'rotama', label: 'Rotama' },
-  { value: 'rodame', label: 'Rodame' },
-  { value: 'roasi', label: 'Roasi' },
+  { value: 'holding', label: 'Kantor Pusat' },
+  { value: 'logistics', label: 'Unit Logistik' },
+  { value: 'fertiliser', label: 'Pabrik Pupuk' },
+  { value: 'chemicals', label: 'Pabrik Kimia' },
   { value: 'integration', label: 'Integration layer' },
 ]
 const BEFORE = [

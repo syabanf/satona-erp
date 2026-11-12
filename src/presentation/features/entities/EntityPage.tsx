@@ -34,7 +34,7 @@ export default function EntityPage() {
   const [site, setSite] = useState<string>()
 
   const e = entity.data
-  if (!e) return <Fallback error={entity.error} onRetry={entity.reload} back={{ to: '/', label: 'Back to the overview' }} what="entity" />
+  if (!e) return <Fallback error={entity.error} onRetry={entity.reload} back={{ to: '/dashboard', label: 'Back to the overview' }} what="entity" />
 
   const Icon = ENTITY_ICON[e.id]
   const mods = (modules.data ?? []).filter((m) => m.entity === e.id)
@@ -52,7 +52,7 @@ export default function EntityPage() {
           <p className="mt-8 text-sm opacity-70">{e.sector}</p>
           <h2 className="text-2xl font-bold tracking-tight">
             {e.name}
-            <span className={e.id === 'roasi' ? 'text-white' : 'text-accent'}>.</span>
+            <span className={e.id === 'chemicals' ? 'text-white' : 'text-accent'}>.</span>
           </h2>
           <div className="mt-6 grid grid-cols-2 gap-3">
             <div>
@@ -68,7 +68,7 @@ export default function EntityPage() {
               </p>
             </div>
           </div>
-          <Link to={`/users?entity=${e.id}`} className={buttonStyles({ variant: e.id === 'roasi' || e.id === 'holding' ? 'onPop' : 'ink', size: 'sm', className: 'mt-5' })}>
+          <Link to={`/users?entity=${e.id}`} className={buttonStyles({ variant: e.id === 'chemicals' || e.id === 'holding' ? 'onPop' : 'ink', size: 'sm', className: 'mt-5' })}>
             <UsersRound aria-hidden className="size-3.5" /> {myRoles.length} system roles
           </Link>
         </section>
@@ -161,7 +161,7 @@ export default function EntityPage() {
                 </button>
               </li>
             ))}
-            {e.id === 'rotama' && (
+            {e.id === 'logistics' && (
               <li>
                 <Link to="/fleet" className={buttonStyles({ variant: 'solid', size: 'sm', className: 'mt-1' })}>
                   Live fleet map <ArrowRight aria-hidden className="size-3.5" />

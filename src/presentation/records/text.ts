@@ -3,7 +3,7 @@ import { display, monthBounds, type ErpRecord, type Field, type RecordType, type
 
 export type AllRecords = Readonly<Record<string, readonly ErpRecord[]>>
 
-export const ENTITY_NAME: Record<string, string> = { holding: 'Satona Holding', rotama: 'Rotama', rodame: 'Rodame', roasi: 'Roasi' }
+export const ENTITY_NAME: Record<string, string> = { holding: 'Kantor Pusat', logistics: 'Unit Logistik', fertiliser: 'Pabrik Pupuk', chemicals: 'Pabrik Kimia' }
 
 export const TONE_COLOR: Record<StateTone, string> = {
   neutral: 'var(--color-series-other)',

@@ -23,7 +23,7 @@ import { RecordControls } from '../../records/RecordControls'
 const WO_KINDS = ['Preventive', 'Corrective', 'Emergency', 'Inspection', 'Calibration', 'Improvement']
 const TONE: Record<Condition, string> = { Normal: 'text-muted', Warning: 'text-warning', Alarm: 'font-semibold text-accent-text' }
 
-/** Maintenance and reliability cockpit, ported from the WIT CMMS and fed by Rodame's EAM records. */
+/** Maintenance and reliability cockpit, ported from the WIT CMMS and fed by Pabrik Pupuk's EAM records. */
 export default function ReliabilityCockpit() {
   const navigate = useNavigate()
   const { clock } = useServices()

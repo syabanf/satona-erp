@@ -73,12 +73,12 @@ describe('record use cases', () => {
 
   it('keeps view-only and external roles out', async () => {
     const s = services()
-    const driver = role('Driver (Driver App)', 'tms', 'rotama', true)
+    const driver = role('Driver (Driver App)', 'tms', 'logistics', true)
     await expect(s.records.create(driver, 'fbl.invoices', {})).rejects.toBeInstanceOf(ForbiddenError)
-    const dispatcher = role('Transport Dispatcher / Planner', 'tms', 'rotama')
+    const dispatcher = role('Transport Dispatcher / Planner', 'tms', 'logistics')
     const created = await s.records.create(dispatcher, 'tms.trips', trip)
     await expect(s.records.transition(dispatcher, 'tms.trips', created.id, 'dispatched')).rejects.toBeInstanceOf(ForbiddenError)
-    const manager = role('Fleet Manager', 'tms', 'rotama')
+    const manager = role('Fleet Manager', 'tms', 'logistics')
     expect((await s.records.transition(manager, 'tms.trips', created.id, 'dispatched')).status).toBe('dispatched')
   })
 
@@ -126,6 +126,6 @@ describe('multilevel approval', { timeout: 20_000 }, () => {
     const analyst = role('Business Analyst', 'bi', 'holding')
     const she = typeOf('she.permits')!
     expect(await s.records.accessFor(analyst, she)).toBe('view')
-    expect(await s.records.accessFor(role('Plant Manager', 'cfp', 'roasi'), she)).toBe('full')
+    expect(await s.records.accessFor(role('Plant Manager', 'cfp', 'chemicals'), she)).toBe('full')
   })
 })

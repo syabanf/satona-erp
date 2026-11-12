@@ -10,8 +10,10 @@ import { useMenu, useTrail } from '../hooks/useMenu'
 import { useAccess } from '../hooks/useRecords'
 import { useSession } from '../hooks/useSession'
 import { useServices } from '../hooks/useServices'
+import { useSystemHealth } from '../hooks/useSystemHealth'
 import { Dot } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { HEALTH_LAMP } from '../ui/health'
 import { Entrance } from '../ui/Motion'
 import { menuItem, Popover } from '../ui/Popover'
 import { RecordDrawerProvider } from '../records/RecordDrawer'
@@ -23,7 +25,7 @@ import { CommandCenter } from '../features/overview/CommandCenter'
 import { usePalette } from './dashboard/palette'
 import { Sidebar, SidebarContent } from './dashboard/Sidebar'
 
-const COLLAPSE_KEY = 'satona-sidebar'
+const COLLAPSE_KEY = 'wit-sidebar'
 
 /** Stored choice first; without one the sidebar starts open from 1280 px and collapsed below. */
 function initialCollapsed() {
@@ -85,6 +87,19 @@ function Title({ text }: { text: string }) {
 }
 
 /** Breadcrumb over the page title, the date, and the bell. Phones get the menu button. */
+/** The platform's health in one pill: green when every service is up, else how many need attention. Opens monitoring. */
+function SystemStatus() {
+  const health = useSystemHealth()
+  if (!health) return null
+  return (
+    <Link to="/monitoring" title="Monitoring sistem" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-line bg-card px-3 text-xs font-medium text-muted shadow-card hover:text-fg">
+      <span aria-hidden className={cn('size-2.5 rounded-full', HEALTH_LAMP[health.overall])} />
+      <span className="hidden sm:inline">{health.overall === 'up' ? 'Sistem normal' : `${health.troubled} layanan terganggu`}</span>
+      <span className="sr-only sm:hidden">{health.overall === 'up' ? 'Sistem normal' : `${health.troubled} layanan terganggu`}</span>
+    </Link>
+  )
+}
+
 function Header({ alerts }: { alerts: readonly Alert[] }) {
   const { pathname } = useLocation()
   const { clock } = useServices()
@@ -135,6 +150,7 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
           {leaf.tcode}
         </span>
       )}
+      <SystemStatus />
       <span className="hidden h-10 items-center rounded-full border border-line bg-card px-4 text-xs font-medium text-muted shadow-card lg:inline-flex">
         {shortWeekday(today)}, {shortDay(today)}
       </span>

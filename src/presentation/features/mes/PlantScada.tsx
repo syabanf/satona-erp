@@ -93,7 +93,7 @@ export default function PlantScada() {
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiTile label="Stasiun berjalan" value={stations.filter((s) => s.state !== 'stopped').length} format={(n) => `${Math.round(n)} / ${stations.length}`} to={recordPath(typeOf('mrp.workcenters')!)} accent note="dua lini Gresik" />
         <KpiTile label="Alarm belum diakui" value={unacked.length} format={(n) => String(Math.round(n))} to={recordPath(typeOf('eam.conditions')!)} note={`${alarms.length} alarm aktif`} />
-        <KpiTile label="Laju umpan" value={feed} format={(n) => `${n.toFixed(1)} t/h`} to={recordPath(typeOf('mes.oee')!)} note="jumlah mixer kedua lini" />
+        <KpiTile label="Laju umpan" value={feed} format={(n) => `${n.toFixed(1)} t/h`} to={recordPath(typeOf('mes.oee')!)} note="jumlah mixer kedua lini" live />
         <KpiTile label="Stasiun berhenti" value={stations.filter((s) => s.state === 'stopped').length} format={(n) => String(Math.round(n))} to={`${recordPath(typeOf('eam.assets')!)}?status=down`} note="mesin rusak atau dirawat" />
       </div>
 

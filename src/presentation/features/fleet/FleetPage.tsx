@@ -91,7 +91,7 @@ export default function FleetPage() {
   const pickedIndex = picked ? all.indexOf(picked) : -1
   const now = picked ? live(picked, elapsed, pickedIndex) : null
   const routeMid = picked ? pointAlong(picked.route, 0.5) : undefined
-  const depots = useMemo(() => (sites.data ?? []).filter((s) => s.entity === 'rotama' || s.entity === 'roasi'), [sites.data])
+  const depots = useMemo(() => (sites.data ?? []).filter((s) => s.entity === 'logistics' || s.entity === 'chemicals'), [sites.data])
   const scada = useScadaSites(sites.data ?? [])
   const pickedSite = scada.find((x) => x.site.id === query.site)
   const hidden = new Set((query.hide ?? '').split(',').filter(Boolean))

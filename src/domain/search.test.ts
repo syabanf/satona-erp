@@ -4,7 +4,7 @@ import { score, search } from './search'
 const docs = [
   { id: 'PTW-0012', title: 'Weld support on pipe rack 3', text: 'Hot work Tank farm Merak' },
   { id: 'SIR-0003', title: 'Acid drip from flange', text: 'Near miss Sulfuric acid unit' },
-  { id: 'EMP-0012', title: 'Dewi Lestari', text: 'Roasi HSE' },
+  { id: 'EMP-0012', title: 'Dewi Lestari', text: 'Pabrik Kimia HSE' },
 ]
 
 describe('global search', () => {

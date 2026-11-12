@@ -29,7 +29,7 @@ interface Doc extends SearchDoc {
   typeName: string
 }
 
-const RECENT = 'satona-recent'
+const RECENT = 'wit-recent'
 type Recent = { type: string; id: string; title: string }
 
 function readRecent(): Recent[] {

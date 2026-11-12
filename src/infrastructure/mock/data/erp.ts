@@ -1,4 +1,4 @@
-/** Seed from "Scope dan User Matrix ERP Satona": 4 entities, 18 modules, their departments and users. */
+/** Seed from "the scope and user matrix": 4 entities, 18 modules, their departments and users. */
 import type { Entity, EntityId, ErpModule, Role, ScopeItem, ScopeStatus } from '@/domain/erp'
 
 const B = 1e9
@@ -10,8 +10,8 @@ const months = (base: number, swing: number, seed: number) =>
 const ENTITY_SEED: ReadonlyArray<Omit<Entity, 'revenueYtd'>> = [
   {
     id: 'holding',
-    name: 'PT Satona (Holding)',
-    short: 'Satona Holding',
+    name: 'Kantor Pusat',
+    short: 'Kantor Pusat',
     sector: 'Group holding',
     slot: 2,
     headcount: 214,
@@ -23,9 +23,9 @@ const ENTITY_SEED: ReadonlyArray<Omit<Entity, 'revenueYtd'>> = [
     ],
   },
   {
-    id: 'rotama',
-    name: 'PT Rotama Indonesia',
-    short: 'Rotama',
+    id: 'logistics',
+    name: 'Unit Logistik',
+    short: 'Unit Logistik',
     sector: 'Logistics',
     slot: 3,
     headcount: 486,
@@ -37,9 +37,9 @@ const ENTITY_SEED: ReadonlyArray<Omit<Entity, 'revenueYtd'>> = [
     ],
   },
   {
-    id: 'rodame',
-    name: 'PT Rodame Indonesia',
-    short: 'Rodame',
+    id: 'fertiliser',
+    name: 'Pabrik Pupuk',
+    short: 'Pabrik Pupuk',
     sector: 'Fertiliser',
     slot: 4,
     headcount: 1_120,
@@ -51,9 +51,9 @@ const ENTITY_SEED: ReadonlyArray<Omit<Entity, 'revenueYtd'>> = [
     ],
   },
   {
-    id: 'roasi',
-    name: 'PT Roasi Sinergi Industri',
-    short: 'Roasi',
+    id: 'chemicals',
+    name: 'Pabrik Kimia',
+    short: 'Pabrik Kimia',
     sector: 'Chemicals',
     slot: 1,
     headcount: 742,
@@ -109,7 +109,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Corporate Finance & Accounting', 'Budgeting & Planning', 'Internal Audit'], ['CFO / Finance Director', 'Financial Controller', 'Corporate Accountant', 'Internal Auditor'], [
     { label: 'Close cycle', value: '4 days' },
     { label: 'Entities consolidated', value: '4 of 4' },
-  ], { to: '/', label: 'Open group overview' }),
+  ], { to: '/dashboard', label: 'Open group overview' }),
   mod('holding', 'VMS', 'Shared Procurement & Vendor Management', [
     ['Central sourcing of ammonia, phosphoric acid, sulfur', 'live'],
     ['Supplier rating and ranking', 'live'],
@@ -134,7 +134,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Board of Directors', 'Corporate Strategy / PMO'], ['Dewan Direksi Holding', 'Business Analyst', 'General Manager'], [
     { label: 'Dashboards live', value: '14' },
     { label: 'Weekly viewers', value: '96' },
-  ], { to: '/', label: 'Open executive overview' }),
+  ], { to: '/dashboard', label: 'Open executive overview' }),
 
   mod('holding', 'OCC', 'Group Operations Command Centre', [
     ['Live unit status across all plants, depots and tank farms', 'live'],
@@ -210,7 +210,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Approval rules', value: '12' },
     { label: 'Active delegations', value: '2' },
   ]),
-  mod('rotama', 'TMS', 'Transportation Management & Telematics', [
+  mod('logistics', 'TMS', 'Transportation Management & Telematics', [
     ['Tanker route optimisation', 'live'],
     ['GPS tracking and driver behaviour (speed)', 'live'],
     ['IoT telematics: tank temperature and pressure', 'live'],
@@ -218,30 +218,30 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Trips this month', value: '2,684' },
     { label: 'Overspeed events', value: '31' },
   ], { to: '/fleet', label: 'Open live fleet map' }),
-  mod('rotama', 'WMS', 'Warehouse Management', [
+  mod('logistics', 'WMS', 'Warehouse Management', [
     ['Chemical storage segregation by hazard class', 'live'],
     ['Lot / batch tracking with FEFO and FIFO rotation', 'live'],
   ], ['Warehouse & Inventory', 'Yard Operations'], ['Warehouse Manager', 'Kepala Gudang & Operator Stacker', 'Checker Gudang'], [
     { label: 'Pallet positions', value: '18,400' },
     { label: 'Pick accuracy', value: '99.4%' },
   ]),
-  mod('rotama', 'HAZ', 'Dangerous Goods Transport & Compliance', [
+  mod('logistics', 'HAZ', 'Dangerous Goods Transport & Compliance', [
     ['Automated B3 manifest (KLHK and Kemenhub)', 'live'],
     ['Driver dangerous-goods certificates and safety passports', 'live'],
   ], ['Health, Safety & Environment'], ['HSE Officer / K3 Specialist'], [
     { label: 'Manifests issued', value: '2,611' },
     { label: 'Certificates expiring', value: '9' },
   ], { to: '/fleet', label: 'See manifests on the fleet map' }),
-  mod('rotama', 'FBL', 'Freight Billing & Intercompany Settlement', [
+  mod('logistics', 'FBL', 'Freight Billing & Intercompany Settlement', [
     ['Cost-plus freight rate calculation', 'live'],
-    ['Internal freight invoices to Rodame and Roasi', 'live'],
+    ['Internal freight invoices to Pabrik Pupuk and Pabrik Kimia', 'live'],
     ['Logistics billing to external customers', 'live'],
   ], ['Logistics Finance & Invoicing', 'Commercial'], ['Billing Specialist', 'Finance & AR Officer'], [
     { label: 'Intercompany invoices', value: 'Rp 21,4 M' },
     { label: 'DSO', value: '38 days' },
   ]),
 
-  mod('rodame', 'BPF', 'Batch Process & Formula Management', [
+  mod('fertiliser', 'BPF', 'Batch Process & Formula Management', [
     ['Flexible NPK / urea recipe adjustment', 'live'],
     ['Automatic grade moisture adjustment', 'live'],
     ['Batch production orders', 'live'],
@@ -249,7 +249,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Active formulas', value: '42' },
     { label: 'Batches this week', value: '186' },
   ]),
-  mod('rodame', 'MRP', 'Manufacturing Resource Planning & Scheduling', [
+  mod('fertiliser', 'MRP', 'Manufacturing Resource Planning & Scheduling', [
     ['Bulk raw material requirement planning', 'live'],
     ['Granulator, dryer and mixer scheduling', 'live'],
     ['Capacity requirement planning', 'live'],
@@ -257,7 +257,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Schedule adherence', value: '91%' },
     { label: 'Raw cover', value: '17 days' },
   ]),
-  mod('rodame', 'QC', 'Quality Control & LIMS Integration', [
+  mod('fertiliser', 'QC', 'Quality Control & LIMS Integration', [
     ['Lab testing of N, P, K and moisture', 'live'],
     ['Certificate of Analysis (CoA)', 'live'],
     ['Rejection and re-processing workflow', 'live'],
@@ -265,7 +265,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Samples today', value: '312' },
     { label: 'Rejection rate', value: '1.8%' },
   ]),
-  mod('rodame', 'EAM', 'Enterprise Asset Management (CMMS)', [
+  mod('fertiliser', 'EAM', 'Enterprise Asset Management (CMMS)', [
     ['Predictive and preventive maintenance of heavy machinery', 'live'],
     ['Granulator dryer maintenance and spare parts', 'live'],
     ['Scale and gauge calibration tracking', 'live'],
@@ -273,7 +273,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'MTBF granulator', value: '412 h' },
     { label: 'Open work orders', value: '58' },
   ], { to: '/eam/reliability', label: 'Open reliability cockpit' }),
-  mod('rodame', 'MES', 'Manufacturing Execution (MES)', [
+  mod('fertiliser', 'MES', 'Manufacturing Execution (MES)', [
     ['Shop-floor work orders per operation, released from batch orders', 'live'],
     ['OEE per work centre and shift (availability × performance × quality)', 'live'],
     ['Downtime capture with reason codes', 'live'],
@@ -282,7 +282,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'OEE this week', value: '78%' },
     { label: 'Downtime today', value: '96 min' },
   ], { to: '/mes/cockpit', label: 'Open production cockpit' }),
-  mod('rodame', 'DMS', 'Distributor Management', [
+  mod('fertiliser', 'DMS', 'Distributor Management', [
     ['Subsidised and commercial quota allocation', 'live'],
     ['Regional distributor and kiosk network', 'live'],
     ['Distributor mobile order app', 'live'],
@@ -291,7 +291,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Kiosks', value: '4,920' },
   ], { to: '/distribution', label: 'Open distribution map' }),
 
-  mod('roasi', 'CFP', 'Continuous Flow Process', [
+  mod('chemicals', 'CFP', 'Continuous Flow Process', [
     ['24/7 continuous reactor tracking', 'live'],
     ['By-product and co-product accounting', 'live'],
     ['Yield loss analysis and waste management', 'live'],
@@ -299,7 +299,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Throughput', value: '1,140 t/day' },
     { label: 'Yield loss', value: '2.3%' },
   ]),
-  mod('roasi', 'EHS', 'EHS & Chemical Safety (MSDS/GHS)', [
+  mod('chemicals', 'EHS', 'EHS & Chemical Safety (MSDS/GHS)', [
     ['Automated MSDS / SDS generation', 'live'],
     ['Plant chemical hazard matrix', 'live'],
     ['Stack emission and wastewater monitoring', 'live'],
@@ -307,7 +307,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'SDS published', value: '264' },
     { label: 'Days without LTI', value: '418' },
   ]),
-  mod('roasi', 'TFM', 'Tank Farm & Bulk Storage', [
+  mod('chemicals', 'TFM', 'Tank Farm & Bulk Storage', [
     ['IoT dip level gauges on storage tanks', 'live'],
     ['Real-time liquid and gas stock reconciliation', 'live'],
     ['Auto-reorder point trigger', 'live'],
@@ -315,7 +315,7 @@ export const MODULES: readonly ErpModule[] = [
     { label: 'Tanks online', value: '6 of 6' },
     { label: 'Stock variance', value: '0.4%' },
   ], { to: '/tank-farm', label: 'Open tank farm' }),
-  mod('roasi', 'GTR', 'End-to-End Genealogy & Recalls', [
+  mod('chemicals', 'GTR', 'End-to-End Genealogy & Recalls', [
     ['Full batch genealogy: vendor lot to reactor to truck to customer', 'live'],
     ['Rapid recall on contamination', 'live'],
   ], ['Quality Assurance', 'Supply Chain & Legal'], ['QA Manager', 'Recall Task Force / Crisis Team'], [

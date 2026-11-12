@@ -17,7 +17,7 @@ import type { App, Win } from './types'
 import { APP_NAME, APP_PRODUCT } from '@/lib/brand'
 
 const PINNED: readonly App[] = [
-  { id: 'home', title: 'Beranda', icon: House, url: '/' },
+  { id: 'home', title: 'Beranda', icon: House, url: '/dashboard' },
   { id: 'approvals', title: 'Persetujuan', icon: CheckCheck, url: '/approvals' },
   { id: 'fleet', title: 'Armada', icon: Truck, url: '/fleet' },
   { id: 'production', title: 'Produksi', icon: Factory, url: '/mes/cockpit' },

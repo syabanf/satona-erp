@@ -1,8 +1,8 @@
-/** PT Roasi Sinergi Industri (chemicals): CFP, EHS, TFM, GTR. */
+/** Pabrik Kimia (chemicals): CFP, EHS, TFM, GTR. */
 import type { RecordType } from '../records'
 import { ACTIVE, calc, date, flow, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
-export const ROASI: readonly RecordType[] = [
+export const CHEMICALS: readonly RecordType[] = [
   type('cfp', 'logs', ['Reactor logs', 'Reactor log', 'RLG'], 'reactor', [
     pick('reactor', 'Reactor', ['R-101 Sulfuric', 'R-102 Phosphoric', 'R-103 Oleum'], { required: true, list: true }),
     pick('shift', 'Shift', ['A', 'B', 'C'], { required: true, list: true }),
@@ -159,7 +159,7 @@ export const ROASI: readonly RecordType[] = [
   )),
 ]
 
-export const ROASI_MASTERS: readonly RecordType[] = [
+export const CHEMICALS_MASTERS: readonly RecordType[] = [
   master('cfp', 'units', ['Process units', 'Process unit', 'PU'], 'name', [
     text('name', 'Unit', { required: true, list: true }),
     pick('kind', 'Kind', ['Reactor', 'Absorber', 'Converter', 'Evaporator', 'Scrubber'], { required: true, list: true }),

@@ -35,7 +35,7 @@ export function BottomNav({ role, access, approvals, onMenu, menuOpen }: { role:
     <nav aria-label="Main" className="fixed inset-x-3 bottom-3 z-40 flex h-[68px] rounded-[22px] bg-ink px-1 pb-[env(safe-area-inset-bottom)] shadow-float md:hidden">
       {tabs.map((t) => {
         const base = t.to.split('?')[0] ?? t.to
-        const on = !menuOpen && (base === '/' ? pathname === '/' : pathname === base || pathname.startsWith(`${base}/`))
+        const on = !menuOpen && (base === '/dashboard' ? pathname === '/dashboard' : pathname === base || pathname.startsWith(`${base}/`))
         return (
           <NavLink key={t.label} to={t.to} aria-current={on ? 'page' : undefined} className={item}>
             <span className={square(on)}>

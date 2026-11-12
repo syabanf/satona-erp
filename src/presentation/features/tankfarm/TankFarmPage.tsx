@@ -96,7 +96,7 @@ export default function TankFarmPage() {
         title: `Refill ${t.id.toUpperCase()} ${t.product}`,
         material: material?.id,
         qty: Math.max(1, need),
-        entity: 'roasi',
+        entity: 'chemicals',
         value: need * 9_500_000,
         needBy: new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10),
       })
@@ -133,7 +133,7 @@ export default function TankFarmPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className={cn(picked ? 'xl:col-span-2' : 'xl:col-span-3')}>
           <CardHeader
-            title="Roasi tank farm, Merak"
+            title="Pabrik Kimia tank farm, Merak"
             action={<Tabs label="View" options={VIEWS} value={query.view === '3d' ? '3d' : '2d'} onChange={(v) => setQuery({ view: v === '3d' ? v : undefined })} />}
           />
           {query.view === '3d' ? (

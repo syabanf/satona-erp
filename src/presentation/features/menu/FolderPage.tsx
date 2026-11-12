@@ -10,7 +10,7 @@ import { useServices } from '../../hooks/useServices'
 import { MENU_ICON } from '../../layouts/dashboard/MenuNavigator'
 import { buttonStyles } from '../../ui/buttonStyles'
 import { CardSkeleton, EmptyState } from '../../ui/States'
-import { EntityFolder, FeatureFolder, ModuleFolder } from './FeaturePages'
+import { FeatureFolder, ModuleFolder } from './FeaturePages'
 
 const tile =
   'group flex h-full flex-col rounded-card border border-line bg-card p-5 shadow-card transition-[background-color,translate] duration-300 active:scale-[0.97] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1'
@@ -48,7 +48,7 @@ function FeatureCard({ node, counts }: { node: MenuNode; counts: Record<string, 
   const Icon = MENU_ICON[node.kind]
   const waiting = node.approval ? (counts[`${node.approval.type}:${node.approval.status}`] ?? 0) : 0
   return (
-    <Link to={node.to ?? '/'} data-motion="rise" className={tile}>
+    <Link to={node.to ?? '/dashboard'} data-motion="rise" className={tile}>
       <span className="flex items-center gap-3">
         <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl', node.kind === 'create' ? 'bg-accent-soft' : 'bg-raised')}>
           <Icon aria-hidden className={cn('size-5', node.kind === 'create' ? 'text-accent-text' : 'text-muted')} />
@@ -80,21 +80,18 @@ export default function FolderPage() {
   const { erp } = useServices()
   const all = useAllRecords()
   const modules = useResource('erp.modules', () => erp.modules())
-  const entities = useResource('erp.entities', () => erp.entities())
-  if (!tree.length || !all.data || !modules.data || !entities.data) return <CardSkeleton lines={6} />
+  if (!tree.length || !all.data || !modules.data) return <CardSkeleton lines={6} />
   const node = chainTo(tree, id).at(-1)
   if (!node?.children)
     return (
-      <EmptyState title="This folder is not in your menu" action={<Link to="/" className={buttonStyles({ variant: 'soft' })}>Back to the overview</Link>}>
+      <EmptyState title="This folder is not in your menu" action={<Link to="/dashboard" className={buttonStyles({ variant: 'soft' })}>Back to the overview</Link>}>
         Your role may not reach it, or the link is out of date.
       </EmptyState>
     )
   const type = id.endsWith(':folder') ? typeOf(id.replace(/:folder$/, '')) : undefined
   if (type) return <FeatureFolder node={node} type={type} tree={tree} all={all.data} />
-  const module = modules.data.find((m) => m.id === id.replace(/:(master|transactions)$/, ''))
+  const module = modules.data.find((m) => m.id === id.replace(/:(master|transactions|sub\d+)$/, ''))
   if (module && !/:(reports|config)$/.test(id)) return <ModuleFolder key={id} node={node} module={module} all={all.data} />
-  const entity = entities.data.find((e) => `entity:${e.id}` === id)
-  if (entity) return <EntityFolder node={node} entity={entity} modules={modules.data} all={all.data} />
   const folders = node.children.filter((c) => c.children)
   const screens = node.children.filter((c) => !c.children)
   const grid = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'

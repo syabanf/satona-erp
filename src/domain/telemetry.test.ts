@@ -3,7 +3,7 @@ import type { Site, Truck } from './ops'
 import { processReading, scadaReading, scadaTags, stationState, truckTelemetry, worstState } from './telemetry'
 
 const truck = (state: Truck['state']): Truck => ({ id: 'tk-1', plate: 'B 1', driver: 'D', cargo: 'C', hazard: 'H', manifest: 'M', route: [], from: 'A', to: 'B', state, speed: 70, tankTemp: 30, tankPressure: 2, progress: 0.4, speedTrace: [], certExpiry: '' })
-const plant: Site = { id: 'rs-cilegon', name: 'Plant', entity: 'roasi', kind: 'plant', at: [0, 0], city: 'Cilegon', staff: 1, utilisation: 0.9 }
+const plant: Site = { id: 'rs-cilegon', name: 'Plant', entity: 'chemicals', kind: 'plant', at: [0, 0], city: 'Cilegon', staff: 1, utilisation: 0.9 }
 
 describe('truck telemetry', () => {
   it('idles parked trucks and runs alert trucks hot', () => {

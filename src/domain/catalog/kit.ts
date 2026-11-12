@@ -10,7 +10,7 @@ export const money = (key: string, label: string, o: Opts = {}): Field => ({ key
 export const date = (key: string, label: string, o: Opts = {}): Field => ({ key, label, type: 'date', ...o })
 export const pick = (key: string, label: string, options: readonly string[], o: Opts = {}): Field => ({ key, label, type: 'select', options, ...o })
 export const ref = (key: string, label: string, to: string, o: Opts = {}): Field => ({ key, label, type: 'ref', ref: to, ...o })
-export const entity = (key = 'entity', label = 'Entity', o: Opts = {}): Field => ({ key, label, type: 'entity', options: ['holding', 'rotama', 'rodame', 'roasi'], ...o })
+export const entity = (key = 'entity', label = 'Entity', o: Opts = {}): Field => ({ key, label, type: 'entity', options: ['holding', 'logistics', 'fertiliser', 'chemicals'], ...o })
 export const calc = (key: string, label: string, compute: (v: Values) => string | number, o: Opts = {}): Field => ({ key, label, type: 'computed', compute, ...o })
 
 export const n = (v: Values, k: string) => Number(v[k] ?? 0) || 0

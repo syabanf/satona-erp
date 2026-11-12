@@ -14,7 +14,7 @@ Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh y
 | Menit | Bagian | Yang ditunjukkan |
 |---|---|---|
 | 0-2 | Beranda | Lampu status keseluruhan, daftar **Perlu tindakan sekarang**, ubin area kerja dengan lampu hijau, kuning dan merah. |
-| 2-4 | Menu | **Semua menu**: pilih perusahaan (Rotama), buka modul Transportasi, fitur tersusun tanpa folder bertingkat. Ketik "cuti" di kolom cari menu. |
+| 2-4 | Menu | **Semua menu**: satu daftar per fungsi (Produksi, Perawatan dan perangkat, Rantai pasok, Keuangan, SDM dan K3, Tata kelola). Buka Rantai pasok → Transportasi; fitur tersusun per sub-modul. Ketik "cuti" di kolom cari menu. |
 | 4-8 | Perjalanan | Panel samping modul: Pekerjaan harian, Data acuan, Pengaturan. Tunjukkan tampilan **Tabel, Papan, Kalender, Gantt, Peta, 3D (Single line, Shopfloor), Grafik**. Buat perjalanan baru lewat tombol **New trip** (jendela modal). Pakai **Filters** untuk menyaring sopir dan jarak. |
 | 8-10 | Armada | Halaman modul Transportasi → **Open live fleet map** (atau `/fleet`): strip telemetri langsung, lapisan peta Truk, Rute dan SCADA. Klik truk B 9037 TRA (kecepatan dan suhu bermasalah), lalu titik SCADA Merak yang terganggu. |
 | 10-12 | Persetujuan | **Tugas saya → Periksa persetujuan**: label "Level n dari m", rantai persetujuan bertingkat dari matriks persetujuan. Buka izin kerja PTW-0012 untuk melihat rantainya. |
@@ -23,11 +23,13 @@ Panduan presenter untuk demo 15 sampai 20 menit. Semua data adalah data contoh y
 | 16-18 | Peran lain | Ganti peran dari kartu akun di kiri bawah: **Driver (Driver App)** hanya melihat Transportasi, **Vendor / Supplier (B2B Portal)** mengisi penawaran. |
 | 18-20 | Bantuan | **Tutorial penggunaan**: tur singkat dan panduan langkah demi langkah. |
 | Bonus | Mode OS | **OS view** di menu kiri (sebelah Dashboard view), atau `/os`: buka Armada dan Persetujuan sebagai jendela, geser, kecilkan ke dock. Di HP tampil sebagai layar utama dengan ikon aplikasi. Perubahan di satu jendela muncul di jendela lain. |
+| Pembuka | Situs profil | Halaman awal di `/` untuk semua pengunjung (dashboard pindah ke `/dashboard`): video pabrik sebagai latar dan animasi saat menggulir. Halaman **Platform** (arsitektur dan kemampuan), **Solusi** (enam kelompok, tiap modul dengan ikon, penjelasan, fitur dan tim), **Tentang** (visi, misi, nilai, cara penerapan) dan **Kontak** (formulir demo). Klik **Coba demo** untuk ke halaman masuk. |
+| Bonus | Monitoring sistem | Pil status di kanan atas setiap halaman, atau `/monitoring`: kesehatan 8 layanan (API, broker, CDC, SSO, sumber OT, perangkat IoT) dengan alasannya, latensi API langsung, sumber daya server dan aktivitas data. Ubah satu data lalu lihat aktivitasnya muncul. |
 | Bonus | Manajemen perangkat | `/devices` (modul Manajemen perangkat, Holding): 64 perangkat IoT/OT dengan heartbeat langsung, filter jenis dan status. Klik **Ping** di perangkat online (berhasil) dan offline (gagal); keduanya tercatat di Remote commands. Kepatuhan firmware per model, rollout OTA dan alert perangkat. |
 | Bonus | SCADA pabrik | `/mes/scada` (atau Laporan di modul MES/EAM): mimik proses Line A dan B Gresik dengan tag langsung, alarm yang bisa diakui, tab **3D**. Klik Dryer A-3 yang alarm, lalu **Permintaan perawatan** untuk membuat MR dengan isian terisi. Menu samping modul besar (EAM, MES, MDM, SHE, dll.) kini dikelompokkan per sub-modul. |
 | Bonus | MES dan CMMS | **Reliability cockpit** (`/eam/reliability`): Predictive watch (Granulator B-1 menuju batas getaran 7,1 mm/s), PM berdasarkan jam jalan, nilai buku dan utilisasi aset. Buka reservasi part (`PI-`), klik **Issue from store**, stok part berkurang. **Scheduling board** (`/mrp/planning`): blok setup sebelum tiap job, merah bila lebih pendek dari matriks changeover. |
 | Bonus | Penawaran | Tagihan pengiriman → **Customer quotations** → **New quotation** (atau `/quotations/new`): pilih cabang, **Tarik dari inquiry** untuk mengisi pelanggan, PIC dan baris pertama, **Tambah produk** dari layanan standar atau tarif lane, isi diskon dan PPN 11%, lalu simpan. Inquiry yang ditarik pindah ke status Quoted. |
-| Bonus | Geofence dan denah | Transportasi → Data acuan → **Geofences** → satu geofence: klik peta untuk memindahkan pusat, geser radius, simpan. Tampilan **Denah** di daftar mana pun, dan denah lokasi di halaman pabrik (mis. `PLT-0009`). |
+| Bonus | Geofence dan denah | Transportasi → Rute dan lokasi → **Geofences** → satu geofence: klik peta untuk memindahkan pusat, geser radius, simpan. Tampilan **Denah** di daftar mana pun, dan denah lokasi di halaman pabrik (mis. `PLT-0009`). |
 
 ## Pintasan yang membantu
 

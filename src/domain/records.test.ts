@@ -90,8 +90,8 @@ describe('parent-child mapping', () => {
 
 describe('form defaults', () => {
   it('fills required dates with today and the entity with the user entity', () => {
-    const t = { fields: [{ key: 'due', label: 'Due', type: 'date', required: true }, { key: 'end', label: 'End', type: 'date' }, { key: 'entity', label: 'Entity', type: 'entity', options: ['holding', 'roasi'] }] } as unknown as Parameters<typeof defaultsFor>[0]
-    expect(defaultsFor(t, { entity: 'roasi', today: '2026-10-30' })).toEqual({ due: '2026-10-30', entity: 'roasi' })
+    const t = { fields: [{ key: 'due', label: 'Due', type: 'date', required: true }, { key: 'end', label: 'End', type: 'date' }, { key: 'entity', label: 'Entity', type: 'entity', options: ['holding', 'chemicals'] }] } as unknown as Parameters<typeof defaultsFor>[0]
+    expect(defaultsFor(t, { entity: 'chemicals', today: '2026-10-30' })).toEqual({ due: '2026-10-30', entity: 'chemicals' })
   })
 })
 

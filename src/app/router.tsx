@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, Navigate } from 'react-router'
 import { NotFound } from '@/presentation/features/NotFound'
 import { DashboardShell } from '@/presentation/layouts/DashboardShell'
 
@@ -7,12 +7,26 @@ import { DashboardShell } from '@/presentation/layouts/DashboardShell'
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 
 export const router = createBrowserRouter([
+  // The public site is the front door at /; the dashboard lives at /dashboard and its own paths.
+  {
+    path: '/',
+    lazy: page(() => import('@/presentation/features/landing/SiteLayout')),
+    children: [
+      { index: true, lazy: page(() => import('@/presentation/features/landing/LandingPage')) },
+      { path: 'platform', lazy: async () => ({ Component: (await import('@/presentation/features/landing/ProfilePages')).PlatformPage }) },
+      { path: 'about', lazy: async () => ({ Component: (await import('@/presentation/features/landing/ProfilePages')).AboutPage }) },
+      { path: 'contact', lazy: async () => ({ Component: (await import('@/presentation/features/landing/ProfilePages')).ContactPage }) },
+      { path: 'solutions', lazy: async () => ({ Component: (await import('@/presentation/features/landing/SolutionPages')).SolutionsPage }) },
+      { path: 'solutions/:group', lazy: async () => ({ Component: (await import('@/presentation/features/landing/SolutionPages')).SolutionPage }) },
+    ],
+  },
+  { path: 'welcome/*', element: <Navigate to="/" replace /> },
   { path: 'login', lazy: page(() => import('@/presentation/features/login/LoginPage')) },
   { path: 'os', lazy: page(() => import('@/presentation/features/os/OsDesktop')) },
   {
     element: <DashboardShell />,
     children: [
-      { index: true, lazy: page(() => import('@/presentation/features/overview/OverviewPage')) },
+      { path: 'dashboard', lazy: page(() => import('@/presentation/features/overview/OverviewPage')) },
       { path: 'entities/:id', lazy: page(() => import('@/presentation/features/entities/EntityPage')) },
       { path: 'modules', lazy: page(() => import('@/presentation/features/modules/ModulesPage')) },
       {
@@ -32,6 +46,7 @@ export const router = createBrowserRouter([
       { path: 'fleet/safety', lazy: page(() => import('@/presentation/features/fleet/SafetyPage')) },
       { path: 'occ', lazy: page(() => import('@/presentation/features/occ/CommandCentre')) },
       { path: 'mes/cockpit', lazy: page(() => import('@/presentation/features/mes/ProductionCockpit')) },
+      { path: 'monitoring', lazy: page(() => import('@/presentation/features/monitoring/MonitoringPage')) },
       { path: 'devices', lazy: page(() => import('@/presentation/features/devices/DeviceConsole')) },
       { path: 'mes/scada', lazy: page(() => import('@/presentation/features/mes/PlantScada')) },
       { path: 'eam/reliability', lazy: page(() => import('@/presentation/features/mes/ReliabilityCockpit')) },

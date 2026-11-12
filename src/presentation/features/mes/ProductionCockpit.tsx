@@ -77,7 +77,7 @@ export default function ProductionCockpit() {
       <NewButtons types={['mes.downtime', 'mes.oee', 'mes.holds', 'mes.ncr']} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm text-muted">
-          <Factory aria-hidden className="size-4" /> Rodame NPK plant Gresik · Lines A and B
+          <Factory aria-hidden className="size-4" /> Pabrik Pupuk NPK Gresik · Lines A and B
         </p>
         <div className="flex flex-wrap gap-2">
           <Tabs label="View" options={VIEWS} value={view === '3d' ? '3d' : 'board'} onChange={(v) => setParams(v === '3d' ? { view: '3d' } : {}, { replace: true })} />

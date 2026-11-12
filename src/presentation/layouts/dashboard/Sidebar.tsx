@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { BarChart3, Check, CheckCheck, ChevronsLeft, ChevronsRight, ChevronsUpDown, GraduationCap, Hash, House, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, CheckCheck, ChevronsLeft, ChevronsRight, GraduationCap, Hash, House, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
 import { homeFor } from '@/domain/menu'
 import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
@@ -7,8 +7,6 @@ import { usePreference, type Preference } from '../../hooks/usePreference'
 import { useTheme } from '../../hooks/useTheme'
 import { BrandMark } from '../../ui/BrandMark'
 import { Button } from '../../ui/Button'
-import { menuItem, Popover } from '../../ui/Popover'
-import { POP } from '../../ui/pop'
 import { Switch } from '../../ui/Switch'
 import { ThemeToggle } from '../../ui/ThemeToggle'
 import { useToast } from '../../ui/useToast'
@@ -32,60 +30,6 @@ interface SidebarProps {
   onClose?: () => void
   /** Collapsed rail: a top-level icon asks the shell to open the sidebar. */
   onExpand?: () => void
-}
-
-const ENTITY_LINKS = [
-  { to: '/entities/holding', label: 'Satona Holding' },
-  { to: '/entities/rotama', label: 'Rotama · Logistics' },
-  { to: '/entities/rodame', label: 'Rodame · Fertiliser' },
-  { to: '/entities/roasi', label: 'Roasi · Chemicals' },
-]
-
-function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
-  const tile = <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl text-sm font-bold', POP.red)}>S</span>
-  return (
-    <Popover
-      align="left"
-      trigger={(props) => (
-        <button
-          {...props}
-          type="button"
-          aria-label="Ganti perusahaan"
-          data-tour="workspace"
-          className={cn(
-            'flex w-full cursor-pointer items-center gap-3 rounded-2xl text-left transition-colors hover:bg-control',
-            collapsed ? 'justify-center p-1.5' : 'border border-line bg-raised p-2',
-          )}
-        >
-          {tile}
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1 leading-tight">
-                <span className="block truncate text-sm font-semibold">Satona Group</span>
-                <span className="block truncate text-xs text-muted">Sistem kerja grup</span>
-              </span>
-              <ChevronsUpDown aria-hidden className="size-4 text-muted" />
-            </>
-          )}
-        </button>
-      )}
-    >
-      {(close) => (
-        <div>
-          <p className="px-3 pt-1 pb-2 eyebrow">Pilih perusahaan</p>
-          <Link to="/" onClick={() => { close(); onNavigate?.() }} className={menuItem}>
-            <span className="flex-1">Seluruh grup</span>
-            <Check aria-hidden className="size-4 text-accent-text" />
-          </Link>
-          {ENTITY_LINKS.map((e) => (
-            <Link key={e.to} to={e.to} onClick={() => { close(); onNavigate?.() }} className={menuItem}>
-              <span className="flex-1">{e.label}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </Popover>
-  )
 }
 
 /** A comfort switch in the footer: large text for easier reading, transaction codes for expert users. */
@@ -163,14 +107,11 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
         )}
       </div>
 
-      <div className="space-y-3 px-3">
-        <WorkspaceSwitcher collapsed={collapsed} onNavigate={onNavigate} />
-        {!collapsed && (
-          <div data-tour="search">
-            <CommandField />
-          </div>
-        )}
-      </div>
+      {!collapsed && (
+        <div className="px-3" data-tour="search">
+          <CommandField />
+        </div>
+      )}
 
       <nav aria-label="Main" className={cn('mt-4 flex-1 px-3 pb-4', collapsed && 'no-scrollbar min-h-0 overflow-y-auto')}>
         {collapsed ? (

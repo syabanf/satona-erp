@@ -2,7 +2,7 @@
  * SAP Easy Access style menu: Cockpit, then Entity > Module > Master data / Transactions / Reports / Configuration.
  * Every leaf carries a transaction code; the tree hides what the session role cannot reach.
  */
-import { can, type Access, type Entity, type ErpModule, type Role } from './erp'
+import { can, type Access, type ErpModule, type Role } from './erp'
 import { canCreate, type RecordType } from './records'
 import { subModuleOf, subModulesOf } from './subModules'
 import { moduleLabel, recordLabel } from './uiLabels'
@@ -21,7 +21,6 @@ export interface MenuNode {
 }
 
 interface MenuInput {
-  entities: readonly Pick<Entity, 'id' | 'short'>[]
   modules: readonly Pick<ErpModule, 'id' | 'code' | 'name' | 'entity' | 'live'>[]
   types: readonly RecordType[]
   accessFor: (module: string) => Access
@@ -89,26 +88,35 @@ function moduleNode(m: MenuInput['modules'][number], types: readonly RecordType[
   ]))
 }
 
-export function buildMenu({ entities, modules, types, accessFor }: MenuInput): MenuNode[] {
+/** The function groups of the menu, each with its modules in menu order. */
+export const MENU_GROUPS: ReadonlyArray<[id: string, label: string, modules: readonly string[]]> = [
+  ['production', 'Produksi', ['mes', 'mrp', 'bpf', 'qc', 'cfp', 'gtr']],
+  ['maintenance', 'Perawatan dan perangkat', ['eam', 'dvm', 'occ']],
+  ['supply', 'Rantai pasok', ['vms', 'inv', 'wms', 'tms', 'fbl', 'haz', 'dms', 'tfm']],
+  ['finance', 'Keuangan', ['fin', 'epm', 'bi']],
+  ['people', 'SDM dan K3', ['hrs', 'she', 'ehs', 'gas']],
+  ['governance', 'Tata kelola dan sistem', ['mdm', 'grc', 'sys']],
+]
+
+export function buildMenu({ modules, types, accessFor }: MenuInput): MenuNode[] {
   const cockpit: MenuNode = {
     id: 'cockpit',
     label: 'Ringkasan grup',
     kind: 'folder',
     children: [
-      { id: 'overview', label: 'Beranda grup', kind: 'page', tcode: 'ZOV', to: '/' },
+      { id: 'overview', label: 'Beranda grup', kind: 'page', tcode: 'ZOV', to: '/dashboard' },
       { id: 'approvals', label: 'Persetujuan saya', kind: 'page', tcode: 'ZAPP', to: '/approvals' },
       { id: 'catalogue', label: 'Semua modul', kind: 'page', tcode: 'ZMOD', to: '/modules' },
       { id: 'users', label: 'Pengguna dan akses', kind: 'page', tcode: 'ZUSR', to: '/users' },
+      { id: 'monitoring', label: 'Monitoring sistem', kind: 'page', tcode: 'ZMON', to: '/monitoring' },
       { id: 'integration', label: 'Integrasi sistem', kind: 'page', tcode: 'ZINT', to: '/integration' },
       { id: 'coverage', label: 'Cakupan sistem', kind: 'page', tcode: 'ZGAP', to: '/coverage' },
     ],
   }
-  const byEntity = entities.map((e, i) => {
-    const mods = present(modules.filter((m) => m.entity === e.id).map((m) => moduleNode(m, types, accessFor(m.id))))
-    if (!mods.length) return null
-    return folder(`entity:${e.id}`, e.short, [{ id: `entity:${e.id}:home`, label: `Ringkasan ${e.short}`, kind: 'page', tcode: `ZENT${i + 1}`, to: `/entities/${e.id}` }, ...mods])
-  })
-  return present([cockpit, ...byEntity])
+  // One menu for the whole platform: modules sit under what they do, whichever unit runs them.
+  const byFunction = MENU_GROUPS.map(([id, label, ids]) => folder(`group:${id}`, label, present(ids.flatMap((mid) => modules.filter((m) => m.id === mid)).map((m) => moduleNode(m, types, accessFor(m.id))))))
+  const rest = present(modules.filter((m) => !MENU_GROUPS.some(([, , ids]) => ids.includes(m.id))).map((m) => moduleNode(m, types, accessFor(m.id))))
+  return present([cockpit, ...byFunction, rest.length ? folder('group:other', 'Lainnya', rest) : null])
 }
 
 export function* walk(nodes: readonly MenuNode[]): Generator<MenuNode> {
@@ -193,7 +201,7 @@ const MODULE_HOME: Record<string, string> = {
 
 /** Where a role lands after sign-in: executives on the overview, field roles on their working screen. */
 export function homeFor(role: Pick<Role, 'id' | 'name' | 'module' | 'external'>): string {
-  if (role.id === 'admin' || /cfo|direksi|business analyst|general manager/i.test(role.name)) return '/'
+  if (role.id === 'admin' || /cfo|direksi|business analyst|general manager/i.test(role.name)) return '/dashboard'
   if (/driver/i.test(role.name)) return '/fleet/checkin'
   // Other portal users land on the list they file into, not the module cockpit.
   if (/employee \(ess\)/i.test(role.name)) return '/modules/hrs/leaves'

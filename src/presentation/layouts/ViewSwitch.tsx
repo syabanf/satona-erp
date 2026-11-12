@@ -3,7 +3,7 @@ import { LayoutDashboard, Monitor } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const VIEWS = [
-  { id: 'dashboard', label: 'Dashboard view', to: '/', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Dashboard view', to: '/dashboard', icon: LayoutDashboard },
   { id: 'os', label: 'OS view', to: '/os', icon: Monitor },
 ] as const
 

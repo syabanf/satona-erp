@@ -24,7 +24,7 @@ describe('geo', () => {
   it('falls back to the company site so every record has a place', () => {
     const setting = all['sys.settings']![0]!
     expect(geoOf(typeOf('sys.settings')!, setting, all, typeOf)).toBeUndefined()
-    expect(placeOf(typeOf('sys.settings')!, setting, all, typeOf, 'holding')?.place).toBe('Satona HQ Jakarta')
+    expect(placeOf(typeOf('sys.settings')!, setting, all, typeOf, 'holding')?.place).toBe('Kantor Pusat Jakarta')
   })
 
   it('knows which features have a map', () => {

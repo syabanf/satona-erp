@@ -2,7 +2,7 @@
 import { RECORD_TYPES } from '@/domain/catalog'
 import { PROVINCES } from '@/domain/catalog/kit'
 import { DEVICE_COMMANDS } from '@/domain/catalog/devices'
-import { QUOTE_PRODUCTS, QUOTE_SERVICES } from '@/domain/catalog/rotama'
+import { QUOTE_PRODUCTS, QUOTE_SERVICES } from '@/domain/catalog/logistics'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
 import { MATERIAL_HAZARDS, SCOPE_SEEDS, groupAccountFor } from './seedsScope'
@@ -19,7 +19,7 @@ export interface Ctx {
 }
 
 export type Make = (c: Ctx) => Values
-const ENTITIES = ['holding', 'rotama', 'rodame', 'roasi']
+const ENTITIES = ['holding', 'logistics', 'fertiliser', 'chemicals']
 const DRIVERS = TRUCKS.map((t) => t.driver)
 const LANES = ['Cilegon → Cikampek', 'Gresik → Malang', 'Cilegon → Bandar Lampung', 'Gresik → Semarang', 'Cikampek → Semarang', 'Palembang → Bandar Lampung', 'Jakarta → Bandung', 'Surabaya → Banyuwangi']
 const MATERIALS: ReadonlyArray<[string, string, string]> = [
@@ -44,9 +44,9 @@ const PARTNERS: ReadonlyArray<[string, string, string]> = [
   ['PT Indo Detergent', 'Customer', 'Surabaya'],
   ['PT Kimia Farma Plant', 'Customer', 'Bandung'],
   ['PT Unggul Polymer', 'Customer', 'Cilegon'],
-  ['PT Rodame Indonesia', 'Intercompany', 'Gresik'],
-  ['PT Roasi Sinergi Industri', 'Intercompany', 'Cilegon'],
-  ['PT Rotama Indonesia', 'Intercompany', 'Jakarta'],
+  ['Pabrik Pupuk', 'Intercompany', 'Gresik'],
+  ['Pabrik Kimia', 'Intercompany', 'Cilegon'],
+  ['Unit Logistik', 'Intercompany', 'Jakarta'],
 ]
 const FORMULAS: ReadonlyArray<[string, number, number, number]> = [
   ['Urea 46', 46, 0, 0],
@@ -70,12 +70,12 @@ const DEVICE_MODELS: ReadonlyArray<[name: string, vendor: string, kind: string, 
   ['Hikvision DS-2CD2T', 'Hikvision', 'IP camera', 'HTTPS'],
 ]
 const DEVICE_SITES: ReadonlyArray<[entity: string, site: string, code: string]> = [
-  ['rodame', 'Plant Gresik', 'GRS'],
-  ['rodame', 'Plant Palembang', 'PLM'],
-  ['roasi', 'Plant Cilegon', 'CLG'],
-  ['roasi', 'Tank farm Merak', 'MRK'],
-  ['rotama', 'Depot Cilegon', 'DCL'],
-  ['rotama', 'Fleet pool Cikampek', 'CKP'],
+  ['fertiliser', 'Plant Gresik', 'GRS'],
+  ['fertiliser', 'Plant Palembang', 'PLM'],
+  ['chemicals', 'Plant Cilegon', 'CLG'],
+  ['chemicals', 'Tank farm Merak', 'MRK'],
+  ['logistics', 'Depot Cilegon', 'DCL'],
+  ['logistics', 'Fleet pool Cikampek', 'CKP'],
   ['holding', 'Head office Jakarta', 'JKT'],
 ]
 const DEVICE_CODES: Record<string, string> = { PLC: 'PLC', 'Edge gateway': 'GW', Sensor: 'SNS', 'HMI panel': 'HMI', 'Barcode scanner': 'SCN', Tablet: 'TAB', 'IP camera': 'CAM' }
@@ -237,7 +237,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['Palembang urea DCS', 7, 'DCS / SCADA', 'OPC DA bridge'],
         ['Merak tank gauges', 10, 'IoT tank gauges', 'LoRaWAN → MQTT'],
         ['Gresik tank gauges', 11, 'IoT tank gauges', 'LoRaWAN → MQTT'],
-        ['Rotama fleet GPS', 2, 'Fleet GPS', 'REST webhook'],
+        ['Unit Logistik fleet GPS', 2, 'Fleet GPS', 'REST webhook'],
         ['Cilegon NVR', 9, 'CCTV NVR', 'RTSP / ONVIF'],
         ['Gresik NVR', 6, 'CCTV NVR', 'RTSP / ONVIF'],
         ['Cilegon energy meters', 9, 'Energy meter', 'Modbus RTU'],
@@ -290,10 +290,10 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: 4,
     make: ({ i }) => {
       const [code, name, entity, address] = ([
-        ['1000', 'PT Satona', 'holding', 'Jl. Jend. Sudirman Kav. 52, Jakarta'],
-        ['2000', 'PT Rotama Indonesia', 'rotama', 'Jl. Raya Anyer KM 3, Cilegon'],
-        ['3000', 'PT Rodame Indonesia', 'rodame', 'Jl. Tanjung Harapan, Gresik'],
-        ['4000', 'PT Roasi Sinergi Industri', 'roasi', 'Kawasan Industri KIEC, Cilegon'],
+        ['1000', 'Kantor Pusat', 'holding', 'Jl. Jend. Sudirman Kav. 52, Jakarta'],
+        ['2000', 'Unit Logistik', 'logistics', 'Jl. Raya Anyer KM 3, Cilegon'],
+        ['3000', 'Pabrik Pupuk', 'fertiliser', 'Jl. Tanjung Harapan, Gresik'],
+        ['4000', 'Pabrik Kimia', 'chemicals', 'Kawasan Industri KIEC, Cilegon'],
       ] as const)[i]!
       return { code, name, entity, npwp: `0${i + 1}.${310 + i * 7}.${520 + i}.1-0${i}1.000`, address, currency: 'IDR' }
     },
@@ -302,7 +302,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: SITES.length,
     make: ({ i }) => {
       const site = SITES[i] ?? SITES[0]!
-      const company = `CC-000${['holding', 'rotama', 'rodame', 'roasi'].indexOf(site.entity) + 1}`
+      const company = `CC-000${['holding', 'logistics', 'fertiliser', 'chemicals'].indexOf(site.entity) + 1}`
       const kind = { hq: 'Head office', plant: 'Plant', depot: 'Depot', warehouse: 'Warehouse', 'tank-farm': 'Tank farm' }[site.kind]
       return { code: `P${String(i + 1).padStart(3, '0')}`, name: site.name, company, kind, city: site.city }
     },
@@ -403,9 +403,9 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['Fleet pool Cikampek', 'Depot', 'Karawang'],
         ['Depot Surabaya', 'Depot', 'Surabaya'],
         ['Hub Semarang', 'Depot', 'Semarang'],
-        ['Rodame plant Gresik', 'Plant', 'Gresik'],
-        ['Rodame plant Palembang', 'Plant', 'Palembang'],
-        ['Roasi plant Cilegon', 'Plant', 'Cilegon'],
+        ['Pabrik Pupuk Gresik', 'Plant', 'Gresik'],
+        ['Pabrik Pupuk Palembang', 'Plant', 'Palembang'],
+        ['Pabrik Kimia Cilegon', 'Plant', 'Cilegon'],
         ['Port of Merak', 'Port', 'Merak'],
         ['Port of Bakauheni', 'Port', 'Lampung Selatan'],
         ['Warehouse Bandar Lampung', 'Ship-to', 'Bandar Lampung'],
@@ -608,7 +608,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
       return {
         nik: `SAT-${String(10230 + i * 13)}`,
         name: `${pick(['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina'])} ${pick(['Saputra', 'Wijaya', 'Lestari', 'Pratama', 'Hidayat', 'Kusuma', 'Siregar', 'Nugroho'])}`,
-        entity: unit >= 12 ? (unit === 14 ? 'rodame' : unit === 15 ? 'rotama' : 'roasi') : ENTITIES[i % 4],
+        entity: unit >= 12 ? (unit === 14 ? 'fertiliser' : unit === 15 ? 'logistics' : 'chemicals') : ENTITIES[i % 4],
         department: pick(['Finance', 'HR', 'Production', 'Logistics', 'QC', 'HSE', 'Procurement', 'IT']),
         orgunit: `ORG-${String(unit + 1).padStart(4, '0')}`,
         position: `JOB-${String((i % 24) + 1).padStart(4, '0')}`,
@@ -630,12 +630,12 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: 26,
     make: ({ i, pick, int, day }) => {
       const [from, to, description] = pick([
-        ['rotama', 'rodame', 'Freight NPK Gresik'],
-        ['rotama', 'roasi', 'Freight acid Cilegon'],
-        ['roasi', 'rodame', 'Sulfuric acid supply'],
-        ['holding', 'rotama', 'Shared service fee'],
-        ['holding', 'rodame', 'Shared service fee'],
-        ['holding', 'roasi', 'Management fee'],
+        ['logistics', 'fertiliser', 'Freight NPK Gresik'],
+        ['logistics', 'chemicals', 'Freight acid Cilegon'],
+        ['chemicals', 'fertiliser', 'Sulfuric acid supply'],
+        ['holding', 'logistics', 'Shared service fee'],
+        ['holding', 'fertiliser', 'Shared service fee'],
+        ['holding', 'chemicals', 'Management fee'],
       ] as const)
       const amount = int(4, 90) * 1e8
       // A few receivers booked a different amount, so IC reconciliation has differences to clear.
@@ -661,7 +661,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: 22,
     make: ({ pick, int, day, ref }) => {
       const what = pick(['Ammonia', 'Phosphoric acid', 'Sulfur', 'Potassium chloride', 'Spare bearings', 'Catalyst V2O5'])
-      return { title: `${what} for ${pick(['Q4 run', 'shutdown', 'Line A', 'safety stock'])}`, material: ref('mdm.materials'), qty: int(20, 900), entity: pick(['rodame', 'roasi', 'rotama']), vendor: ref('mdm.partners'), value: int(3, 120) * 1e8, needBy: day(-30, 60) }
+      return { title: `${what} for ${pick(['Q4 run', 'shutdown', 'Line A', 'safety stock'])}`, material: ref('mdm.materials'), qty: int(20, 900), entity: pick(['fertiliser', 'chemicals', 'logistics']), vendor: ref('mdm.partners'), value: int(3, 120) * 1e8, needBy: day(-30, 60) }
     },
   },
   'vms.ratings': {
@@ -702,12 +702,12 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: 12,
     make: ({ i, int }) => {
       const [kpi, entity, target] = ([
-        ['On-time delivery %', 'rotama', 95],
-        ['Cost per km (Rp)', 'rotama', 15000],
-        ['NPK output (t)', 'rodame', 40000],
-        ['Batch first-pass yield %', 'rodame', 96],
-        ['Reactor uptime %', 'roasi', 98],
-        ['Yield loss %', 'roasi', 2.5],
+        ['On-time delivery %', 'logistics', 95],
+        ['Cost per km (Rp)', 'logistics', 15000],
+        ['NPK output (t)', 'fertiliser', 40000],
+        ['Batch first-pass yield %', 'fertiliser', 96],
+        ['Reactor uptime %', 'chemicals', 98],
+        ['Yield loss %', 'chemicals', 2.5],
       ] as const)[i % 6]!
       return { kpi, entity, period: i < 6 ? '2026-09' : '2026-10', target, actual: Math.round(target * (0.88 + int(0, 18) / 100) * 10) / 10 }
     },
@@ -751,7 +751,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['UN2448', 'Class 4.1 Flammable solid'],
         ['UN1824', 'Class 8 Corrosive'],
       ] as const)
-      return { trip: ref('tms.trips'), unNumber, hazardClass, qty: int(14, 30), festronik: `FST-2610-${String(4100 + i * 7)}`, generator: i % 2 ? 'PT Roasi Sinergi Industri' : 'PT Rodame Indonesia', transporter: 'PT Rotama Indonesia', receiver: ['PT Prasadha Pamunah Limbah', 'PT Petrokimia Mitra', 'PT Indo Detergent'][i % 3] }
+      return { trip: ref('tms.trips'), unNumber, hazardClass, qty: int(14, 30), festronik: `FST-2610-${String(4100 + i * 7)}`, generator: i % 2 ? 'Pabrik Kimia' : 'Pabrik Pupuk', transporter: 'Unit Logistik', receiver: ['PT Prasadha Pamunah Limbah', 'PT Petrokimia Mitra', 'PT Indo Detergent'][i % 3] }
     },
   },
   'haz.certificates': {
@@ -768,7 +768,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fbl.invoices': {
     count: 32,
-    make: ({ i, pick, int, day, ref }) => ({ trip: ref('tms.trips'), billTo: pick(['PT Rodame Indonesia', 'PT Rodame Indonesia', 'PT Roasi Sinergi Industri', 'External customer']), distance: int(90, 780), ratePerKm: int(118, 175) * 100, margin: int(8, 18), issued: day(-160, 0), pod: i % 5 === 0 ? 'Pending' : 'Signed' }),
+    make: ({ i, pick, int, day, ref }) => ({ trip: ref('tms.trips'), billTo: pick(['Pabrik Pupuk', 'Pabrik Pupuk', 'Pabrik Kimia', 'External customer']), distance: int(90, 780), ratePerKm: int(118, 175) * 100, margin: int(8, 18), issued: day(-160, 0), pod: i % 5 === 0 ? 'Pending' : 'Signed' }),
   },
 
   'fbl.inquiries': {
@@ -840,7 +840,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         model: seedId('DMD', m),
         entity,
         site,
-        asset: entity === 'rodame' && ['PLC', 'Sensor', 'HMI panel'].includes(kind) ? seedId('AST', i % 16) : '',
+        asset: entity === 'fertiliser' && ['PLC', 'Sensor', 'HMI panel'].includes(kind) ? seedId('AST', i % 16) : '',
         serial: `SN${(240_000 + i * 7919).toString(36).toUpperCase()}`,
         ip: `10.${20 + (i % 4)}.${10 + Math.floor(i / 16)}.${20 + (i % 200)}`,
         firmware: i % 10 < 7 ? latestFirmware(m) : olderFirmware(m),

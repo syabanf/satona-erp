@@ -36,7 +36,7 @@ function Panel({ request, onClose, onSwitch }: { request: DrawerRequest; onClose
   }, [onClose])
 
   if (!type) return null
-  const title = request.mode === 'create' ? `New ${type.singular.toLowerCase()}` : record ? recordTitle(type, record, all.data) : request.id
+  const title = request.mode === 'create' ? `${type.singular} baru` : record ? recordTitle(type, record, all.data) : request.id
 
   let body: ReactNode = <p className="text-sm text-muted">Loading…</p>
   if (request.mode === 'create')

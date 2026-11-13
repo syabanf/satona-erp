@@ -130,7 +130,7 @@ export function RecordChildren({ type, record, all }: { type: RecordType; record
     <Card>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Network aria-hidden className="size-5 text-muted" />
-        <h2 className="text-lg font-semibold">Structure &amp; child records</h2>
+        <h2 className="text-lg font-semibold">Struktur dan data turunan</h2>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         {totals.map((t) => (

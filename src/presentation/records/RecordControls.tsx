@@ -40,12 +40,12 @@ export function RecordControls({ type, record, view = false, steps = true, class
         </Button>
       )}
       {can(access, 'edit') && (
-        <Button size="icon-sm" variant="soft" aria-label={`Edit ${record.id}`} onClick={() => open({ mode: 'edit', type: type.key, id: record.id })}>
+        <Button size="icon-sm" variant="soft" aria-label={`Ubah ${record.id}`} onClick={() => open({ mode: 'edit', type: type.key, id: record.id })}>
           <Pencil aria-hidden className="size-4" />
         </Button>
       )}
       {can(access, 'delete') && (
-        <Button size="icon-sm" variant="soft" aria-label={`Delete ${record.id}`} onClick={() => setConfirming(true)}>
+        <Button size="icon-sm" variant="soft" aria-label={`Hapus ${record.id}`} onClick={() => setConfirming(true)}>
           <Trash2 aria-hidden className="size-4" />
         </Button>
       )}
@@ -53,8 +53,8 @@ export function RecordControls({ type, record, view = false, steps = true, class
       {!moves.length && approval.step && <span className="text-xs text-muted">Waits for {approval.step.role}</span>}
       <ConfirmDialog
         open={confirming}
-        title={`Delete ${record.id}?`}
-        confirm="Delete"
+        title={`Hapus ${record.id}?`}
+        confirm="Hapus"
         busy={busy === 'delete'}
         onClose={() => setConfirming(false)}
         onConfirm={() => act('delete', () => actions.remove(type, record.id)).then(() => setConfirming(false))}

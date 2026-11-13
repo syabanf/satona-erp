@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Check, ChevronsUpDown, LogOut, Search } from 'lucide-react'
+import { Check, ChevronsUpDown, LogOut, Search, UserRound } from 'lucide-react'
 import { ADMIN_ROLE, filterRoles, type Role } from '@/domain/erp'
 import { homeFor } from '@/domain/menu'
 import { cn } from '@/lib/cn'
@@ -64,6 +64,16 @@ export function RoleSwitcher({ collapsed, onNavigate }: { collapsed: boolean; on
         <div>
           <p className="px-3 pt-1 pb-2 eyebrow">Pilih peran</p>
           <Input className="mb-2 h-10" icon={<Search className="size-4" />} placeholder="Peran atau bagian" aria-label="Cari peran" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              navigate('/profile')
+            }}
+            className={menuItem}
+          >
+            <UserRound aria-hidden className="size-4" /> Profil saya
+          </button>
           <button
             type="button"
             onClick={() => {

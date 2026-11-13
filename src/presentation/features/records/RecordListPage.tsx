@@ -41,7 +41,7 @@ export default function RecordListPage() {
           <h2 className="text-lg font-semibold">{type.name}</h2>
           {creatable && (
             <Button data-tour="record-new" variant="accent" size="sm" onClick={() => open({ mode: 'create', type: type.key })} title="Shortcut: N">
-              <Plus aria-hidden className="size-4" /> New {type.singular.toLowerCase()}
+              <Plus aria-hidden className="size-4" /> {type.singular} baru
               <kbd className="ml-1 hidden rounded border border-white/40 px-1 font-mono text-[10px] sm:inline">N</kbd>
             </Button>
           )}

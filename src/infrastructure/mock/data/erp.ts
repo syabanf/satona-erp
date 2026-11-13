@@ -109,7 +109,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Corporate Finance & Accounting', 'Budgeting & Planning', 'Internal Audit'], ['CFO / Finance Director', 'Financial Controller', 'Corporate Accountant', 'Internal Auditor'], [
     { label: 'Close cycle', value: '4 days' },
     { label: 'Entities consolidated', value: '4 of 4' },
-  ], { to: '/dashboard', label: 'Open group overview' }),
+  ], { to: '/dashboard', label: 'Buka ringkasan grup' }),
   mod('holding', 'VMS', 'Shared Procurement & Vendor Management', [
     ['Central sourcing of ammonia, phosphoric acid, sulfur', 'live'],
     ['Supplier rating and ranking', 'live'],
@@ -134,7 +134,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Board of Directors', 'Corporate Strategy / PMO'], ['Dewan Direksi Holding', 'Business Analyst', 'General Manager'], [
     { label: 'Dashboards live', value: '14' },
     { label: 'Weekly viewers', value: '96' },
-  ], { to: '/dashboard', label: 'Open executive overview' }),
+  ], { to: '/dashboard', label: 'Buka ringkasan eksekutif' }),
 
   mod('holding', 'OCC', 'Group Operations Command Centre', [
     ['Live unit status across all plants, depots and tank farms', 'live'],
@@ -145,7 +145,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Corporate Operations', 'IT Infrastructure / OT'], ['Operations Director', 'Command Centre Operator', 'O&M Engineer'], [
     { label: 'Open alarms', value: '9' },
     { label: 'Sources connected', value: '21 of 24' },
-  ], { to: '/occ', label: 'Open command centre' }),
+  ], { to: '/occ', label: 'Buka pusat komando' }),
   mod('holding', 'HRS', 'Human Capital (HRIS)', [
     ['Organisation, positions and grades', 'live'],
     ['Attendance by face recognition and gate RFID', 'live'],
@@ -156,7 +156,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Human Capital', 'Payroll', 'Talent Acquisition'], ['HR Director', 'HR Manager', 'Payroll Specialist', 'Recruiter', 'Employee (ESS)'], [
     { label: 'Headcount', value: '2,562' },
     { label: 'Attendance today', value: '96.4%' },
-  ], { to: '/hris', label: 'Open HR cockpit' }),
+  ], { to: '/hris', label: 'Buka kokpit SDM' }),
   mod('holding', 'FIN', 'Finance & Accounting', [
     ['General ledger journals with approval and posting', 'live'],
     ['AP with 3-way match (PO, GRN, invoice)', 'live'],
@@ -166,7 +166,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Accounting', 'Treasury', 'Tax'], ['Finance Controller', 'Chief Accountant', 'AP Officer', 'AR Officer', 'Tax Officer'], [
     { label: 'Open payables', value: 'Rp 41.8 B' },
     { label: 'DSO', value: '38 days' },
-  ], { to: '/finance', label: 'Open finance cockpit' }),
+  ], { to: '/finance', label: 'Buka kokpit keuangan' }),
   mod('holding', 'INV', 'Inventory Control', [
     ['Stock balances per plant with shelf life', 'live'],
     ['Stock opname with variance approval', 'live'],
@@ -192,7 +192,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Safety, Health & Environment', 'Occupational Health', 'Contractor Safety'], ['SHE Manager', 'K3 Officer', 'Safety Inspector', 'Occupational Health Doctor', 'Contractor Safety Rep'], [
     { label: 'Days without LTI', value: '418' },
     { label: 'Permits active', value: '9' },
-  ], { to: '/she', label: 'Open SHE cockpit' }),
+  ], { to: '/she', label: 'Buka kokpit K3' }),
   mod('holding', 'DVM', 'Device Management (IoT & OT)', [
     ['Device registry for PLCs, gateways, sensors, HMIs, scanners and cameras', 'live'],
     ['Heartbeat monitoring and device alerts', 'live'],
@@ -201,7 +201,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['IT Security', 'Plant Maintenance / Engineering'], ['OT Engineer', 'IoT Administrator'], [
     { label: 'Devices online', value: '94%' },
     { label: 'On latest firmware', value: '71%' },
-  ], { to: '/devices', label: 'Open device console' }),
+  ], { to: '/devices', label: 'Buka konsol perangkat' }),
   mod('holding', 'SYS', 'System Administration', [
     ['Roles and permission overrides', 'live'],
     ['Multilevel approval matrix with delegations', 'live'],
@@ -217,7 +217,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Fleet & Transport', 'Operational Logistics'], ['Fleet Manager', 'Transport Dispatcher / Planner', 'Driver (Driver App)'], [
     { label: 'Trips this month', value: '2,684' },
     { label: 'Overspeed events', value: '31' },
-  ], { to: '/fleet', label: 'Open live fleet map' }),
+  ], { to: '/fleet', label: 'Buka peta armada langsung' }),
   mod('logistics', 'WMS', 'Warehouse Management', [
     ['Chemical storage segregation by hazard class', 'live'],
     ['Lot / batch tracking with FEFO and FIFO rotation', 'live'],
@@ -272,7 +272,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Plant Maintenance / Engineering', 'Spare Part Warehouse'], ['Maintenance Head', 'Machine Technician / Mechanic', 'Spare Parts Admin'], [
     { label: 'MTBF granulator', value: '412 h' },
     { label: 'Open work orders', value: '58' },
-  ], { to: '/eam/reliability', label: 'Open reliability cockpit' }),
+  ], { to: '/eam/reliability', label: 'Buka kokpit keandalan' }),
   mod('fertiliser', 'MES', 'Manufacturing Execution (MES)', [
     ['Shop-floor work orders per operation, released from batch orders', 'live'],
     ['OEE per work centre and shift (availability × performance × quality)', 'live'],
@@ -281,7 +281,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Production & Processing', 'Quality Control'], ['Shift Supervisor', 'Plant Operator', 'Process Engineer'], [
     { label: 'OEE this week', value: '78%' },
     { label: 'Downtime today', value: '96 min' },
-  ], { to: '/mes/cockpit', label: 'Open production cockpit' }),
+  ], { to: '/mes/cockpit', label: 'Buka kokpit produksi' }),
   mod('fertiliser', 'DMS', 'Distributor Management', [
     ['Subsidised and commercial quota allocation', 'live'],
     ['Regional distributor and kiosk network', 'live'],
@@ -289,7 +289,7 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Sales & Marketing', 'Commercial Distribution'], ['Commercial Director', 'Area Sales Manager', 'Distributor'], [
     { label: 'Distributors', value: '168' },
     { label: 'Kiosks', value: '4,920' },
-  ], { to: '/distribution', label: 'Open distribution map' }),
+  ], { to: '/distribution', label: 'Buka peta distribusi' }),
 
   mod('chemicals', 'CFP', 'Continuous Flow Process', [
     ['24/7 continuous reactor tracking', 'live'],
@@ -314,14 +314,14 @@ export const MODULES: readonly ErpModule[] = [
   ], ['Bulk Storage / Tank Farm', 'Supply Chain'], ['Tank Farm Supervisor', 'Material Controller'], [
     { label: 'Tanks online', value: '6 of 6' },
     { label: 'Stock variance', value: '0.4%' },
-  ], { to: '/tank-farm', label: 'Open tank farm' }),
+  ], { to: '/tank-farm', label: 'Buka tank farm' }),
   mod('chemicals', 'GTR', 'End-to-End Genealogy & Recalls', [
     ['Full batch genealogy: vendor lot to reactor to truck to customer', 'live'],
     ['Rapid recall on contamination', 'live'],
   ], ['Quality Assurance', 'Supply Chain & Legal'], ['QA Manager', 'Recall Task Force / Crisis Team'], [
     { label: 'Lots traced', value: '1,284' },
     { label: 'Mock recall time', value: '42 min' },
-  ], { to: '/traceability', label: 'Open genealogy' }),
+  ], { to: '/traceability', label: 'Buka silsilah produk' }),
 ]
 
 const EXTERNAL = /vendor|supplier|distributor|driver|plant operator|employee \(ess\)|contractor/i

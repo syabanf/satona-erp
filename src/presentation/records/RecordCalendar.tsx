@@ -79,7 +79,7 @@ export function RecordCalendar({ type, rows, all }: { type: RecordType; rows: re
                         {creatable && field && (
                           <button
                             type="button"
-                            aria-label={`New ${type.singular.toLowerCase()} on ${day}`}
+                            aria-label={`${type.singular} baru pada ${day}`}
                             onClick={() => open({ mode: 'create', type: type.key, prefill: { [field.key]: day } })}
                             className="hidden size-6 cursor-pointer place-items-center rounded-full text-subtle hover:bg-accent-soft hover:text-accent-text sm:grid"
                           >

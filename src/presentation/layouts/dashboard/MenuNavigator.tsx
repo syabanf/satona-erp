@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { BarChart3, CheckCheck, ChevronDown, Database, FileText, Folder, LayoutDashboard, Plus, Search, Settings2, Star, X, type LucideIcon } from 'lucide-react'
 import { folderPath, walk, type MenuKind, type MenuNode } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 import { moduleIcon } from '../../ui/moduleIcons'
+import { useStored } from '../../hooks/useStored'
 import { useRecordDrawer } from '../../records/drawer'
 
 export const MENU_ICON: Record<MenuKind, LucideIcon> = {
@@ -15,31 +16,6 @@ export const MENU_ICON: Record<MenuKind, LucideIcon> = {
   report: BarChart3,
   config: Settings2,
   page: LayoutDashboard,
-}
-
-/** A per-viewer value in localStorage; storage may be blocked, so every access is guarded. */
-function useStored<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const saved = localStorage.getItem(key)
-      if (saved) return JSON.parse(saved) as T
-    } catch {
-      // Blocked storage: start from the default.
-    }
-    return initial
-  })
-  const update = useCallback(
-    (next: T) => {
-      setValue(next)
-      try {
-        localStorage.setItem(key, JSON.stringify(next))
-      } catch {
-        // Blocked storage: the change lasts for this page only.
-      }
-    },
-    [key],
-  )
-  return [value, update] as const
 }
 
 interface Props {

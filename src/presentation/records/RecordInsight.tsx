@@ -142,7 +142,7 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
         </Card>
 
         <Card>
-          <CardHeader title={useSum && sumField ? `${sumField.label} by month` : 'New per month'} />
+          <CardHeader title={useSum && sumField ? `${sumField.label} per bulan` : 'Data baru per bulan'} />
           <ColumnChart
             data={s.monthly.map((m, i) => ({ key: String(i), label: new Date(`${m.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }), value: useSum ? m.sum : m.count }))}
             selected={month}
@@ -210,7 +210,7 @@ export function RecordInsight({ type, rows: allRows, all }: { type: RecordType; 
             onPick={(i) => drillMonth(trend[i]?.month)}
             labels={trend.map((m) => new Date(`${m.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }))}
             series={[
-              { id: 'created', label: 'Created', values: trend.map((m) => m.count), color: 'var(--color-series-1)', area: true },
+              { id: 'created', label: 'Dibuat', values: trend.map((m) => m.count), color: 'var(--color-series-1)', area: true },
               { id: 'finished', label: 'Finished', values: finished.map((m) => m.count), color: 'var(--color-series-2)' },
             ]}
             format={(v) => `${v} records`}

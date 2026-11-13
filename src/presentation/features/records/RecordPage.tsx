@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Check, ChevronRight, Clock3, Pencil, Trash2 } from 'lucide-react'
+import { Check, ChevronRight, Clock3, Pencil, Printer, Trash2 } from 'lucide-react'
 import { RECORD_TYPES, typeOf } from '@/domain/catalog'
 import { isRejection } from '@/domain/approval'
 import { can } from '@/domain/erp'
@@ -19,6 +19,8 @@ import { PageBar } from '../../ui/PageBar'
 import { CardSkeleton, Skeleton } from '../../ui/States'
 import { useToast } from '../../ui/useToast'
 import { RecordChildren } from '../../records/RecordChildren'
+import { RecordCollab } from '../../records/RecordCollab'
+import { NextSteps } from '../../records/NextSteps'
 import { Floorplan } from '../../records/Floorplan'
 import { StateBadge } from '../../records/StateBadge'
 import { useRecordActions } from '../../records/useRecordActions'
@@ -88,9 +90,9 @@ export default function RecordPage() {
     setBusy(to)
     try {
       const saved = await records.transition(role, type!.key, record!.id, to)
-      toast({ title: `${saved.id} moved to ${stateOf(type!, to)?.label ?? to}` })
+      toast({ title: `${saved.id} pindah ke ${stateOf(type!, to)?.label ?? to}` })
     } catch (e) {
-      toast({ tone: 'danger', title: 'Not changed', description: e instanceof Error ? e.message : String(e) })
+      toast({ tone: 'danger', title: 'Tidak berubah', description: e instanceof Error ? e.message : String(e) })
     } finally {
       setBusy(null)
     }
@@ -100,10 +102,10 @@ export default function RecordPage() {
     setBusy('delete')
     try {
       await records.remove(role, type!.key, record!.id)
-      toast({ title: `${record!.id} deleted` })
+      toast({ title: `${record!.id} dihapus` })
       navigate(recordPath(type!), { replace: true })
     } catch (e) {
-      toast({ tone: 'danger', title: 'Not deleted', description: e instanceof Error ? e.message : String(e) })
+      toast({ tone: 'danger', title: 'Tidak terhapus', description: e instanceof Error ? e.message : String(e) })
       setBusy(null)
       setConfirming(false)
     }
@@ -116,14 +118,17 @@ export default function RecordPage() {
         label={type.name}
         actions={
           <>
+            <Link to={`/print/${type.key}/${record.id}`} className={buttonStyles({ variant: 'card' })}>
+              <Printer aria-hidden className="size-4" /> Cetak / PDF
+            </Link>
             {can(access, 'edit') && (
               <Link to={`${recordPath(type, record.id)}/edit`} className={buttonStyles({ variant: 'card' })}>
-                <Pencil aria-hidden className="size-4" /> Edit
+                <Pencil aria-hidden className="size-4" /> Ubah
               </Link>
             )}
             {can(access, 'delete') && (
               <Button variant="card" onClick={() => setConfirming(true)}>
-                <Trash2 aria-hidden className="size-4" /> Delete
+                <Trash2 aria-hidden className="size-4" /> Hapus
               </Button>
             )}
           </>
@@ -191,9 +196,11 @@ export default function RecordPage() {
             )}
           </Card>
 
+          <NextSteps type={type} record={record} all={all.data} />
+
           {(approval.chain.length > 0 || signed.length > 0) && (
             <Card>
-              <CardHeader title="Approval chain" action={<span className="text-xs text-muted">from the approval matrix (SYS)</span>} />
+              <CardHeader title="Rantai persetujuan" action={<span className="text-xs text-muted">dari matriks persetujuan (SYS)</span>} />
               <ol className="grid gap-2 sm:grid-cols-3">
                 {(approval.chain.length ? approval.chain : signed.map((x) => ({ level: x.level, role: x.role, sla: 0 }))).map((step) => {
                   const sign = signed.find((x) => x.level === step.level)
@@ -216,7 +223,7 @@ export default function RecordPage() {
           )}
 
           <Card>
-            <CardHeader title="Details" />
+            <CardHeader title="Rincian" />
             <dl className="grid gap-3 sm:grid-cols-2">
               {type.fields.map((f) => {
                 const v = record.values[f.key]
@@ -255,11 +262,12 @@ export default function RecordPage() {
             </Card>
           )}
           <RecordChildren type={type} record={record} all={all.data} />
+          <RecordCollab target={`${type.key}:${record.id}`} />
         </div>
 
         <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader title="History" />
+            <CardHeader title="Riwayat" />
             <ol className="space-y-3">
               {[...record.history].reverse().map((h, i) => (
                 <li key={`${h.at}-${i}`} data-motion="row" className="flex gap-3">
@@ -275,9 +283,9 @@ export default function RecordPage() {
             </ol>
           </Card>
           <Card>
-            <CardHeader title="Also referenced by" />
+            <CardHeader title="Juga dirujuk oleh" />
             {users.length === 0 ? (
-              <p className="text-sm text-muted">No other record points here yet.</p>
+              <p className="text-sm text-muted">Belum ada data lain yang merujuk ke sini.</p>
             ) : (
               <ul className="divide-y divide-line">
                 {users.slice(0, 12).map(({ type: t, record: r }) => (
@@ -295,7 +303,7 @@ export default function RecordPage() {
         </div>
       </div>
 
-      <ConfirmDialog open={confirming} title={`Delete ${record.id}?`} confirm="Delete" busy={busy === 'delete'} onConfirm={remove} onClose={() => setConfirming(false)}>
+      <ConfirmDialog open={confirming} title={`Hapus ${record.id}?`} confirm="Hapus" busy={busy === 'delete'} onConfirm={remove} onClose={() => setConfirming(false)}>
         {users.length > 0 ? `${users.length} other records point at it and will show its id only.` : 'This removes it from the demo until you reset the data.'}
       </ConfirmDialog>
     </div>

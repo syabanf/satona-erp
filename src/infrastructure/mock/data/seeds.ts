@@ -33,6 +33,7 @@ const MATERIALS: ReadonlyArray<[string, string, string]> = [
   ['FG-NPK15', 'NPK 15-15-15', 'Non-B3'],
   ['FG-NPK16', 'NPK 16-16-16', 'Non-B3'],
   ['FG-ZA', 'Ammonium sulfate (ZA)', 'Non-B3'],
+  ['MRO-SPARE', 'Spare parts and MRO', 'Non-B3'],
 ]
 const PARTNERS: ReadonlyArray<[string, string, string]> = [
   ['Pupuk Kaltim', 'Vendor', 'Bontang'],
@@ -1341,8 +1342,8 @@ export function seedRecords(today: string): Record<string, ErpRecord[]> {
         createdAt: created,
         updatedAt: iso(-Math.floor(age / 2)),
         history: [
-          { at: created, by: 'Data migration', action: 'Created' },
-          ...(status !== type.workflow.initial ? [{ at: iso(-Math.floor(age / 2)), by: 'Data migration', action: `Moved to ${label}` }] : []),
+          { at: created, by: 'Migrasi data', action: 'Dibuat' },
+          ...(status !== type.workflow.initial ? [{ at: iso(-Math.floor(age / 2)), by: 'Migrasi data', action: `Pindah ke ${label}` }] : []),
         ],
       }
     })

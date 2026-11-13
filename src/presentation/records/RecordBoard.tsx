@@ -31,7 +31,7 @@ export function RecordBoard({ type, rows, all }: { type: RecordType; rows: reado
                 <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{s.label}</h3>
                 <span className="text-xs text-muted tabular">{items.length}</span>
                 {i === 0 && canCreate(type, accessFor(type.module)) && (
-                  <Button size="icon-sm" variant="ghost" aria-label={`New ${type.singular.toLowerCase()}`} onClick={() => open({ mode: 'create', type: type.key })}>
+                  <Button size="icon-sm" variant="ghost" aria-label={`${type.singular} baru`} onClick={() => open({ mode: 'create', type: type.key })}>
                     <Plus aria-hidden className="size-4" />
                   </Button>
                 )}

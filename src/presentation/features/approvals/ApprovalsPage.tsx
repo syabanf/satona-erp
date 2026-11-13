@@ -111,7 +111,7 @@ export default function ApprovalsPage() {
                   )}
                 </span>
                 <Link to={recordPath(type, record.id)} className="mt-1 block text-sm font-semibold hover:underline">{recordTitle(type, record, allData)}</Link>
-                <p className="mt-1 text-xs text-muted">{record.history[0]?.by === 'Data migration' ? 'Data contoh' : `Dibuat oleh ${record.history[0]?.by ?? 'pengguna'}`} · Diperbarui {new Date(record.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                <p className="mt-1 text-xs text-muted">{record.history[0]?.by === 'Migrasi data' ? 'Data contoh' : `Dibuat oleh ${record.history[0]?.by ?? 'pengguna'}`} · Diperbarui {new Date(record.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
                 <StateBadge type={type} status={record.status} />
               </div>

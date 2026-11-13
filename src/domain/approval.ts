@@ -85,7 +85,7 @@ export function approvalInbox(types: readonly RecordType[], all: Readonly<Record
 
 /** Keep operational follow-up actions separate from decisions that need approval. */
 export function isPendingApproval(item: ReturnType<typeof approvalInbox>[number]): boolean {
-  return item.record.status !== 'closed' && item.moves.some((move) => /^(approve|reject|release|sign(?: off)?|post|accept|authori[sz]e|confirm|review|verify|validate|clear)\b/i.test(move.label))
+  return item.record.status !== 'closed' && item.moves.some((move) => /^(approve|reject|release|sign(?: off)?|post|accept|authori[sz]e|confirm|review|verify|validate|clear)\b/i.test(move.action ?? move.label))
 }
 
 /** A safety rule that stops a move whatever the approver says, such as a permit with a failed gas test. */

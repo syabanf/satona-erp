@@ -248,3 +248,17 @@
   .reveal { opacity: 1; translate: none; transition: none; }
   .hero-rise, .site-glow, .marquee { animation: none; }
 }
+
+/* Printed documents: A4 with a narrow margin, no app chrome. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  :root {
+    font-size: 100%;
+  }
+}

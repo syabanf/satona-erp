@@ -21,6 +21,8 @@ export const router = createBrowserRouter([
     ],
   },
   { path: 'welcome/*', element: <Navigate to="/" replace /> },
+  { path: 'print/labels/:type', lazy: page(() => import('@/presentation/features/print/LabelsPage')) },
+  { path: 'print/:type/:id', lazy: page(() => import('@/presentation/features/print/PrintPage')) },
   { path: 'login', lazy: page(() => import('@/presentation/features/login/LoginPage')) },
   { path: 'os', lazy: page(() => import('@/presentation/features/os/OsDesktop')) },
   {
@@ -46,6 +48,9 @@ export const router = createBrowserRouter([
       { path: 'fleet/safety', lazy: page(() => import('@/presentation/features/fleet/SafetyPage')) },
       { path: 'occ', lazy: page(() => import('@/presentation/features/occ/CommandCentre')) },
       { path: 'mes/cockpit', lazy: page(() => import('@/presentation/features/mes/ProductionCockpit')) },
+      { path: 'profile', lazy: page(() => import('@/presentation/features/profile/ProfilePage')) },
+      { path: 'scan', lazy: page(() => import('@/presentation/features/scan/ScanPage')) },
+      { path: 'automation', lazy: page(() => import('@/presentation/features/automation/AutomationPage')) },
       { path: 'monitoring', lazy: page(() => import('@/presentation/features/monitoring/MonitoringPage')) },
       { path: 'devices', lazy: page(() => import('@/presentation/features/devices/DeviceConsole')) },
       { path: 'mes/scada', lazy: page(() => import('@/presentation/features/mes/PlantScada')) },

@@ -25,6 +25,7 @@ import { Skeleton } from '../../ui/States'
 import { StateBadge } from '../../records/StateBadge'
 import { recordPath, recordTitle } from '../../records/text'
 import { ENTITY_ICON, ENTITY_POP, monthLabels } from '../entityStyle'
+import { MyTiles } from './MyTiles'
 
 const tile =
   'block rounded-card border border-line bg-card p-5 shadow-card transition-[color,background-color,translate,scale] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] active:scale-[0.97] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1'
@@ -67,6 +68,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-4">
+      <MyTiles />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Link to="/entities/holding" data-motion="rise" className={tile}>
           <p className="text-xs text-muted">Pendapatan grup tahun ini</p>

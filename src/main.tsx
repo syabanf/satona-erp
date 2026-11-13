@@ -7,6 +7,9 @@ import '@fontsource/barlow-condensed/700.css'
 import './styles/index.css'
 import { App } from './app/App'
 
+// Offline support only in production builds; the dev server keeps changing files.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js'))
+
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <App />

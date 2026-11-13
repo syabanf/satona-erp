@@ -1,0 +1,16 @@
+{
+  "name": "WIT Manufacturing Platform",
+  "short_name": "WIT MFG",
+  "description": "Produksi, perawatan, rantai pasok, keuangan dan SDM pabrik dalam satu platform.",
+  "lang": "id",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f0f1",
+  "theme_color": "#101112",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

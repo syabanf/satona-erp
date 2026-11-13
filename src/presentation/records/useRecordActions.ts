@@ -49,20 +49,20 @@ export function useRecordActions() {
     // Saves throw on failure so RecordForm can mark the invalid fields and keep the input.
     create: async (type: RecordType, values: Values) => {
       const saved = await records.create(role, type.key, values)
-      toast({ title: `${saved.id} created` })
+      toast({ title: `${saved.id} dibuat` })
       return saved
     },
     update: async (type: RecordType, id: string, values: Values) => {
       const saved = await records.update(role, type.key, id, values)
-      toast({ title: `${saved.id} saved` })
+      toast({ title: `${saved.id} disimpan` })
       return saved
     },
-    remove: (type: RecordType, id: string) => run(() => records.remove(role, type.key, id).then(() => id), () => `${id} deleted`, 'Not deleted'),
+    remove: (type: RecordType, id: string) => run(() => records.remove(role, type.key, id).then(() => id), () => `${id} dihapus`, 'Tidak terhapus'),
     step: (type: RecordType, record: ErpRecord, to: string) =>
       run(
         () => records.transition(role, type.key, record.id, to),
-        (r) => (r.status === to ? `${r.id} moved to ${stateOf(type, to)?.label ?? to}` : `${r.id} signed at level ${r.approvals?.length ?? 1}`),
-        'Not changed',
+        (r) => (r.status === to ? `${r.id} pindah ke ${stateOf(type, to)?.label ?? to}` : `${r.id} disetujui di level ${r.approvals?.length ?? 1}`),
+        'Tidak berubah',
       ),
   }
 }

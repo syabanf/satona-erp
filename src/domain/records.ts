@@ -30,7 +30,8 @@ export type StateTone = 'neutral' | 'info' | 'warning' | 'success' | 'danger' | 
 export interface Workflow {
   initial: string
   states: ReadonlyArray<{ id: string; label: string; tone: StateTone }>
-  transitions: ReadonlyArray<{ from: string; to: string; label: string; needs: 'full' | 'approve' }>
+  /** `action` keeps the English verb when `label` is translated, so rules can read what a move does. */
+  transitions: ReadonlyArray<{ from: string; to: string; label: string; needs: 'full' | 'approve'; action?: string }>
 }
 
 export interface RecordType {

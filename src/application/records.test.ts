@@ -43,7 +43,7 @@ describe('record use cases', () => {
     expect(created.id).toMatch(/^TRP-\d{4}$/)
     const moved = await s.records.transition(ADMIN_ROLE, 'tms.trips', created.id, 'dispatched')
     expect(moved.status).toBe('dispatched')
-    expect(moved.history.at(-1)?.action).toBe('Dispatch')
+    expect(moved.history.at(-1)?.action).toBe('Berangkatkan')
     expect((await s.records.events())[0]?.topic).toBe('tms.trips')
   })
 

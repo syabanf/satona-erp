@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation } from 'react-router'
-import { Bell, Search } from 'lucide-react'
+import { Bell, ScanLine, Search } from 'lucide-react'
 import type { Alert } from '@/domain/ops'
 import { homeFor } from '@/domain/menu'
 import { cn } from '@/lib/cn'
 import { shortDay, shortWeekday } from '@/lib/dates'
 import { useAlerts } from '../hooks/useAlerts'
+import { useAutomationRunner } from '../hooks/useAutomation'
+import { useOnline } from '../hooks/useOnline'
 import { useMenu, useTrail } from '../hooks/useMenu'
 import { useAccess } from '../hooks/useRecords'
 import { useSession } from '../hooks/useSession'
@@ -13,6 +15,7 @@ import { useServices } from '../hooks/useServices'
 import { useSystemHealth } from '../hooks/useSystemHealth'
 import { Dot } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { buttonStyles } from '../ui/buttonStyles'
 import { HEALTH_LAMP } from '../ui/health'
 import { Entrance } from '../ui/Motion'
 import { menuItem, Popover } from '../ui/Popover'
@@ -154,6 +157,9 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
       <span className="hidden h-10 items-center rounded-full border border-line bg-card px-4 text-xs font-medium text-muted shadow-card lg:inline-flex">
         {shortWeekday(today)}, {shortDay(today)}
       </span>
+      <Link to="/scan" aria-label="Pindai QR atau barcode" title="Pindai QR" className={buttonStyles({ variant: 'card', size: 'icon-lg' })}>
+        <ScanLine aria-hidden className="size-5" />
+      </Link>
       <Button variant="card" size="icon-lg" aria-label="Cari pekerjaan atau data" onClick={() => openSearch()}>
         <Search aria-hidden className="size-5" />
       </Button>
@@ -166,6 +172,23 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
  * Desktop console: an attached white sidebar (collapsible to icons), a breadcrumb header and a
  * scrolling `main`. Phones open the same sidebar as a drawer from the menu button.
  */
+/** Runs the automation rules switched on in Otomatisasi, once per session. */
+function AutomationRunner() {
+  useAutomationRunner()
+  return null
+}
+
+/** A thin bar while the network is gone: the app keeps working from the cache on this device. */
+function OfflineBar() {
+  const online = useOnline()
+  if (online) return null
+  return (
+    <p role="status" className="fixed inset-x-0 top-0 z-[60] bg-warning px-4 py-1.5 text-center text-xs font-semibold text-white">
+      Anda sedang offline. Aplikasi tetap jalan dari perangkat ini; perubahan tersimpan di sini sampai koneksi kembali.
+    </p>
+  )
+}
+
 export function DashboardShell() {
   const { pathname } = useLocation()
   const alerts = useAlerts()
@@ -213,6 +236,8 @@ export function DashboardShell() {
     <RecordDrawerProvider>
       <TourProvider>
         <CommandPalette>
+          <AutomationRunner />
+          <OfflineBar />
           <div className="flex h-dvh bg-canvas">
             <a
               href="#main"

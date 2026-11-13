@@ -1,6 +1,7 @@
 import type { Clock, Ports } from '@/application/ports'
 import { findById } from '@/domain/errors'
 import { ENTITIES, MODULES, ROLES } from './data/erp'
+import { createMockCollab } from './collab'
 import { createMockRecords } from './records'
 import { ALERTS, DISTRIBUTORS, INTEGRATION, LOTS, REGIONS, SITES, TANKS, TRUCKS } from './data/ops'
 
@@ -19,6 +20,7 @@ export function createMockPorts(clock: Clock): Ports {
   return {
     clock,
     records: createMockRecords(clock),
+    collab: createMockCollab(clock),
     erp: {
       entities: () => later(ENTITIES),
       entity: (id) => find(ENTITIES, id, 'entity'),

@@ -76,7 +76,7 @@ function moduleNode(m: MenuInput['modules'][number], types: readonly RecordType[
     ? subs.map((label, i) => folder(`${m.id}:sub${i}`, label, mine.filter((t) => subModuleOf(t.key) === label).map(typeFolder)))
     : [folder(`${m.id}:master`, 'Data utama', group('master')), folder(`${m.id}:transactions`, 'Aktivitas', group('transaction'))]
   const reports: MenuNode[] = [{ id: `${m.id}:insight`, label: `Ringkasan ${moduleLabel(m.id, m.name)}`, kind: 'report', tcode: `${m.code}R1`, to: `/modules/${m.id}` }]
-  if (m.live) reports.push({ id: `${m.id}:live`, label: m.live.label.replace(/^Open /, '').replace(/^\w/, (c) => c.toUpperCase()), kind: 'report', tcode: `${m.code}R2`, to: m.live.to })
+  if (m.live) reports.push({ id: `${m.id}:live`, label: m.live.label.replace(/^Buka /, '').replace(/^\w/, (c) => c.toUpperCase()), kind: 'report', tcode: `${m.code}R2`, to: m.live.to })
   for (const [i, v] of (VIEWS[m.id] ?? []).entries()) reports.push({ id: `${m.id}:view${i}`, label: v.label, kind: 'report', tcode: `${m.code}R${i + 3}`, to: v.to })
   return folder(`${m.id}`, moduleLabel(m.id, m.name), present([
     ...records,
@@ -109,6 +109,9 @@ export function buildMenu({ modules, types, accessFor }: MenuInput): MenuNode[] 
       { id: 'catalogue', label: 'Semua modul', kind: 'page', tcode: 'ZMOD', to: '/modules' },
       { id: 'users', label: 'Pengguna dan akses', kind: 'page', tcode: 'ZUSR', to: '/users' },
       { id: 'monitoring', label: 'Monitoring sistem', kind: 'page', tcode: 'ZMON', to: '/monitoring' },
+      { id: 'automation', label: 'Otomatisasi', kind: 'page', tcode: 'ZAUT', to: '/automation' },
+      { id: 'scan', label: 'Pindai QR', kind: 'page', tcode: 'ZSCN', to: '/scan' },
+      { id: 'profile', label: 'Profil saya', kind: 'page', tcode: 'ZPRF', to: '/profile' },
       { id: 'integration', label: 'Integrasi sistem', kind: 'page', tcode: 'ZINT', to: '/integration' },
       { id: 'coverage', label: 'Cakupan sistem', kind: 'page', tcode: 'ZGAP', to: '/coverage' },
     ],

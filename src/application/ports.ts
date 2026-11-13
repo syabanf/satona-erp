@@ -57,9 +57,30 @@ export interface RecordsPort {
   subscribe(onChange: () => void): () => void
 }
 
+/** A comment or an attached file on one record; `target` is `type:id`. */
+export interface Note {
+  id: string
+  target: string
+  kind: 'comment' | 'file'
+  by: string
+  at: string
+  text?: string
+  file?: { name: string; size: number; mime: string; url: string }
+}
+
+/** Comments and attachments kept beside the records, so any record type can carry them. */
+export interface CollabPort {
+  list(target: string): Promise<readonly Note[]>
+  add(note: Omit<Note, 'id' | 'at'>): Promise<Note>
+  remove(id: string): Promise<void>
+  version(): number
+  subscribe(onChange: () => void): () => void
+}
+
 export interface Ports {
   clock: Clock
   erp: ErpPort
   ops: OpsPort
   records: RecordsPort
+  collab: CollabPort
 }

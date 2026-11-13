@@ -1,11 +1,13 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { ArrowDown, ArrowUp, CalendarRange, ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal, X } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { ArrowDown, ArrowUp, Bookmark, CalendarRange, ChevronLeft, ChevronRight, Download, QrCode, Search, SlidersHorizontal, Upload, X } from 'lucide-react'
 import { applyWhere, parseWhere, serializeWhere } from '@/domain/filters'
-import { filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
+import { canCreate, filterRecords, recordDate, sortRecords, type ErpRecord, type RecordType } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { toCsv } from '@/lib/csv'
 import { useQueryState } from '../hooks/useParams'
+import { useAccess } from '../hooks/useRecords'
+import { useStored } from '../hooks/useStored'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Field'
 import { FilterChips } from '../ui/FilterChips'
@@ -20,6 +22,7 @@ import { RecordGantt } from './RecordGantt'
 import { RecordFloorplan } from './Floorplan'
 import { RecordInsight } from './RecordInsight'
 import { FieldFilters, FilterTags } from './FieldFilters'
+import { ImportDialog } from './ImportDialog'
 import { StateBadge } from './StateBadge'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle, type AllRecords } from './text'
 
@@ -45,6 +48,11 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
   const [query, setQuery] = useQueryState(KEYS)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [panel, setPanel] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [naming, setNaming] = useState<string | null>(null)
+  const { search } = useLocation()
+  const [views, setViews] = useStored<Array<{ name: string; search: string }>>(`wit-views:${type.key}`, [])
+  const creatable = canCreate(type, useAccess()(type.module))
   const where = useMemo(() => parseWhere(query.w), [query.w])
   const view: View = VIEWS.some((v) => v.value === query.view) ? (query.view as View) : 'table'
   const setWhere = (key: string, value: string | undefined) => setQuery({ w: serializeWhere({ ...where, [key]: value ?? '' }), page: undefined })
@@ -132,9 +140,9 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
         <Input
           className="h-10 w-full sm:w-64"
           icon={<Search className="size-4" />}
-          placeholder={`Search ${type.name.toLowerCase()}`}
+          placeholder={`Cari ${type.name.toLowerCase()}`}
           data-tour="record-search"
-          aria-label={`Search ${type.name.toLowerCase()}`}
+          aria-label={`Cari ${type.name.toLowerCase()}`}
           value={query.q ?? ''}
           onChange={(e) => setQuery({ q: e.target.value, page: undefined })}
         />
@@ -162,13 +170,61 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
             </Button>
           </>
         )}
-        <Button variant="card" size="sm" className="ml-auto" onClick={() => exportCsv(shown)} disabled={!shown.length}>
-          <Download aria-hidden className="size-4" /> Export CSV
-        </Button>
+        <span className="ml-auto flex flex-wrap gap-2">
+          {creatable && all && (
+            <Button variant="card" size="sm" onClick={() => setImporting(true)}>
+              <Upload aria-hidden className="size-4" /> Impor
+            </Button>
+          )}
+          <Button variant="card" size="sm" onClick={() => exportCsv(shown)} disabled={!shown.length}>
+            <Download aria-hidden className="size-4" /> Export CSV
+          </Button>
+          <Button variant="card" size="sm" disabled={!shown.length} onClick={() => navigate(`/print/labels/${type.key}?ids=${(picked.size ? [...picked] : shown.slice(0, 48).map((r) => r.id)).join(',')}`)}>
+            <QrCode aria-hidden className="size-4" /> Label QR
+          </Button>
+        </span>
         <p className="sr-only" aria-live="polite">
           {shown.length} results
         </p>
       </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-xs" aria-label="Tampilan tersimpan">
+        <Bookmark aria-hidden className="size-3.5 text-subtle" />
+        {views.map((v) => (
+          <span key={v.name} className={cn('inline-flex h-7 items-center rounded-full border', `?${v.search}` === search || v.search === search.slice(1) ? 'border-accent bg-accent-soft text-accent-text' : 'border-line bg-card')}>
+            <button type="button" onClick={() => navigate({ search: v.search })} className="cursor-pointer pr-1 pl-3 font-medium">
+              {v.name}
+            </button>
+            <button type="button" aria-label={`Hapus tampilan ${v.name}`} onClick={() => setViews(views.filter((x) => x.name !== v.name))} className="grid size-6 cursor-pointer place-items-center rounded-full text-muted hover:text-fg">
+              <X aria-hidden className="size-3" />
+            </button>
+          </span>
+        ))}
+        {naming === null ? (
+          <button type="button" onClick={() => setNaming('')} disabled={!search} className="h-7 cursor-pointer rounded-full px-2.5 text-muted hover:bg-raised hover:text-fg disabled:cursor-default disabled:opacity-50">
+            {views.length ? '+ Simpan tampilan ini' : 'Simpan filter dan tampilan ini'}
+          </button>
+        ) : (
+          <form
+            className="inline-flex items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (naming.trim()) setViews([...views.filter((x) => x.name !== naming.trim()), { name: naming.trim(), search: search.slice(1) }])
+              setNaming(null)
+            }}
+          >
+            <input autoFocus value={naming} onChange={(e) => setNaming(e.target.value)} placeholder="Nama tampilan" aria-label="Nama tampilan" className="h-7 w-40 rounded-full border border-line-strong bg-card px-3 outline-none focus:border-accent" />
+            <Button size="sm" variant="accent" type="submit">
+              Simpan
+            </Button>
+            <Button size="sm" variant="ghost" type="button" onClick={() => setNaming(null)}>
+              Batal
+            </Button>
+          </form>
+        )}
+      </div>
+
+      {importing && all && <ImportDialog type={type} all={all} onClose={() => setImporting(false)} />}
 
       {panel && (
         <div id="field-filters">
@@ -225,7 +281,7 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
       {view !== 'table' ? null : shown.length === 0 ? (
         <div className="p-6">
           {active ? (
-            <EmptyState title={`No ${type.singular.toLowerCase()} matches`} action={<Button variant="solid" size="sm" onClick={clear}>Clear filters</Button>}>
+            <EmptyState title={`Tidak ada ${type.singular.toLowerCase()} yang cocok`} action={<Button variant="solid" size="sm" onClick={clear}>Hapus filter</Button>}>
               Try another word or status.
             </EmptyState>
           ) : (
@@ -244,7 +300,7 @@ export function RecordTable({ type, rows, all }: { type: RecordType; rows: reado
                   {header('id', 'ID')}
                   {columns.map((f) => header(f.key, f.label))}
                   {header('status', 'Status')}
-                  <th className="pr-5"><span className="sr-only">Actions</span></th>
+                  <th className="pr-5"><span className="sr-only">Aksi</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">

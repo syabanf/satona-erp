@@ -70,16 +70,23 @@ export function createServices(ports: Ports) {
           values: clean,
           createdAt: at,
           updatedAt: at,
-          history: [{ at, by: role.name, action: 'Created' }],
+          history: [{ at, by: role.name, action: 'Dibuat' }],
         }
-        return records.save(record, { action: 'Created', by: role.name })
+        return records.save(record, { action: 'Dibuat', by: role.name })
       },
       async update(role: Role, typeKey: string, id: string, values: Values): Promise<ErpRecord> {
         const { type } = await guard(role, typeKey, 'edit')
         const current = await records.get(typeKey, id)
         const at = stamp()
-        const record = { ...current, values: checked(type, values), updatedAt: at, history: [...current.history, { at, by: role.name, action: 'Edited' }] }
-        return records.save(record, { action: 'Updated', by: role.name })
+        const record = { ...current, values: checked(type, values), updatedAt: at, history: [...current.history, { at, by: role.name, action: 'Diubah' }] }
+        return records.save(record, { action: 'Diubah', by: role.name })
+      },
+      /** Logs an event on a record without changing it, such as an approval reminder. */
+      async note(role: Role, typeKey: string, id: string, action: string): Promise<ErpRecord> {
+        await guard(role, typeKey, 'read')
+        const current = await records.get(typeKey, id)
+        const at = stamp()
+        return records.save({ ...current, history: [...current.history, { at, by: role.name, action }] }, { action, by: role.name })
       },
       async remove(role: Role, typeKey: string, id: string): Promise<void> {
         await guard(role, typeKey, 'delete')

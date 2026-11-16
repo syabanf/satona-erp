@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Landmark } from 'lucide-react'
+import { FileBarChart, FolderTree, Landmark } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { aging, perMonth, shiftDay } from '@/domain/kpi'
+import { incomeStatement, trialBalance } from '@/domain/ledger'
 import { cn } from '@/lib/cn'
 import { moneyCompact, monthLabel } from '@/lib/format'
 import { ColumnChart } from '../../charts/ColumnChart'
@@ -11,6 +12,7 @@ import { recordPath, refTitle, monthQuery, rangeQuery } from '../../records/text
 import { useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { BarList } from '../../ui/BarList'
+import { buttonStyles } from '../../ui/buttonStyles'
 import { Card, CardHeader } from '../../ui/Card'
 import { Meter } from '../../ui/Meter'
 import { CardSkeleton } from '../../ui/States'
@@ -21,14 +23,14 @@ import { RecordControls } from '../../records/RecordControls'
 
 const t = (key: string) => typeOf(key)!
 const SIDES = [
-  { value: 'ap', label: 'Payables' },
-  { value: 'ar', label: 'Receivables' },
+  { value: 'ap', label: 'Utang' },
+  { value: 'ar', label: 'Piutang' },
 ] as const
 const short = (v: number) => moneyCompact(v).replace('Rp', '').trim()
 /** Due-date offsets from today for each aging bucket, so a bucket opens exactly its invoices. */
 const AGING_DAYS: ReadonlyArray<[number | undefined, number | undefined]> = [[0, undefined], [-30, -1], [-60, -31], [undefined, -61]]
 
-/** Finance and accounting cockpit, carried over from the Habitat accounting dashboard. */
+/** Finance cockpit: profit and cash from the posted ledger, open payables and receivables, journals to approve and the close. */
 export default function FinanceCockpit() {
   const navigate = useNavigate()
   const { clock } = useServices()
@@ -48,13 +50,13 @@ export default function FinanceCockpit() {
     const close = d['fin.closing'] ?? []
     const periods = [...new Set(close.map((c) => String(c.values.period)))]
     const recs = d['fin.reconciliations'] ?? []
-    const latest = recs.map((r) => String(r.values.period)).sort().at(-1)
     const sum = (rows: typeof ap) => rows.reduce((s, r) => s + Number(r.values.amount), 0)
     return {
       ap: { open: sum(ap), overdue: sum(ap.filter((r) => String(r.values.due) < today)), aging: aging(ap, 'due', 'amount', today) },
       ar: { open: sum(ar), overdue: sum(ar.filter((r) => String(r.values.due) < today)), aging: aging(ar, 'due', 'amount', today) },
       waiting: journals.filter((j) => j.status === 'submitted').length,
-      cash: recs.filter((r) => r.values.period === latest).reduce((s, r) => s + Number(r.values.statement), 0),
+      cash: trialBalance(d, { to: today }).rows.filter((r) => r.account.values.kind === 'Cash and bank').reduce((s, r) => s + r.balance, 0),
+      pl: incomeStatement(d, { from: `${today.slice(0, 4)}-01-01`, to: today }),
       unreconciled: recs.filter((r) => r.status !== 'approved' && Number(r.values.difference) !== 0),
       trend: {
         posted: perMonth(journals.filter((j) => j.status === 'posted'), today, 6, (r) => String(r.values.date)),
@@ -76,45 +78,58 @@ export default function FinanceCockpit() {
 
   return (
     <div className="space-y-4">
-      <NewButtons types={['fin.journals', 'fin.payables', 'fin.receivables', 'fin.payments', 'fin.pettycash']} />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiTile label="Open payables" value={k.ap.open} format={moneyCompact} to={list('fin.payables')} accent note={`${moneyCompact(k.ap.overdue)} overdue`} />
-        <KpiTile label="Open receivables" value={k.ar.open} format={moneyCompact} to={list('fin.receivables')} note={`${moneyCompact(k.ar.overdue)} overdue`} />
-        <KpiTile label="Cash at bank" value={k.cash} format={moneyCompact} to={list('fin.reconciliations')} note="latest bank statements" />
-        <KpiTile label="Journals to approve" value={k.waiting} format={(v) => String(Math.round(v))} to={list('fin.journals', '?status=submitted')} note="by the approval matrix" />
-        <KpiTile label="Unreconciled banks" value={k.unreconciled.length} format={(v) => String(Math.round(v))} to={list('fin.reconciliations', '?status=open')} note="statement differs from ledger" />
-        <KpiTile label="Tax invoices pending" value={(all.data['fin.taxinvoices'] ?? []).filter((x) => x.status === 'draft').length} format={(v) => String(Math.round(v))} to={list('fin.taxinvoices', '?status=draft')} note="not yet uploaded to e-Faktur" />
+      <div className="flex flex-wrap items-center gap-2">
+        <NewButtons types={['fin.journals', 'fin.payables', 'fin.receivables', 'fin.payments', 'fin.pettycash']} />
+        <Link to="/finance/coa" className={cn(buttonStyles({ variant: 'card', size: 'sm' }), 'sm:ml-auto')}>
+          <FolderTree aria-hidden className="size-4" /> Bagan akun
+        </Link>
+        <Link to="/finance/reports" className={buttonStyles({ variant: 'card', size: 'sm' })}>
+          <FileBarChart aria-hidden className="size-4" /> Laporan keuangan
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <KpiTile label="Pendapatan tahun berjalan" value={k.pl.revenue.total} format={moneyCompact} to="/finance/reports?tab=pl" accent note="dari jurnal yang diposting" />
+        <KpiTile label="Laba kotor" value={k.pl.gross} format={moneyCompact} to="/finance/reports?tab=pl" note={`${k.pl.revenue.total ? Math.round((k.pl.gross / k.pl.revenue.total) * 100) : 0}% dari pendapatan`} />
+        <KpiTile label="Laba bersih" value={k.pl.net} format={moneyCompact} to="/finance/reports?tab=pl" note={`${k.pl.revenue.total ? Math.round((k.pl.net / k.pl.revenue.total) * 100) : 0}% dari pendapatan`} />
+        <KpiTile label="Kas dan bank" value={k.cash} format={moneyCompact} to="/finance/reports?tab=cf" note="saldo buku besar" />
+      </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <KpiTile label="Utang terbuka" value={k.ap.open} format={moneyCompact} to={list('fin.payables')} note={`${moneyCompact(k.ap.overdue)} lewat jatuh tempo`} />
+        <KpiTile label="Piutang terbuka" value={k.ar.open} format={moneyCompact} to={list('fin.receivables')} note={`${moneyCompact(k.ar.overdue)} lewat jatuh tempo`} />
+        <KpiTile label="Jurnal menunggu persetujuan" value={k.waiting} format={(v) => String(Math.round(v))} to={list('fin.journals', '?status=submitted')} note="sesuai matriks persetujuan" />
+        <KpiTile label="Bank belum rekonsiliasi" value={k.unreconciled.length} format={(v) => String(Math.round(v))} to={list('fin.reconciliations', '?status=open')} note="rekening koran beda dengan buku" />
+        <KpiTile label="Faktur pajak tertunda" value={(all.data['fin.taxinvoices'] ?? []).filter((x) => x.status === 'draft').length} format={(v) => String(Math.round(v))} to={list('fin.taxinvoices', '?status=draft')} note="belum diunggah ke e-Faktur" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader title="Aging" action={<Tabs label="Ledger" options={SIDES} value={side} onChange={setSide} />} />
+          <CardHeader title="Umur utang dan piutang" action={<Tabs label="Buku" options={SIDES} value={side} onChange={setSide} />} />
           <ColumnChart
             data={book.aging.map((b, i) => ({ key: String(i), label: b.label, value: b.amount }))}
             selected={bucket}
             onSelect={setBucket}
             format={short}
             showAxis={false}
-            label={`${side === 'ap' ? 'Payables' : 'Receivables'} by days past due`}
+            label={`${side === 'ap' ? 'Utang' : 'Piutang'} menurut hari lewat jatuh tempo`}
             className="h-56"
           />
           {picked && (
             <p className="mt-2 text-xs text-muted">
-              {picked.label}: {picked.count} invoices, {moneyCompact(picked.amount)}.{' '}
+              {picked.label}: {picked.count} dokumen, {moneyCompact(picked.amount)}.{' '}
               <Link to={list(side === 'ap' ? 'fin.payables' : 'fin.receivables', bucketQuery(Number(bucket ?? 0)))} className="font-medium text-accent-text hover:underline">
-                Open these invoices
+                Buka dokumennya
               </Link>
             </p>
           )}
         </Card>
         <Card>
-          <CardHeader title="Largest open payables" />
+          <CardHeader title="Utang terbuka terbesar" />
           <BarList items={k.vendors.map(([id, value], i) => ({ key: id, label: refTitle('mdm.partners', id, all.data).split(' · ')[0] ?? id, value, text: moneyCompact(value), alert: i === 0, to: recordPath(t('mdm.partners'), id) }))} />
         </Card>
       </div>
 
       <Card>
-        <CardHeader title="Journals waiting for approval" action={<span className="text-xs text-muted">approve, reject or edit in place</span>} />
+        <CardHeader title="Jurnal menunggu persetujuan" action={<span className="text-xs text-muted">setujui, tolak atau ubah di tempat</span>} />
         <ul className="divide-y divide-line">
           {(all.data['fin.journals'] ?? [])
             .filter((j) => j.status === 'submitted')
@@ -135,21 +150,21 @@ export default function FinanceCockpit() {
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader title="Journals entered and posted, 6 months" />
+          <CardHeader title="Jurnal dibuat dan diposting, 6 bulan" />
           <LineChart
             labels={k.trend.all.map((m) => monthLabel(m.month))}
             series={[
-              { id: 'all', label: 'Entered', values: k.trend.all.map((m) => m.count), color: 'var(--color-series-2)', area: true },
-              { id: 'posted', label: 'Posted', values: k.trend.posted.map((m) => m.count), color: 'var(--color-series-1)' },
+              { id: 'all', label: 'Dibuat', values: k.trend.all.map((m) => m.count), color: 'var(--color-series-2)', area: true },
+              { id: 'posted', label: 'Diposting', values: k.trend.posted.map((m) => m.count), color: 'var(--color-series-1)' },
             ]}
-            format={(v) => `${v} journals`}
+            format={(v) => `${v} jurnal`}
             height={200}
             onPick={(i) => navigate(list('fin.journals', monthQuery(k.trend.all[i]!.month)))}
-            label="Journals entered and posted per month"
+            label="Jurnal dibuat dan diposting per bulan"
           />
         </Card>
         <Card>
-          <CardHeader title="Period close" icon={<Landmark aria-hidden className="size-5 text-muted" />} />
+          <CardHeader title="Tutup periode" icon={<Landmark aria-hidden className="size-5 text-muted" />} />
           <ul className="space-y-3">
             {k.close.map((c) => (
               <li key={c.period}>
@@ -157,10 +172,10 @@ export default function FinanceCockpit() {
                   <span className="flex justify-between text-sm">
                     <span className="truncate">{refTitle('epm.periods', c.period, all.data).split(' · ')[0]}</span>
                     <span className={cn('text-xs tabular', c.done === c.total ? 'text-success' : 'text-muted')}>
-                      {c.done} of {c.total} tasks
+                      {c.done} dari {c.total} tugas
                     </span>
                   </span>
-                  <Meter value={c.total ? c.done / c.total : 0} tone={c.done === c.total ? 'success' : 'accent'} className="mt-1" label={`Close progress ${c.period}`} />
+                  <Meter value={c.total ? c.done / c.total : 0} tone={c.done === c.total ? 'success' : 'accent'} className="mt-1" label={`Progres tutup ${c.period}`} />
                 </Link>
               </li>
             ))}

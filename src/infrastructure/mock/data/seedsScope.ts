@@ -35,7 +35,6 @@ const GROUP_COA: ReadonlyArray<[string, string, string]> = [
   ['G5500', 'Depreciation', 'Expense'],
   ['G5900', 'FX gain or loss', 'Expense'],
 ]
-export const groupAccountFor = (name: unknown) => id('GCOA', Math.max(0, GROUP_COA.findIndex(([, n]) => n === name)))
 
 /** Hazard data per material code: UN number, CAS, packing group, signal word. */
 export const MATERIAL_HAZARDS: Record<string, Values> = {

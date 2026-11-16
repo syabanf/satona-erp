@@ -40,6 +40,10 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
     { label: 'Plant line 3D', to: '/mes/cockpit?view=3d' },
   ],
   eam: [{ label: 'SCADA pabrik', to: '/mes/scada' }],
+  fin: [
+    { label: 'Bagan akun', to: '/finance/coa' },
+    { label: 'Laporan keuangan', to: '/finance/reports' },
+  ],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },
     { label: 'Health & environment', to: '/she?view=health' },

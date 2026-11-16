@@ -2,6 +2,7 @@ import { typeOf } from '@/domain/catalog'
 import { approvalMoves, isRejection, moveBlocker, overridesFrom, type Matrix } from '@/domain/approval'
 import { can, effectiveAccess, type Access, type Action, type ErpModule, type Role } from '@/domain/erp'
 import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors'
+import { journalProblem, postingFor, type Posting } from '@/domain/ledger'
 import { issueParts } from '@/domain/maintenance'
 import { allowedTransitions, canCreate, computeValues, nextId, validate, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import type { Ports } from './ports'
@@ -51,6 +52,25 @@ export function createServices(ports: Ports) {
     return { part, qty, onHand }
   }
 
+  /** Writes a journal and its lines straight to the ledger as posted, for document steps, depreciation and the close. */
+  async function post(posting: Posting, by: string): Promise<ErpRecord> {
+    const journalType = typeOf('fin.journals')!
+    const lineType = typeOf('fin.journallines')!
+    const at = stamp()
+    const base = { createdAt: at, updatedAt: at, history: [{ at, by, action: 'Diposting otomatis' }] }
+    const journal = await records.save({ ...base, id: nextId(journalType, await records.list(journalType.key)), type: journalType.key, status: 'posted', values: checked(journalType, posting.journal) }, { action: 'Diposting otomatis', by })
+    for (const line of posting.lines) {
+      await records.save({ ...base, id: nextId(lineType, await records.list(lineType.key)), type: lineType.key, status: lineType.workflow.initial, values: checked(lineType, { ...line, journal: journal.id }) }, { action: 'Dibuat', by })
+    }
+    return journal
+  }
+
+  /** Raises the journal a document step calls for, if any. */
+  async function postStep(typeKey: string, record: ErpRecord, step: string, by: string) {
+    const posting = postingFor(typeKey, record, step, await records.all(), ports.clock.today())
+    if (posting) await post(posting, by)
+  }
+
   return {
     ...ports,
     records: {
@@ -72,7 +92,14 @@ export function createServices(ports: Ports) {
           updatedAt: at,
           history: [{ at, by: role.name, action: 'Dibuat' }],
         }
-        return records.save(record, { action: 'Dibuat', by: role.name })
+        const saved = await records.save(record, { action: 'Dibuat', by: role.name })
+        await postStep(typeKey, saved, 'created', role.name)
+        return saved
+      },
+      /** Posts a ready-made journal, such as a depreciation run or the year-end close; needs approval rights on journals. */
+      async post(role: Role, posting: Posting): Promise<ErpRecord> {
+        await guard(role, 'fin.journals', 'approve')
+        return post(posting, role.name)
       },
       async update(role: Role, typeKey: string, id: string, values: Values): Promise<ErpRecord> {
         const { type } = await guard(role, typeKey, 'edit')
@@ -95,7 +122,8 @@ export function createServices(ports: Ports) {
       async transition(role: Role, typeKey: string, id: string, to: string): Promise<ErpRecord> {
         const [{ type, access }, current, m] = await Promise.all([guard(role, typeKey, 'read'), records.get(typeKey, id), matrix()])
         const gate = type.workflow.transitions.find((t) => t.from === current.status && t.to === to)
-        const blocker = moveBlocker(type, current, to)
+        // A journal moves on only when it balances, uses posting accounts and sits in an open period.
+        const blocker = moveBlocker(type, current, to) ?? (typeKey === 'fin.journals' && (to === 'submitted' || to === 'posted') ? journalProblem(current, await records.all()) : undefined)
         if (blocker) throw new ForbiddenError(blocker)
         const at = stamp()
         if (gate?.needs === 'approve') {
@@ -106,7 +134,9 @@ export function createServices(ports: Ports) {
             const done = approvals.length >= chain.length
             const action = done ? `${gate.label} (level ${step.level} of ${chain.length}, final)` : `Approved level ${step.level} of ${chain.length}`
             const record = { ...current, status: done ? to : current.status, approvals, updatedAt: at, history: [...current.history, { at, by: role.name, action }] }
-            return records.save(record, { action, by: role.name })
+            const signed = await records.save(record, { action, by: role.name })
+            if (done) await postStep(typeKey, signed, to, role.name)
+            return signed
           }
         }
         const move = gate?.needs === 'approve' ? gate : allowedTransitions(type, current.status, access).find((t) => t.to === to)
@@ -119,6 +149,7 @@ export function createServices(ports: Ports) {
           const action = `Issued ${stock.qty} to ${String(current.values.workorder)} (${current.id})`
           await records.save({ ...stock.part, values: computeValues(typeOf('eam.parts')!, { ...stock.part.values, onHand: stock.onHand }), updatedAt: at, history: [...stock.part.history, { at, by: role.name, action }] }, { action, by: role.name })
         }
+        await postStep(typeKey, saved, to, role.name)
         return saved
       },
     },

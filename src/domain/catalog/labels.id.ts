@@ -689,6 +689,18 @@ export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
   'Zone': 'Zona',
   'Zone hazard class': 'Kelas bahaya zona',
   'p95 latency': 'Latensi p95',
+  'Ledger account': 'Akun buku besar',
+  'Account type': 'Jenis akun',
+  'Parent account': 'Akun induk',
+  'Takes postings': 'Menerima posting',
+  'Normal balance': 'Saldo normal',
+  'Yearly amount': 'Nilai setahun',
+  'Journal entry': 'Entri jurnal',
+  'Debit': 'Debit',
+  'Credit': 'Kredit',
+  'Line memo': 'Memo baris',
+  'Acquired': 'Tanggal perolehan',
+  'Salvage value': 'Nilai sisa',
 }
 
 export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
@@ -1091,6 +1103,10 @@ export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
   'Work centres': 'Work centre',
   'Work order': 'Work order',
   'Zone': 'Zona',
+  'Budget lines': 'Baris anggaran',
+  'Budget line': 'Baris anggaran',
+  'Journal lines': 'Baris jurnal',
+  'Journal line': 'Baris jurnal',
 }
 
 export const STATE_LABELS_ID: Readonly<Record<string, string>> = {

@@ -5,7 +5,8 @@ import { DEVICE_COMMANDS } from '@/domain/catalog/devices'
 import { QUOTE_PRODUCTS, QUOTE_SERVICES } from '@/domain/catalog/logistics'
 import { computeValues, type ErpRecord, type RecordType, type Values } from '@/domain/records'
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
-import { MATERIAL_HAZARDS, SCOPE_SEEDS, groupAccountFor } from './seedsScope'
+import { MATERIAL_HAZARDS, SCOPE_SEEDS } from './seedsScope'
+import { bankAccount, LEDGER_SEEDS } from './seedsLedger'
 import { SUPPORT_SEEDS } from './seedsSupport'
 
 export interface Ctx {
@@ -120,6 +121,7 @@ function assetValueSeed(i: number, day: Ctx['day']): Values {
 const SEEDS: Record<string, { count: number; make: Make }> = {
   ...SUPPORT_SEEDS,
   ...SCOPE_SEEDS,
+  ...LEDGER_SEEDS,
   'tms.p2h': {
     count: 16,
     make: ({ i }) => {
@@ -363,7 +365,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'mdm.banks': {
     count: 8,
-    make: ({ i, int }) => ({ name: ['Bank Mandiri', 'BNI', 'BRI', 'BCA'][i % 4] ?? 'BNI', company: `CC-000${(i % 4) + 1}`, account: `${int(100, 999)}-${int(10000, 99999)}-${int(100, 999)}`, currency: i < 4 ? 'IDR' : 'USD' }),
+    make: ({ i, int }) => ({ name: ['Bank Mandiri', 'BNI', 'BRI', 'BCA'][i % 4] ?? 'BNI', company: `CC-000${(i % 4) + 1}`, account: `${int(100, 999)}-${int(10000, 99999)}-${int(100, 999)}`, currency: i < 4 ? 'IDR' : 'USD', glAccount: bankAccount(i) }),
   },
   'epm.periods': {
     count: 12,
@@ -570,21 +572,6 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         ['Ammonia solution', 'Residue', 0, 20, 'ppm'],
       ] as const)[i]!
       return { product, parameter, min, max, unit }
-    },
-  },
-  'mdm.accounts': {
-    count: 24,
-    make: ({ i, pick }) => {
-      const [cls, base] = pick([['Asset', 1], ['Liability', 2], ['Equity', 3], ['Revenue', 4], ['Expense', 5]] as const)
-      const names: Record<string, string[]> = {
-        Asset: ['Cash in bank', 'Trade receivables', 'Raw material inventory', 'Plant & machinery', 'Intercompany receivable'],
-        Liability: ['Trade payables', 'Accrued expenses', 'Bank loan', 'Intercompany payable'],
-        Equity: ['Share capital', 'Retained earnings'],
-        Revenue: ['Fertiliser sales', 'Chemical sales', 'Freight revenue', 'Intercompany freight'],
-        Expense: ['Raw material cost', 'Fuel', 'Maintenance', 'Salaries', 'Depreciation'],
-      }
-      const name = pick(names[cls] ?? [])
-      return { code: `${base}${String(100 + i * 7).slice(0, 3)}0`, name, class: cls, entity: pick(ENTITIES), groupAccount: groupAccountFor(name) }
     },
   },
   'mdm.partners': {

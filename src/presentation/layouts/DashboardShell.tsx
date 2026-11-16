@@ -95,10 +95,9 @@ function SystemStatus() {
   const health = useSystemHealth()
   if (!health) return null
   return (
-    <Link to="/monitoring" title="Monitoring sistem" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-line bg-card px-3 text-xs font-medium text-muted shadow-card hover:text-fg">
+    <Link to="/monitoring" title="Monitoring sistem" className="hidden h-10 shrink-0 items-center gap-2 rounded-full border border-line bg-card px-3 text-xs font-medium text-muted shadow-card hover:text-fg sm:inline-flex">
       <span aria-hidden className={cn('size-2.5 rounded-full', HEALTH_LAMP[health.overall])} />
-      <span className="hidden sm:inline">{health.overall === 'up' ? 'Sistem normal' : `${health.troubled} layanan terganggu`}</span>
-      <span className="sr-only sm:hidden">{health.overall === 'up' ? 'Sistem normal' : `${health.troubled} layanan terganggu`}</span>
+      {health.overall === 'up' ? 'Sistem normal' : `${health.troubled} layanan terganggu`}
     </Link>
   )
 }
@@ -238,7 +237,7 @@ export function DashboardShell() {
         <CommandPalette>
           <AutomationRunner />
           <OfflineBar />
-          <div className="flex h-dvh bg-canvas">
+          <div className="flex h-dvh overflow-hidden bg-canvas">
             <a
               href="#main"
               className="sr-only z-50 rounded-full bg-invert px-4 py-2 text-on-invert focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -248,7 +247,7 @@ export function DashboardShell() {
             {!embedded && <Sidebar collapsed={collapsed} onToggle={toggle} />}
             <div className="flex min-w-0 flex-1 flex-col">
               <Header alerts={alerts} />
-              <main id="main" ref={main} tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto px-4 outline-none md:px-6 lg:px-8', embedded ? 'pb-6' : 'pb-28 md:pb-8')}>
+              <main id="main" ref={main} tabIndex={-1} className={cn('relative min-h-0 flex-1 overflow-y-auto px-4 outline-none md:px-6 lg:px-8', embedded ? 'pb-6' : 'pb-28 md:pb-8')}>
                 <Entrance key={pathname}>
                   {tree.length > 0 && pathname === homeFor(role) && !role.external && (
                     <>

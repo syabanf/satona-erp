@@ -137,20 +137,34 @@ export const HRIS: readonly RecordType[] = [
   ], flow([['draft', 'Draft', 'neutral'], ['published', 'Published', 'success']], [['draft', 'published', 'Publish', 'approve']]), { dateField: 'publish' }),
 ]
 
+/** Where a journal came from: typed by hand, or raised by a document step, the depreciation run or the year-end close. */
+export const JOURNAL_SOURCES = ['Manual', 'Opening', 'Receivable', 'Receipt', 'Payable', 'Payment', 'Cash', 'Depreciation', 'Closing'] as const
+
 export const FINANCE: readonly RecordType[] = [
-  type('fin', 'journals', ['Journal entries', 'Journal entry', 'JE'], 'description', [
+  {
+    ...type('fin', 'journals', ['Journal entries', 'Journal entry', 'JE'], 'description', [
     text('description', 'Description', { required: true, list: true }),
     entity('entity', 'Entity', { required: true, list: true }),
-    ref('account', 'Account', 'mdm.accounts', { required: true, list: true }),
-    ref('costcenter', 'Cost centre', 'mdm.costcenters'),
+    date('date', 'Posting date', { required: true, list: true }),
+    pick('source', 'Source', JOURNAL_SOURCES, { required: true, list: true }),
+    text('reference', 'Reference'),
     money('amount', 'Amount', { required: true, list: true }),
-    date('date', 'Posting date', { required: true }),
   ], flow([['draft', 'Draft', 'neutral'], ['submitted', 'Submitted', 'info'], ['posted', 'Posted', 'success'], ['rejected', 'Rejected', 'danger']], [
     ['draft', 'submitted', 'Submit'],
     ['submitted', 'posted', 'Approve and post', 'approve'],
     ['submitted', 'rejected', 'Reject', 'approve'],
     ['rejected', 'draft', 'Reopen'],
-  ]), { sumField: 'amount', groupBy: 'entity', dateField: 'date' }),
+  ]), { sumField: 'amount', groupBy: 'source', dateField: 'date' }),
+    createPage: '/finance/journals/new',
+  },
+  type('fin', 'journallines', ['Journal lines', 'Journal line', 'JL'], 'memo', [
+    ref('journal', 'Journal entry', 'fin.journals', { required: true, list: true, parent: true }),
+    ref('account', 'Account', 'mdm.accounts', { required: true, list: true }),
+    ref('costcenter', 'Cost centre', 'mdm.costcenters'),
+    money('debit', 'Debit', { list: true }),
+    money('credit', 'Credit', { list: true }),
+    text('memo', 'Line memo', { list: true }),
+  ], flow([['recorded', 'Recorded', 'neutral']], []), { sumField: 'debit' }),
   type('fin', 'payables', ['Vendor invoices (AP)', 'Vendor invoice', 'API'], 'invoiceNo', [
     text('invoiceNo', 'Invoice no.', { required: true, list: true }),
     ref('vendor', 'Vendor', 'mdm.partners', { required: true, list: true }),
@@ -233,7 +247,9 @@ export const FINANCE: readonly RecordType[] = [
     pick('class', 'Class', ['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment'], { required: true, list: true }),
     money('cost', 'Acquisition cost', { required: true, list: true }),
     num('life', 'Useful life', 'years', { required: true, min: 1, max: 40 }),
-    calc('depreciation', 'Yearly depreciation', (v) => Math.round(n(v, 'cost') / Math.max(1, n(v, 'life'))), { unit: 'Rp' }),
+    date('acquired', 'Acquired', { required: true, list: true }),
+    money('salvage', 'Salvage value'),
+    calc('depreciation', 'Yearly depreciation', (v) => Math.round((n(v, 'cost') - n(v, 'salvage')) / Math.max(1, n(v, 'life'))), { unit: 'Rp' }),
   ], ACTIVE, { sumField: 'cost', groupBy: 'class' }),
 ]
 

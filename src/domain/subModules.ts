@@ -48,14 +48,14 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
     ['Telemetri dan keselamatan', ['telemetry', 'safety']],
   ],
   fin: [
-    ['Buku besar', ['journals', 'closing', 'assets']],
+    ['Buku besar', ['journals', 'journallines', 'closing', 'assets']],
     ['Utang dan piutang', ['payables', 'receivables', 'payments', 'taxinvoices']],
     ['Kas dan bank', ['reconciliations', 'pettycash', 'advances']],
   ],
   epm: [
     ['Konsolidasi', ['periods', 'consolidations', 'intercompany', 'adjustments']],
     ['Mata uang', ['fx', 'revaluations']],
-    ['Anggaran', ['budgets', 'forecasts']],
+    ['Anggaran', ['budgets', 'budgetlines', 'forecasts']],
   ],
   dvm: [
     ['Perangkat', ['models', 'devices']],

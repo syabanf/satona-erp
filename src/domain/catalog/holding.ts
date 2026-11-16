@@ -2,13 +2,21 @@
 import type { RecordType } from '../records'
 import { ACTIVE, APPROVAL, B3_CLASSES, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
+export const ACCOUNT_CLASSES = ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'] as const
+/** What an account is for; the ledger reads it to find bank accounts, control accounts and the cost of goods sold. */
+export const ACCOUNT_KINDS = ['Cash and bank', 'Receivable', 'Inventory', 'Tax', 'Fixed asset', 'Accumulated depreciation', 'Other asset', 'Payable', 'Accrual', 'Loan', 'Equity', 'Revenue', 'Cost of goods sold', 'Operating expense'] as const
+
 export const HOLDING: readonly RecordType[] = [
   master('mdm', 'accounts', ['Chart of accounts', 'Account', 'ACC'], 'name', [
     text('code', 'Account code', { required: true, list: true }),
     text('name', 'Account name', { required: true, list: true }),
-    pick('class', 'Class', ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'], { required: true, list: true }),
-    entity('entity', 'Used by', { list: true }),
-    ref('groupAccount', 'Group account', 'mdm.groupcoa', { list: true }),
+    pick('class', 'Class', ACCOUNT_CLASSES, { required: true, list: true }),
+    pick('kind', 'Account type', ACCOUNT_KINDS, { required: true, list: true }),
+    ref('parent', 'Parent account', 'mdm.accounts', { parent: true }),
+    pick('postable', 'Takes postings', ['Yes', 'No'], { required: true, list: true }),
+    calc('normal', 'Normal balance', (v) => (v.class === 'Asset' || v.class === 'Expense' ? 'Debit' : 'Credit')),
+    entity('entity', 'Used by'),
+    ref('groupAccount', 'Group account', 'mdm.groupcoa'),
   ], ACTIVE, { groupBy: 'class' }),
   master('mdm', 'partners', ['Business partners', 'Partner', 'BP'], 'name', [
     text('name', 'Name', { required: true, list: true }),
@@ -90,6 +98,12 @@ export const HOLDING: readonly RecordType[] = [
     money('capex', 'Capex', { required: true }),
     calc('total', 'Total', (v) => n(v, 'opex') + n(v, 'capex'), { unit: 'Rp', list: true }),
   ], APPROVAL, { sumField: 'total', groupBy: 'entity' }),
+  type('epm', 'budgetlines', ['Budget lines', 'Budget line', 'BGL'], 'account', [
+    ref('budget', 'Budget', 'epm.budgets', { required: true, list: true, parent: true }),
+    ref('account', 'Account', 'mdm.accounts', { required: true, list: true }),
+    ref('costcenter', 'Cost centre', 'mdm.costcenters'),
+    money('amount', 'Yearly amount', { required: true, list: true }),
+  ], ACTIVE, { sumField: 'amount' }),
 
   type('vms', 'requisitions', ['Purchase requisitions', 'Purchase requisition', 'PR'], 'title', [
     text('title', 'Title', { required: true, list: true }),
@@ -244,6 +258,7 @@ export const HOLDING_MASTERS: readonly RecordType[] = [
     ref('company', 'Company code', 'mdm.companies', { required: true, list: true }),
     text('account', 'Account number', { required: true, list: true }),
     pick('currency', 'Currency', ['IDR', 'USD'], { required: true, list: true }),
+    ref('glAccount', 'Ledger account', 'mdm.accounts'),
   ], ACTIVE),
   master('epm', 'periods', ['Fiscal periods', 'Fiscal period', 'FP'], 'period', [
     text('period', 'Period (YYYY-MM)', { required: true, list: true }),

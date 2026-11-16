@@ -151,10 +151,6 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
     ][i]!, body: 'Details are in the attached memo from Human Capital.', publish: day(-40, 10) }),
   },
 
-  'fin.journals': {
-    count: 40,
-    make: ({ i, day, int, pick, ref }) => ({ description: pick(['Accrued freight Unit Logistik', 'FX revaluation USD payables', 'Depreciation tank farm', 'Intercompany sulfur sale', 'Payroll accrual', 'Inventory write-down off-spec NPK']), entity: ENTITIES[i % 4], account: ref('mdm.accounts'), costcenter: ref('mdm.costcenters'), amount: int(40, 2400) * 1e6, date: day(-160, 0) }),
-  },
   'fin.payables': {
     count: 36,
     make: ({ i, day, int, ref }) => ({ invoiceNo: `INV/${2026}/${String(4100 + i * 7)}`, vendor: ref('mdm.partners'), po: ref('vms.orders'), entity: ENTITIES[i % 4], amount: int(80, 4200) * 1e6, due: day(-40, 60) }),
@@ -180,7 +176,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fin.assets': {
     count: 18,
-    make: ({ i, int, pick }) => ({ name: pick(['Acid cooler HX-3', 'Sulfur melter', 'Storage tank T-104', 'Tanker B 9123 TRK', 'Granulator drum', 'Lab HPLC', 'Warehouse Lampung roof', 'Plant DCS servers']), entity: ENTITIES[(i + 3) % 4], class: pick(['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment']), cost: int(2, 90) * 1e9, life: pick([5, 8, 10, 15, 20, 25]) }),
+    make: ({ i, int, pick, day }) => ({ acquired: day(-(300 + i * 170), -(300 + i * 170)), salvage: 0, name: pick(['Acid cooler HX-3', 'Sulfur melter', 'Storage tank T-104', 'Tanker B 9123 TRK', 'Granulator drum', 'Lab HPLC', 'Warehouse Lampung roof', 'Plant DCS servers']), entity: ENTITIES[(i + 3) % 4], class: pick(['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment']), cost: int(2, 90) * 1e9, life: pick([5, 8, 10, 15, 20, 25]) }),
   },
 
   'inv.stock': {

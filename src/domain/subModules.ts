@@ -33,8 +33,8 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
   ],
   hrs: [
     ['Organisasi', ['orgunits', 'positions', 'contracts']],
-    ['Waktu kerja', ['shifts', 'leavetypes', 'attendance', 'leaves', 'overtime']],
-    ['Gaji dan pinjaman', ['payroll', 'loans']],
+    ['Waktu kerja', ['shifts', 'leavetypes', 'attendance', 'leaves', 'overtime', 'shiftswaps']],
+    ['Gaji dan pinjaman', ['payroll', 'payslips', 'loans']],
     ['Talenta', ['candidates', 'onboarding', 'appraisals', 'trainings', 'announcements']],
   ],
   vms: [
@@ -50,7 +50,7 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
   fin: [
     ['Buku besar', ['journals', 'journallines', 'closing', 'assets']],
     ['Utang dan piutang', ['payables', 'receivables', 'payments', 'taxinvoices']],
-    ['Kas dan bank', ['reconciliations', 'pettycash', 'advances']],
+    ['Kas dan bank', ['reconciliations', 'statementlines', 'pettycash', 'advances']],
   ],
   epm: [
     ['Konsolidasi', ['periods', 'consolidations', 'intercompany', 'adjustments']],

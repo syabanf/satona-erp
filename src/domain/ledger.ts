@@ -3,6 +3,7 @@
  * Pure functions over the record store, so the same numbers drive the reports, the cockpit and the tests.
  */
 import type { ErpRecord, Values } from './records'
+import { baseIdr, currentRate, docTotal, isForeign, ppnOf, pph23Of, totalAt } from './tax'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -35,6 +36,22 @@ export const POSTING = {
   sales: { fertiliser: '4100', chemicals: '4200', logistics: '4300', holding: '4900' } as Record<string, string>,
   depreciation: '6400',
   expense: '6900',
+  spares: '1340',
+  wip: '1320',
+  finished: '1330',
+  vatIn: '1410',
+  vatOut: '2210',
+  grir: '2130',
+  pph21: '2220',
+  pph23: '2230',
+  accrual: '2310',
+  cogs: { fertiliser: '5100', chemicals: '5200', logistics: '5300', holding: '5100' } as Record<string, string>,
+  payroll: '6100',
+  maintenance: '6300',
+  bankFee: '6600',
+  fx: '6950',
+  receivableFx: '1215',
+  payableFx: '2115',
 } as const
 
 const num = (v: unknown) => Number(v) || 0
@@ -188,13 +205,19 @@ export interface Posting {
   lines: Values[]
 }
 
-/** A two-line journal: one debit, one credit, same amount. */
-function entry(all: All, journal: Values, debitCode: string, creditCode: string, amount: number, memo: string): Posting | undefined {
-  const id = (code: string) => accountsOf(all).find((a) => a.values.code === code)?.id
-  const [debit, credit] = [id(debitCode), id(creditCode)]
-  if (!debit || !credit || amount <= 0) return undefined
-  return { journal: { ...journal, amount }, lines: [{ account: debit, debit: amount, credit: 0, memo }, { account: credit, debit: 0, credit: amount, memo }] }
+/** A journal from account codes: zero lines drop out, and nothing is raised unless every account exists and debit equals credit. */
+export function compose(all: All, journal: Values, lines: ReadonlyArray<readonly [code: string, debit: number, credit: number]>, memo: string): Posting | undefined {
+  const used = lines.filter(([, d, c]) => d > 0 || c > 0)
+  const ids = used.map(([code]) => accountsOf(all).find((a) => a.values.code === code)?.id)
+  const debit = used.reduce((s, l) => s + l[1], 0)
+  if (!used.length || ids.some((x) => !x) || debit !== used.reduce((s, l) => s + l[2], 0)) return undefined
+  return { journal: { ...journal, amount: debit }, lines: used.map(([, d, c], i) => ({ account: ids[i]!, debit: d, credit: c, memo })) }
 }
+
+const entry = (all: All, journal: Values, debitCode: string, creditCode: string, amount: number, memo: string) => compose(all, journal, [[debitCode, amount, 0], [creditCode, 0, amount]], memo)
+
+/** An exchange difference as a journal line: a loss debits the account, a gain credits it. */
+export const fxLine = (loss: number): readonly [string, number, number] => [POSTING.fx, Math.max(0, loss), Math.max(0, -loss)]
 
 /**
  * The journal a document step raises: a customer invoice books revenue, its payment clears the receivable, an approved
@@ -208,12 +231,26 @@ export function postingFor(typeKey: string, record: ErpRecord, to: string, all: 
     return String(accountsOf(all).find((a) => a.id === gl)?.values.code ?? POSTING.bank)
   }
   const step = `${typeKey}:${to}`
-  if (step === 'fin.receivables:created') return entry(all, head('Receivable', `Faktur pelanggan ${String(v.invoiceNo)}`), POSTING.receivable, POSTING.sales[String(v.entity)] ?? POSTING.sales.holding!, num(v.amount), String(v.invoiceNo))
-  if (step === 'fin.receivables:paid') return entry(all, head('Receipt', `Pelunasan ${String(v.invoiceNo)}`), POSTING.bank, POSTING.receivable, num(v.amount), String(v.invoiceNo))
-  if (step === 'fin.payables:approved') return entry(all, head('Payable', `Tagihan pemasok ${String(v.invoiceNo)}`), POSTING.inventory, POSTING.payable, num(v.amount), String(v.invoiceNo))
+  const fx = all['epm.fx'] ?? []
+  const invoiceNo = String(v.invoiceNo)
+  // A customer invoice books the receivable with its PPN; the receipt clears it at today's rate and books the difference.
+  if (step === 'fin.receivables:created') return compose(all, head('Receivable', `Faktur pelanggan ${invoiceNo}`), [[POSTING.receivable, baseIdr(v) + ppnOf(v), 0], [POSTING.sales[String(v.entity)] ?? POSTING.sales.holding!, 0, baseIdr(v)], [POSTING.vatOut, 0, ppnOf(v)]], invoiceNo)
+  if (step === 'fin.receivables:paid') {
+    const [booked, received] = [docTotal(v), totalAt(v, fx)]
+    return compose(all, head('Receipt', `Pelunasan ${invoiceNo}`), [[POSTING.bank, received, 0], [POSTING.receivable, 0, booked], fxLine(booked - received)], invoiceNo)
+  }
+  // A vendor invoice clears the goods-received accrual when its PO has posted receipts, and withholds PPh 23 where it applies.
+  if (step === 'fin.payables:approved') {
+    const receipts = new Set((all['vms.receipts'] ?? []).filter((g) => v.po && g.values.po === v.po).map((g) => g.id))
+    const accrued = (all['fin.journals'] ?? []).some((j) => j.status === 'posted' && receipts.has(String(j.values.reference)))
+    return compose(all, head('Payable', `Tagihan pemasok ${invoiceNo}`), [[accrued ? POSTING.grir : POSTING.inventory, baseIdr(v), 0], [POSTING.vatIn, ppnOf(v), 0], [POSTING.payable, 0, docTotal(v)], [POSTING.pph23, 0, pph23Of(v)]], invoiceNo)
+  }
   if (step === 'fin.payments:approved') {
     const invoice = (all['fin.payables'] ?? []).find((p) => p.id === v.invoice)
-    return entry(all, head('Payment', `Pembayaran ${String(v.reference)}`, invoice?.values.entity), POSTING.payable, bankOf(v.bank), num(v.amount), String(v.reference))
+    // The payment amount is in the invoice currency: the payable clears at the booked rate, the bank pays today's.
+    const at = (rate: unknown) => Math.round(num(v.amount) * (invoice && isForeign(invoice.values) ? num(rate) || 1 : 1))
+    const [booked, paid] = [at(invoice?.values.rate), at(currentRate(fx, String(invoice?.values.currency)) || invoice?.values.rate)]
+    return compose(all, head('Payment', `Pembayaran ${String(v.reference)}`, invoice?.values.entity), [[POSTING.payable, booked, 0], [bankOf(v.bank), 0, paid], fxLine(paid - booked)], String(v.reference))
   }
   if (step === 'fin.pettycash:approved') return entry(all, head('Cash', `Kas kecil: ${String(v.purpose)}`), POSTING.expense, POSTING.pettyCash, num(v.amount), String(v.purpose))
   if (step === 'fin.advances:paid') return entry(all, head('Cash', `Uang muka: ${String(v.purpose)}`), POSTING.advance, POSTING.bank, num(v.amount), String(v.purpose))
@@ -262,4 +299,22 @@ export function closingEntry(all: All, entity: string, year: number): Posting | 
   const net = incomeStatement(all, scope).net
   lines.push({ account: retained, debit: net < 0 ? -net : 0, credit: net > 0 ? net : 0, memo })
   return { journal: { description: `Jurnal penutup ${year}`, entity, date: `${year}-12-31`, source: 'Closing', reference, amount: journalBalance(lines.map((values) => ({ values }))).debit }, lines }
+}
+
+const UNIT_IDS = ['holding', 'logistics', 'fertiliser', 'chemicals'] as const
+
+/**
+ * Control accounts against their subledgers per unit: trade receivables against open customer invoices, trade payables
+ * against vendor invoices approved and not yet paid. `difference` is subledger less ledger and should be zero.
+ */
+export function subledgerTie(all: All, entity?: string) {
+  const open = (type: string, statuses: readonly string[], unit: string, total: (v: Values) => number) => (all[type] ?? []).filter((r) => statuses.includes(r.status) && r.values.entity === unit).reduce((s, r) => s + total(r.values), 0)
+  return UNIT_IDS.filter((u) => !entity || u === entity).flatMap((unit) => {
+    const balance = new Map(trialBalance(all, { entity: unit }).rows.map((r) => [String(r.account.values.code), r.balance]))
+    const row = (code: string, label: string, subledger: number) => ({ entity: unit, code, label, ledger: balance.get(code) ?? 0, subledger, difference: subledger - (balance.get(code) ?? 0) })
+    return [
+      row(POSTING.receivable, 'Piutang usaha', open('fin.receivables', ['issued', 'overdue'], unit, (v) => baseIdr(v) + ppnOf(v))),
+      row(POSTING.payable, 'Utang usaha', open('fin.payables', ['approved'], unit, docTotal)),
+    ]
+  })
 }

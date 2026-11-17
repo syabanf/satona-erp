@@ -1,4 +1,5 @@
 /** Kantor Pusat: MDM, EPM, VMS, GRC, BI. */
+import { PTKP } from '../payroll'
 import type { RecordType } from '../records'
 import { ACTIVE, APPROVAL, B3_CLASSES, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
@@ -44,6 +45,9 @@ export const HOLDING: readonly RecordType[] = [
     ref('position', 'Position', 'hrs.positions'),
     pick('employment', 'Employment', ['Permanent', 'Fixed term', 'Outsourced'], { list: true }),
     date('joined', 'Joined'),
+    money('baseSalary', 'Base pay'),
+    money('allowance', 'Fixed allowance'),
+    pick('ptkp', 'Tax status (PTKP)', PTKP),
   ], ACTIVE, { groupBy: 'entity' }),
 
   type('epm', 'consolidations', ['Consolidation runs', 'Consolidation run', 'CON'], 'period', [

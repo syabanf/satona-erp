@@ -1,5 +1,6 @@
 /** Document-to-document flows: an accepted quotation becomes an invoice, an approved requisition a PO, and so on. */
 import type { ErpRecord, Values } from './records'
+import { docTotal } from './tax'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -59,7 +60,16 @@ export const CONVERSIONS: readonly Conversion[] = [
     label: 'Bayar tagihan',
     when: ['approved'],
     link: 'invoice',
-    map: (inv, _all, today) => ({ reference: `PAY/${inv.id}`, invoice: inv.id, amount: inv.values.amount, date: today }),
+    // The amount owed in the invoice currency: base plus PPN, less the PPh 23 the company withholds.
+    map: (inv, _all, today) => ({ reference: `PAY/${inv.id}`, invoice: inv.id, amount: docTotal({ ...inv.values, currency: 'IDR' }), date: today }),
+  },
+  {
+    from: 'dms.orders',
+    to: 'fin.receivables',
+    label: 'Buat faktur pelanggan',
+    when: ['delivered'],
+    link: 'salesOrder',
+    map: (so, _all, today) => ({ invoiceNo: `INV/${so.id}`, salesOrder: so.id, entity: 'fertiliser', amount: so.values.value, tax: 'PPN 11%', currency: 'IDR', due: plusDays(today, 30) }),
   },
   {
     from: 'eam.requests',

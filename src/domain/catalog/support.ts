@@ -1,5 +1,7 @@
 /** Group shared services carried over from the Habitat and NüHabit ERPs: HRIS, accounting, inventory control, purchasing execution, service desk and document control. */
 import type { RecordType } from '../records'
+import { slipGross, slipNet } from '../payroll'
+import { DOC_CURRENCIES, TAXES, WITHHOLDINGS, baseIdr, docTotal, ppnOf, pph23Of } from '../tax'
 import { ACTIVE, APPROVAL, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
 export const GRADES = ['G1 Operator', 'G2 Technician', 'G3 Supervisor', 'G4 Superintendent', 'G5 Manager', 'G6 General manager'] as const
@@ -41,6 +43,7 @@ export const HRIS: readonly RecordType[] = [
     text('checkOut', 'Check out'),
     pick('result', 'Result', ['On time', 'Late', 'Absent', 'On leave'], { required: true, list: true }),
     pick('method', 'Method', ['Face recognition', 'Gate RFID', 'Mobile GPS'], { required: true }),
+    text('location', 'Location'),
   ], flow([['recorded', 'Recorded', 'info'], ['verified', 'Verified', 'success'], ['disputed', 'Disputed', 'warning']], [
     ['recorded', 'verified', 'Verify'],
     ['recorded', 'disputed', 'Dispute'],
@@ -129,6 +132,25 @@ export const HRIS: readonly RecordType[] = [
     ['planned', 'missed', 'Mark missed'],
     ['missed', 'planned', 'Reschedule'],
   ]), { sumField: 'hours', groupBy: 'course', dateField: 'date' }),
+  type('hrs', 'payslips', ['Payslips', 'Payslip', 'PSL'], 'period', [
+    ref('employee', 'Employee', 'mdm.employees', { required: true, list: true }),
+    text('period', 'Period', { required: true, list: true }),
+    entity('entity', 'Entity', { required: true }),
+    money('base', 'Base pay', { required: true }),
+    money('allowance', 'Allowance'),
+    money('overtime', 'Overtime'),
+    money('bpjs', 'BPJS'),
+    money('pph21', 'PPh 21'),
+    money('loan', 'Loan installment'),
+    calc('gross', 'Gross pay', slipGross, { unit: 'Rp', list: true }),
+    calc('net', 'Net pay', slipNet, { unit: 'Rp', list: true }),
+  ], flow([['calculated', 'Calculated', 'info'], ['paid', 'Paid', 'success']], []), { sumField: 'net', groupBy: 'period' }),
+  type('hrs', 'shiftswaps', ['Shift swaps', 'Shift swap', 'SWP'], 'reason', [
+    ref('employee', 'Employee', 'mdm.employees', { required: true, list: true }),
+    date('date', 'Date', { required: true, list: true }),
+    ref('partner', 'Swap with', 'mdm.employees', { required: true, list: true }),
+    text('reason', 'Reason', { required: true }),
+  ], APPROVAL, { groupBy: 'employee', dateField: 'date' }, true),
   type('hrs', 'announcements', ['Announcements', 'Announcement', 'ANN'], 'title', [
     text('title', 'Title', { required: true, list: true }),
     pick('audience', 'Audience', ['All employees', 'Plant crews', 'Office staff', 'Drivers'], { required: true, list: true }),
@@ -138,7 +160,7 @@ export const HRIS: readonly RecordType[] = [
 ]
 
 /** Where a journal came from: typed by hand, or raised by a document step, the depreciation run or the year-end close. */
-export const JOURNAL_SOURCES = ['Manual', 'Opening', 'Receivable', 'Receipt', 'Payable', 'Payment', 'Cash', 'Depreciation', 'Closing'] as const
+export const JOURNAL_SOURCES = ['Manual', 'Opening', 'Receivable', 'Receipt', 'Payable', 'Payment', 'Cash', 'Depreciation', 'Closing', 'Goods receipt', 'Cost of sales', 'Production', 'Maintenance', 'Payroll', 'Bank', 'Revaluation'] as const
 
 export const FINANCE: readonly RecordType[] = [
   {
@@ -170,20 +192,32 @@ export const FINANCE: readonly RecordType[] = [
     ref('vendor', 'Vendor', 'mdm.partners', { required: true, list: true }),
     ref('po', 'Purchase order', 'vms.orders', { parent: true }),
     entity('entity', 'Entity', { required: true }),
-    money('amount', 'Amount', { required: true, list: true }),
+    money('amount', 'Amount before tax', { required: true, list: true }),
+    pick('tax', 'VAT', TAXES),
+    pick('withholding', 'Withholding', WITHHOLDINGS),
+    pick('currency', 'Currency', DOC_CURRENCIES),
+    num('rate', 'Rate to IDR', 'IDR', { min: 0 }),
+    calc('ppn', 'PPN', ppnOf, { unit: 'Rp' }),
+    calc('pph23', 'PPh 23 withheld', pph23Of, { unit: 'Rp' }),
+    calc('total', 'Payable', docTotal, { unit: 'Rp', list: true }),
     date('due', 'Due', { required: true, list: true }),
   ], flow([['received', 'Received', 'neutral'], ['matched', '3-way matched', 'info'], ['approved', 'Approved to pay', 'success'], ['paid', 'Paid', 'success'], ['disputed', 'Disputed', 'danger']], [
     ['received', 'matched', 'Match PO and GRN'],
     ['received', 'disputed', 'Dispute'],
     ['matched', 'approved', 'Approve', 'approve'],
-    ['approved', 'paid', 'Mark paid'],
     ['disputed', 'received', 'Resolve'],
   ]), { sumField: 'amount', groupBy: 'vendor', dateField: 'due' }),
   type('fin', 'receivables', ['Customer invoices (AR)', 'Customer invoice', 'ARI'], 'invoiceNo', [
     text('invoiceNo', 'Invoice no.', { required: true, list: true }),
     ref('customer', 'Customer', 'mdm.partners', { required: true, list: true }),
+    ref('salesOrder', 'Sales order', 'dms.orders'),
     entity('entity', 'Entity', { required: true }),
-    money('amount', 'Amount', { required: true, list: true }),
+    money('amount', 'Amount before tax', { required: true, list: true }),
+    pick('tax', 'VAT', TAXES),
+    pick('currency', 'Currency', DOC_CURRENCIES),
+    num('rate', 'Rate to IDR', 'IDR', { min: 0 }),
+    calc('ppn', 'PPN', ppnOf, { unit: 'Rp' }),
+    calc('total', 'Receivable', (v) => baseIdr(v) + ppnOf(v), { unit: 'Rp', list: true }),
     date('due', 'Due', { required: true, list: true }),
   ], flow([['issued', 'Issued', 'info'], ['overdue', 'Overdue', 'danger'], ['paid', 'Paid', 'success']], [
     ['issued', 'paid', 'Record payment'],
@@ -208,6 +242,13 @@ export const FINANCE: readonly RecordType[] = [
     ['uploaded', 'approved', 'Record approval'],
     ['uploaded', 'cancelled', 'Cancel', 'approve'],
   ]), { groupBy: 'tax' }),
+  type('fin', 'statementlines', ['Bank statement lines', 'Statement line', 'BSL'], 'description', [
+    ref('bank', 'House bank', 'mdm.banks', { required: true, parent: true, list: true }),
+    date('date', 'Date', { required: true, list: true }),
+    text('description', 'Description', { required: true, list: true }),
+    num('amount', 'Amount (in +, out -)', 'Rp', { required: true, list: true }),
+    ref('journal', 'Matched journal', 'fin.journals'),
+  ], flow([['unmatched', 'Unmatched', 'warning'], ['matched', 'Matched', 'success']], [['unmatched', 'matched', 'Match'], ['matched', 'unmatched', 'Unmatch']]), { sumField: 'amount', groupBy: 'bank', dateField: 'date' }),
   type('fin', 'reconciliations', ['Bank reconciliations', 'Bank reconciliation', 'BRC'], 'period', [
     ref('bank', 'House bank', 'mdm.banks', { required: true, parent: true, list: true }),
     text('period', 'Period', { required: true, list: true }),

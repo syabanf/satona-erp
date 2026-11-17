@@ -7,7 +7,8 @@ import { computeValues, type ErpRecord, type RecordType, type Values } from '@/d
 import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
 import { MATERIAL_HAZARDS, SCOPE_SEEDS } from './seedsScope'
 import { bankAccount, LEDGER_SEEDS } from './seedsLedger'
-import { SUPPORT_SEEDS } from './seedsSupport'
+import { employeeEntity, salaryOf, SUPPORT_SEEDS } from './seedsSupport'
+import { alignPayables, tieSubledgers } from './seedsTie'
 
 export interface Ctx {
   i: number
@@ -596,7 +597,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
       return {
         nik: `SAT-${String(10230 + i * 13)}`,
         name: `${pick(['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina'])} ${pick(['Saputra', 'Wijaya', 'Lestari', 'Pratama', 'Hidayat', 'Kusuma', 'Siregar', 'Nugroho'])}`,
-        entity: unit >= 12 ? (unit === 14 ? 'fertiliser' : unit === 15 ? 'logistics' : 'chemicals') : ENTITIES[i % 4],
+        entity: employeeEntity(i),
+        ...salaryOf(i),
         department: pick(['Finance', 'HR', 'Production', 'Logistics', 'QC', 'HSE', 'Procurement', 'IT']),
         orgunit: `ORG-${String(unit + 1).padStart(4, '0')}`,
         position: `JOB-${String((i % 24) + 1).padStart(4, '0')}`,
@@ -1335,5 +1337,7 @@ export function seedRecords(today: string): Record<string, ErpRecord[]> {
       }
     })
   }
+  alignPayables(all)
+  tieSubledgers(all, iso(-200))
   return all
 }

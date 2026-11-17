@@ -1,5 +1,5 @@
 import { aging } from '@/domain/kpi'
-import { balanceSheet, budgetVsActual, cashFlow, generalLedger, incomeStatement, trialBalance, type Balance, type Scope } from '@/domain/ledger'
+import { balanceSheet, budgetVsActual, cashFlow, generalLedger, incomeStatement, subledgerTie, trialBalance, type Balance, type Scope } from '@/domain/ledger'
 import { assetValue } from '@/domain/maintenance'
 import type { ErpRecord } from '@/domain/records'
 import { money } from '@/lib/format'
@@ -15,6 +15,7 @@ export const REPORTS = [
   { value: 'aging', label: 'Umur piutang dan utang' },
   { value: 'assets', label: 'Aset tetap' },
   { value: 'budget', label: 'Anggaran vs aktual' },
+  { value: 'tie', label: 'Buku pembantu' },
 ] as const
 export type ReportId = (typeof REPORTS)[number]['value']
 
@@ -116,6 +117,14 @@ export function buildReport(id: ReportId, all: All, scope: Scope, opts: { accoun
     return {
       title: 'Daftar aset tetap', note: `Per ${opts.today}, penyusutan garis lurus`, columns: ['Aset', 'Kelas', 'Perolehan', 'Umur', 'Harga perolehan', 'Akumulasi penyusutan', 'Nilai buku'], numericFrom: 4,
       rows: [...rows.map((r) => ({ cells: [`${r.a.id} ${String(r.a.values.name)}`, String(r.a.values.class), String(r.a.values.acquired), `${r.ageYears.toFixed(1)} / ${String(r.a.values.life)} th`, money(r.cost), money(r.depreciation), money(r.cost - r.depreciation)], to: `/modules/fin/assets/${r.a.id}` })), { cells: ['Jumlah', '', '', '', money(sum((r) => r.cost)), money(sum((r) => r.depreciation)), money(sum((r) => r.cost - r.depreciation))], kind: 'grand' }],
+    }
+  }
+  if (id === 'tie') {
+    const rows = subledgerTie(all, scope.entity)
+    const unit: Record<string, string> = { holding: 'Kantor Pusat', logistics: 'Unit Logistik', fertiliser: 'Pabrik Pupuk', chemicals: 'Pabrik Kimia' }
+    return {
+      title: 'Buku pembantu terhadap buku besar', note: `Per ${opts.today}: faktur terbuka terhadap akun kontrol`, columns: ['Unit dan akun', 'Buku besar', 'Buku pembantu', 'Selisih'], numericFrom: 1,
+      rows: [...rows.map((r) => ({ cells: [`${unit[r.entity]} · ${r.code} ${r.label}`, money(r.ledger), money(r.subledger), r.difference ? money(r.difference) : 'Cocok'], to: `/modules/fin/${r.code === '1210' ? 'receivables' : 'payables'}` })), { cells: ['Jumlah selisih', '', '', money(rows.reduce((s, r) => s + Math.abs(r.difference), 0))], kind: 'grand' }],
     }
   }
   const year = Number((scope.to ?? opts.today).slice(0, 4))

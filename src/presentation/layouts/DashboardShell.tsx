@@ -3,6 +3,7 @@ import { Link, Navigate, Outlet, useLocation } from 'react-router'
 import { Bell, ScanLine, Search } from 'lucide-react'
 import type { Alert } from '@/domain/ops'
 import { homeFor } from '@/domain/menu'
+import { AREA_LABEL, areaOf, areasFor, EMPLOYEE_HOME, selfItem } from '@/domain/selfService'
 import { cn } from '@/lib/cn'
 import { shortDay, shortWeekday } from '@/lib/dates'
 import { useAlerts } from '../hooks/useAlerts'
@@ -109,15 +110,19 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
   const { tree } = useMenu()
   const openSearch = usePalette()
   const today = clock.today()
+  // An employee-only role gets no shortcuts into the back office.
+  const backoffice = areasFor(useSession().role).includes('backoffice')
   const leaf = crumbs.at(-1)
   const folders = crumbs.slice(0, -1)
   const detail = leaf?.to ? pathname !== leaf.to.split('?')[0] : false
   const short = (label: string) => label.split(' · ')[0] ?? label
+  const self = areaOf(pathname) === 'employee' ? selfItem(pathname.slice(EMPLOYEE_HOME.length + 1)) : undefined
 
   return (
     <header className="flex shrink-0 items-center gap-3 px-4 pt-4 pb-4 md:px-6 lg:px-8 lg:pt-6">
       <div className="min-w-0 flex-1">
-        {leaf && (
+        {self && <p className="text-xs text-muted">{AREA_LABEL.employee}</p>}
+        {leaf && !self && (
           <nav aria-label="Breadcrumb">
             <ol className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted">
               {folders.map((f, i) => (
@@ -144,7 +149,7 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
             </ol>
           </nav>
         )}
-        <Title text={leaf?.label ?? (tree.length ? 'Halaman tidak ditemukan' : 'Memuat halaman')} />
+        <Title text={self?.label ?? leaf?.label ?? (tree.length ? 'Halaman tidak ditemukan' : 'Memuat halaman')} />
         <p className="mt-0.5 text-[11px] text-muted">Data demo · perubahan hanya di perangkat ini</p>
       </div>
       {leaf?.tcode && (
@@ -152,17 +157,21 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
           {leaf.tcode}
         </span>
       )}
-      <SystemStatus />
+      {backoffice && <SystemStatus />}
       <span className="hidden h-10 items-center rounded-full border border-line bg-card px-4 text-xs font-medium text-muted shadow-card lg:inline-flex">
         {shortWeekday(today)}, {shortDay(today)}
       </span>
-      <Link to="/scan" aria-label="Pindai QR atau barcode" title="Pindai QR" className={buttonStyles({ variant: 'card', size: 'icon-lg' })}>
-        <ScanLine aria-hidden className="size-5" />
-      </Link>
-      <Button variant="card" size="icon-lg" aria-label="Cari pekerjaan atau data" onClick={() => openSearch()}>
-        <Search aria-hidden className="size-5" />
-      </Button>
-      <Notifications alerts={alerts} />
+      {backoffice && (
+        <>
+          <Link to="/scan" aria-label="Pindai QR atau barcode" title="Pindai QR" className={buttonStyles({ variant: 'card', size: 'icon-lg' })}>
+            <ScanLine aria-hidden className="size-5" />
+          </Link>
+          <Button variant="card" size="icon-lg" aria-label="Cari pekerjaan atau data" onClick={() => openSearch()}>
+            <Search aria-hidden className="size-5" />
+          </Button>
+          <Notifications alerts={alerts} />
+        </>
+      )}
     </header>
   )
 }
@@ -228,6 +237,10 @@ export function DashboardShell() {
   }
 
   if (!signedIn) return <Navigate to="/login" replace />
+  // A role only opens the areas it has: the self-service employee never lands in the back office, a vendor never in the employee area.
+  const areas = areasFor(role)
+  const area = areaOf(pathname)
+  if (!areas.includes(area)) return <Navigate to={areas[0] === 'employee' ? EMPLOYEE_HOME : homeFor(role)} replace />
   // Inside an OS-view window the page stands alone: the window frame replaces the sidebar and bottom nav.
   const embedded = window.self !== window.top
 
@@ -259,7 +272,7 @@ export function DashboardShell() {
                 </Entrance>
               </main>
             </div>
-            {!embedded && <BottomNav role={role} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />}
+            {!embedded && <BottomNav role={role} area={area} access={accessFor(role.module)} approvals={approvals} menuOpen={drawer} onMenu={() => setDrawer((d) => !d)} />}
             {drawer && (
               <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-30 md:hidden">
                 <button type="button" aria-label="Close menu" className="absolute inset-0 animate-fade bg-ink/40" onClick={closeDrawer} />

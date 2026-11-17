@@ -1,5 +1,26 @@
 /** Indonesian labels for the catalogue: field labels and record type names, keyed by their English text. */
 export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
+  'Base pay': 'Gaji pokok',
+  'Allowance': 'Tunjangan',
+  'Overtime': 'Lembur',
+  'BPJS': 'BPJS',
+  'PPh 21': 'PPh 21',
+  'Loan installment': 'Cicilan pinjaman',
+  'Fixed allowance': 'Tunjangan tetap',
+  'Tax status (PTKP)': 'Status pajak (PTKP)',
+  'Swap with': 'Tukar dengan',
+  'Amount before tax': 'Nilai sebelum pajak (DPP)',
+  'VAT': 'PPN',
+  'Withholding': 'Pemotongan PPh',
+  'PPh 23 withheld': 'PPh 23 dipotong',
+  'Payable': 'Nilai terutang',
+  'Receivable': 'Nilai piutang',
+  'Sales order': 'Pesanan penjualan',
+  'Amount (in +, out -)': 'Nilai (masuk +, keluar -)',
+  'Matched journal': 'Jurnal yang cocok',
+  'Material cost': 'Biaya bahan',
+  'Cost per tonne': 'Biaya per ton',
+  'Maintenance cost to date': 'Biaya perawatan sampai kini',
   '5 whys': '5 why',
   'API key expires': 'API key kedaluwarsa',
   'Access': 'Akses',
@@ -704,6 +725,12 @@ export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
 }
 
 export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
+  'Payslips': 'Slip gaji',
+  'Payslip': 'Slip gaji',
+  'Shift swaps': 'Tukar shift',
+  'Shift swap': 'Tukar shift',
+  'Bank statement lines': 'Baris rekening koran',
+  'Statement line': 'Baris rekening koran',
   'ADAS & DSM devices': 'Perangkat ADAS & DSM',
   'ADAS & DSM events': 'Kejadian ADAS & DSM',
   'API gateway routes': 'Rute API gateway',
@@ -1110,7 +1137,7 @@ export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
 }
 
 export const STATE_LABELS_ID: Readonly<Record<string, string>> = {
-  '3-way matched': '3-way match',
+  '3-way matched': 'Cocok 3 arah',
   'Accepted': 'Diterima',
   'Acknowledged': 'Ditanggapi',
   'Actioned': 'Ditindaklanjuti',

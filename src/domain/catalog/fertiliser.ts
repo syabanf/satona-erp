@@ -36,6 +36,8 @@ export const FERTILISER: readonly RecordType[] = [
     num('qty', 'Batch size', 't', { required: true, min: 1, list: true }),
     pick('line', 'Line', LINES, { required: true, list: true }),
     date('planned', 'Planned start', { required: true, list: true }),
+    money('materialCost', 'Material cost'),
+    calc('unitCost', 'Cost per tonne', (v) => Math.round(n(v, 'materialCost') / Math.max(1, n(v, 'qty'))), { unit: 'Rp' }),
   ], flow(
     [
       ['planned', 'Planned', 'neutral'],
@@ -132,6 +134,7 @@ export const FERTILISER: readonly RecordType[] = [
     money('acquisitionCost', 'Acquisition cost'),
     date('commissioned', 'Commissioned'),
     num('usefulLife', 'Useful life', 'years', { min: 1, max: 40 }),
+    money('maintenanceCost', 'Maintenance cost to date'),
   ], flow(
     [
       ['running', 'Running', 'success'],

@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router'
 import { BarChart3, CheckCheck, ChevronsLeft, ChevronsRight, GraduationCap, Hash, House, LayoutGrid, Moon, RotateCcw, Search, Type, X, type LucideIcon } from 'lucide-react'
 import { homeFor } from '@/domain/menu'
+import { areaOf, areasFor, EMPLOYEE_HOME } from '@/domain/selfService'
 import { suggestedTasks } from '@/domain/taskNavigation'
 import { cn } from '@/lib/cn'
 import { usePreference, type Preference } from '../../hooks/usePreference'
@@ -15,8 +16,10 @@ import { useAccess } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
 import { useTour } from '../../tour/context'
+import { AreaSwitch } from '../AreaSwitch'
 import { ViewSwitch } from '../ViewSwitch'
 import { CommandField } from './CommandField'
+import { EmployeeMenu } from './EmployeeMenu'
 import { MenuNavigator } from './MenuNavigator'
 import { usePalette } from './palette'
 import { RoleSwitcher } from './RoleSwitcher'
@@ -83,7 +86,10 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
   const tour = useTour()
   const { tree, counts, approvals } = useMenu()
   const trail = useTrail()
-  const home = homeFor(role)
+  const areas = areasFor(role)
+  const here = areaOf(pathname)
+  const area = areas.includes(here) ? here : areas[0]
+  const home = area === 'employee' ? EMPLOYEE_HOME : homeFor(role)
   const report = role.id === 'admin' ? '/analytics' : `/modules/${role.module}`
   const tasks = suggestedTasks(role, accessFor, approvals).filter((task) => task.id !== 'modules').slice(0, 3)
   const mainLink = 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors hover:bg-raised'
@@ -108,13 +114,25 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
       </div>
 
       {!collapsed && (
-        <div className="px-3" data-tour="search">
-          <CommandField />
+        <div className="flex items-center gap-1.5 px-3" data-tour="search">
+          {areas.length > 1 ? (
+            <>
+              <AreaSwitch current={area!} onNavigate={onNavigate} className="flex-1" />
+              <Button variant="card" size="icon-sm" aria-label="Cari pekerjaan" title="Cari pekerjaan" onClick={() => { onNavigate?.(); openSearch() }}>
+                <Search aria-hidden className="size-[18px]" />
+              </Button>
+            </>
+          ) : (
+            area === 'backoffice' && <div className="flex-1"><CommandField /></div>
+          )}
         </div>
       )}
 
       <nav aria-label="Main" className={cn('mt-4 flex-1 px-3 pb-4', collapsed && 'no-scrollbar min-h-0 overflow-y-auto')}>
-        {collapsed ? (
+        {collapsed && areas.length > 1 && <AreaSwitch current={area!} compact className="mx-auto mb-3 w-fit" />}
+        {area === 'employee' ? (
+          <EmployeeMenu collapsed={collapsed} onNavigate={onNavigate} />
+        ) : collapsed ? (
           <div className="space-y-1">
             <Link to={home} title="Beranda" aria-label="Beranda" aria-current={pathname === home ? 'page' : undefined} className={cn('grid h-10 place-items-center rounded-xl', pathname === home ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-raised')}><House aria-hidden className="size-[18px]" /></Link>
             {approvals > 0 && <Link to="/approvals" title="Tugas saya" aria-label="Tugas saya" className="grid h-10 place-items-center rounded-xl text-muted hover:bg-raised"><CheckCheck aria-hidden className="size-[18px]" /></Link>}
@@ -130,12 +148,10 @@ export function SidebarContent({ collapsed, onNavigate, onClose, onExpand }: Sid
                 <Link key={task.id} to={task.to} onClick={onNavigate} className={cn(mainLink, pathname === task.to ? 'bg-accent-soft text-accent-text' : 'text-body')}><CheckCheck aria-hidden className="size-[18px] shrink-0" /><span className="min-w-0 flex-1 truncate">{task.title}</span></Link>
               ))}
             </div>
-            <button type="button" onClick={() => { onNavigate?.(); openSearch() }} className={cn(mainLink, 'w-full cursor-pointer text-left text-body')}><Search aria-hidden className="size-[18px]" /> Cari pekerjaan</button>
             {!role.external && <Link to={report} onClick={onNavigate} className={cn(mainLink, pathname === report ? 'bg-accent-soft text-accent-text' : 'text-body')}><BarChart3 aria-hidden className="size-[18px]" /> Laporan</Link>}
-            <details className="pt-3" data-tour="menu">
-              <summary className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-body hover:bg-raised"><LayoutGrid aria-hidden className="size-[18px]" /> Semua menu</summary>
-              <div className="pt-2"><MenuNavigator tree={tree} active={trail} counts={counts} onNavigate={onNavigate} /></div>
-            </details>
+            <div className="pt-4" data-tour="menu">
+              <MenuNavigator tree={tree} active={trail} counts={counts} onNavigate={onNavigate} />
+            </div>
           </div>
         )}
       </nav>

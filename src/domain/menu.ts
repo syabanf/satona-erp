@@ -4,6 +4,7 @@
  */
 import { can, type Access, type ErpModule, type Role } from './erp'
 import { canCreate, type RecordType } from './records'
+import { areasFor, EMPLOYEE_HOME } from './selfService'
 import { subModuleOf, subModulesOf } from './subModules'
 import { moduleLabel, recordLabel } from './uiLabels'
 
@@ -43,6 +44,7 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
   fin: [
     { label: 'Bagan akun', to: '/finance/coa' },
     { label: 'Laporan keuangan', to: '/finance/reports' },
+    { label: 'Rekonsiliasi bank', to: '/finance/bank' },
   ],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },
@@ -210,8 +212,8 @@ const MODULE_HOME: Record<string, string> = {
 export function homeFor(role: Pick<Role, 'id' | 'name' | 'module' | 'external'>): string {
   if (role.id === 'admin' || /cfo|direksi|business analyst|general manager/i.test(role.name)) return '/dashboard'
   if (/driver/i.test(role.name)) return '/fleet/checkin'
+  if (!areasFor(role).includes('backoffice')) return EMPLOYEE_HOME
   // Other portal users land on the list they file into, not the module cockpit.
-  if (/employee \(ess\)/i.test(role.name)) return '/modules/hrs/leaves'
   if (/contractor/i.test(role.name)) return '/modules/she/permits'
   return MODULE_HOME[role.module] ?? `/modules/${role.module}`
 }

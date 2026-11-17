@@ -70,6 +70,8 @@ export function moduleStatus(m: Pick<ErpModule, 'scope'>): ScopeStatus {
 }
 
 const LEAD = /head|manager|director|cfo|controller|direksi|supervisor|kepala/i
+/** A role that leads people: it approves in its own module and reads its unit's other modules. */
+export const isLead = (role: Pick<Role, 'name'>) => LEAD.test(role.name)
 const EXEC = /cfo|direksi|business analyst|general manager/i
 
 /**

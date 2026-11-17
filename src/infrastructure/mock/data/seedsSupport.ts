@@ -1,10 +1,22 @@
 /** Seed rows for the shared-services modules: HRIS, finance, inventory, purchasing execution, service desk, SHE / K3 and administration. */
 import { GRADES } from '@/domain/catalog/support'
+import { bpjsOf, pph21 } from '@/domain/payroll'
 import { ROLES } from './erp'
 import type { Make } from './seeds'
 
 const ENTITIES = ['holding', 'logistics', 'fertiliser', 'chemicals']
 const id = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(4, '0')}`
+
+/** Unit of the i-th seeded employee: section staff belong to their plant, the rest spread over the four units. */
+export function employeeEntity(i: number) {
+  const unit = [12, 13, 14, 15, 9, 10, 11, 4, 5, 6, 7, 8][i % 12]!
+  return unit >= 12 ? (unit === 14 ? 'fertiliser' : unit === 15 ? 'logistics' : 'chemicals') : ENTITIES[i % 4]!
+}
+/** Pay of the i-th seeded employee, shared by the employee master and the seeded payslips. */
+export function salaryOf(i: number) {
+  const baseSalary = 5_500_000 + (i % 9) * 750_000
+  return { baseSalary, allowance: Math.round(baseSalary * 0.15), ptkp: ['TK/0', 'K/0', 'K/1', 'K/2', 'TK/1', 'K/3'][i % 6]! }
+}
 const roleId = (name: string) => id('ROL', Math.max(0, ROLES.findIndex((r) => r.name === name)))
 
 /** Org tree: [name, level, parent index, entity]. */
@@ -109,6 +121,19 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
     count: 30,
     make: ({ i, day, int, pick }) => ({ employee: id('EMP', (i * 3) % 60), date: day(-75, 0), hours: int(2, 6), reason: pick(['Reactor turnaround', 'Tanker loading backlog', 'Month-end close', 'Shutdown maintenance', 'Stock opname']) }),
   },
+  // Four months of payslips for every employee: the newest waits for its payroll run to be paid.
+  'hrs.payslips': {
+    count: 240,
+    make: ({ i }) => {
+      const e = i % 60
+      const { baseSalary, allowance, ptkp } = salaryOf(e)
+      return { employee: id('EMP', e), period: month(Math.floor(i / 60)), entity: employeeEntity(e), base: baseSalary, allowance, overtime: 0, bpjs: bpjsOf(baseSalary), pph21: pph21(baseSalary + allowance, ptkp), loan: 0, _status: i < 60 ? 'calculated' : 'paid' }
+    },
+  },
+  'hrs.shiftswaps': {
+    count: 8,
+    make: ({ i, day, pick }) => ({ employee: id('EMP', (i * 7) % 60), date: day(1, 12), partner: id('EMP', (i * 7 + 12) % 60), reason: pick(['Acara keluarga', 'Kontrol dokter', 'Kuliah malam', 'Antar anak sekolah']), _status: i % 3 === 0 ? 'approved' : 'submitted' }),
+  },
   'hrs.payroll': {
     count: 24,
     make: ({ i, int }) => {
@@ -153,11 +178,11 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
 
   'fin.payables': {
     count: 36,
-    make: ({ i, day, int, ref }) => ({ invoiceNo: `INV/${2026}/${String(4100 + i * 7)}`, vendor: ref('mdm.partners'), po: ref('vms.orders'), entity: ENTITIES[i % 4], amount: int(80, 4200) * 1e6, due: day(-40, 60) }),
+    make: ({ i, day, int, ref }) => ({ invoiceNo: `INV/${2026}/${String(4100 + i * 7)}`, vendor: ref('mdm.partners'), po: ref('vms.orders'), entity: ENTITIES[i % 4], ...(i % 9 === 4 ? { amount: int(20, 400) * 1000, currency: 'USD', rate: 15_900 } : { amount: int(80, 4200) * 1e6, currency: 'IDR' }), tax: i % 5 === 3 ? 'Tanpa PPN' : 'PPN 11%', withholding: i % 6 === 0 ? 'PPh 23 2%' : 'Tanpa PPh', due: day(-40, 60) }),
   },
   'fin.receivables': {
     count: 36,
-    make: ({ i, day, int, ref }) => ({ invoiceNo: `SAT/AR/${String(8800 + i * 5)}`, customer: ref('mdm.partners'), entity: ENTITIES[(i + 1) % 4], amount: int(120, 6000) * 1e6, due: day(-60, 45) }),
+    make: ({ i, day, int, ref }) => ({ invoiceNo: `SAT/AR/${String(8800 + i * 5)}`, customer: ref('mdm.partners'), entity: ENTITIES[(i + 1) % 4], ...(i % 9 === 2 ? { amount: int(30, 500) * 1000, currency: 'USD', rate: 15_900 } : { amount: int(120, 6000) * 1e6, currency: 'IDR' }), tax: i % 5 === 1 ? 'Tanpa PPN' : 'PPN 11%', due: day(-60, 45) }),
   },
   'fin.payments': { count: 20, make: ({ i, day, int, ref }) => ({ reference: `PAY-${String(310 + i)}`, invoice: ref('fin.payables'), bank: ref('mdm.banks'), amount: int(80, 3000) * 1e6, date: day(-90, 5) }) },
   'fin.taxinvoices': { count: 24, make: ({ i, int, pick, ref }) => ({ number: `010.${String(26 + (i % 2))}.${String(73100000 + i * 37)}`, invoice: ref('fin.receivables'), tax: pick(['PPN 11%', 'PPN 11%', 'PPN 12%', 'PPh 22', 'PPh 23']), base: int(100, 5000) * 1e6 }) },

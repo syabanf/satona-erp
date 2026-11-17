@@ -17,6 +17,7 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['1160', 'Bank USD', 'Asset', 'Cash and bank', '1100', 0],
   ['1200', 'Piutang', 'Asset', 'Receivable', '1000', -1],
   ['1210', 'Piutang usaha', 'Asset', 'Receivable', '1200', 1],
+  ['1215', 'Selisih kurs piutang', 'Asset', 'Receivable', '1200', 1],
   ['1220', 'Piutang antarunit', 'Asset', 'Receivable', '1200', 4],
   ['1230', 'Uang muka karyawan', 'Asset', 'Receivable', '1200', 1],
   ['1300', 'Persediaan', 'Asset', 'Inventory', '1000', -1],
@@ -36,7 +37,9 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['2000', 'Liabilitas', 'Liability', 'Payable', '', -1],
   ['2100', 'Utang usaha', 'Liability', 'Payable', '2000', -1],
   ['2110', 'Utang usaha pemasok', 'Liability', 'Payable', '2100', 5],
+  ['2115', 'Selisih kurs utang', 'Liability', 'Payable', '2100', 5],
   ['2120', 'Utang antarunit', 'Liability', 'Payable', '2100', 8],
+  ['2130', 'Barang diterima belum ditagih', 'Liability', 'Payable', '2100', 5],
   ['2200', 'Utang pajak', 'Liability', 'Tax', '2000', -1],
   ['2210', 'PPN keluaran', 'Liability', 'Tax', '2200', 6],
   ['2220', 'Utang PPh 21', 'Liability', 'Tax', '2200', 6],
@@ -66,6 +69,7 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['6500', 'Utilitas', 'Expense', 'Operating expense', '6000', 18],
   ['6600', 'Administrasi dan umum', 'Expense', 'Operating expense', '6000', 19],
   ['6900', 'Beban lain', 'Expense', 'Operating expense', '6000', 21],
+  ['6950', 'Rugi (laba) selisih kurs', 'Expense', 'Operating expense', '6000', 21],
 ]
 const acc = (code: string) => id('ACC', COA.findIndex((a) => a[0] === code))
 const isHeader = (code: string) => COA.some((a) => a[4] === code)
@@ -127,6 +131,16 @@ function buildJournals(): Spec[] {
 
 const JOURNALS = buildJournals()
 const LINES = JOURNALS.flatMap((j, ji) => j.lines.map(([code, debit, credit]) => ({ journal: id('JE', ji), account: acc(code), debit, credit, memo: j.description })))
+/**
+ * The statement of the Mandiri rupiah account for the last 40 days: every posted bank movement except each seventh one
+ * (still in transit), plus three lines only the bank knows about. Older lines are already matched to their journal.
+ */
+const STATEMENT = [
+  ...JOURNALS.flatMap((j, ji) => (j.status === 'posted' && j.day >= -40 ? j.lines.filter(([code]) => code === '1120').map(([, d, c]) => ({ day: j.day + 1, description: j.description, amount: d - c, journal: ji, matched: j.day < -14 })) : [])).filter((_, i) => i % 7 !== 6),
+  { day: -9, description: 'Biaya administrasi bank', amount: -350_000, journal: -1, matched: false },
+  { day: -6, description: 'Jasa giro', amount: 1_240_000, journal: -1, matched: false },
+  { day: -3, description: 'Transfer masuk tanpa keterangan', amount: 18_500_000, journal: -1, matched: false },
+]
 /** Yearly budget share of revenue per expense account, for the budget against actual report. */
 const BUDGET_SHARE: ReadonlyArray<[code: string, share: number]> = [['6100', 0.085], ['6200', 0.028], ['6300', 0.045], ['6400', 0.022], ['6500', 0.012], ['6600', 0.01]]
 
@@ -146,6 +160,13 @@ export const LEDGER_SEEDS: Record<string, { count: number; make: Make }> = {
     },
   },
   'fin.journallines': { count: LINES.length, make: ({ i }): Values => LINES[i]! },
+  'fin.statementlines': {
+    count: STATEMENT.length,
+    make: ({ i, day }): Values => {
+      const s = STATEMENT[i]!
+      return { bank: id('HB', 0), date: day(s.day, s.day), description: s.description, amount: s.amount, journal: s.matched ? id('JE', s.journal) : '', _status: s.matched ? 'matched' : 'unmatched' }
+    },
+  },
   'epm.budgetlines': {
     // FY2026 budgets are rows 5 to 8 of the budget seed, one per unit in the same order as UNITS.
     count: UNITS.length * BUDGET_SHARE.length,

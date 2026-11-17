@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, CalendarCheck, Download, Printer, TrendingDown } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, Download, FileSpreadsheet, Printer, RefreshCw, TrendingDown } from 'lucide-react'
+import { efakturRows, fxRevaluation } from '@/domain/bank'
 import { closingEntry, depreciationRun } from '@/domain/ledger'
 import { APP_NAME } from '@/lib/brand'
 import { cn } from '@/lib/cn'
@@ -100,6 +101,8 @@ export default function ReportsPage() {
   const year = Number(today.slice(0, 4))
   const depreciation = depreciationRun(data, period)
   const closes = Object.keys(ENTITY_NAME).flatMap((e) => closingEntry(data, e, year) ?? [])
+  const revaluation = fxRevaluation(data, today)
+  const efaktur = efakturRows(data)
 
   const post = async (what: string, postings: typeof depreciation, done: string) => {
     setBusy(what)
@@ -113,13 +116,14 @@ export default function ReportsPage() {
       setClosing(false)
     }
   }
-  const exportCsv = () => {
+  const download = (rows: ReadonlyArray<ReadonlyArray<string | number>>, name: string) => {
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([`﻿${toCsv([[report.title, report.note], report.columns, ...report.rows.map((r) => r.cells)])}`], { type: 'text/csv;charset=utf-8' }))
-    a.download = `${tab}-${to}.csv`
+    a.href = URL.createObjectURL(new Blob([`﻿${toCsv(rows)}`], { type: 'text/csv;charset=utf-8' }))
+    a.download = name
     a.click()
     URL.revokeObjectURL(a.href)
   }
+  const exportCsv = () => download([[report.title, report.note], report.columns, ...report.rows.map((r) => r.cells)], `${tab}-${to}.csv`)
 
   return (
     <div className="space-y-4">
@@ -179,6 +183,26 @@ export default function ReportsPage() {
       <Card>
         <h2 className="text-lg font-semibold">Proses akhir periode</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <RefreshCw aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">Revaluasi kurs {period}</span>
+              <span className="block text-xs text-muted">{revaluation.length ? `${revaluation.length} unit punya faktur valas terbuka` : 'Tidak ada faktur valas yang perlu direvaluasi'}</span>
+            </span>
+            <Button size="sm" variant="card" disabled={!revaluation.length} loading={busy === 'fx'} onClick={() => post('fx', revaluation, 'jurnal revaluasi diposting')}>
+              Revaluasi
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <FileSpreadsheet aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">Ekspor e-Faktur</span>
+              <span className="block text-xs text-muted">{efaktur.length - 1} faktur pajak keluaran, format impor e-Faktur</span>
+            </span>
+            <Button size="sm" variant="card" disabled={efaktur.length < 2} onClick={() => download(efaktur, `efaktur-${period}.csv`)}>
+              <Download aria-hidden className="size-4" /> CSV
+            </Button>
+          </div>
           <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
             <TrendingDown aria-hidden className="size-5 text-muted" />
             <span className="min-w-0 flex-1 basis-40 text-sm">

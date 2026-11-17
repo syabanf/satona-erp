@@ -26,7 +26,7 @@ export interface SelfItem {
   type?: string
   /** The employee files these themself. */
   create?: boolean
-  /** The employee writes their own rows without a request form: clocking in and out. */
+  /** The employee writes their own rows without a request form: clocking in and out, filling in a 360 review. */
   clock?: boolean
   /** Only for roles that lead a team. */
   lead?: boolean
@@ -41,6 +41,7 @@ export const SELF_MENU: ReadonlyArray<[group: string, items: readonly SelfItem[]
   ]],
   ['Kehadiran', [
     { id: 'attendance', label: 'Absensi', type: 'hrs.attendance', clock: true },
+    { id: 'corrections', label: 'Koreksi absensi', type: 'hrs.corrections', create: true },
     { id: 'leaves', label: 'Izin & cuti', type: 'hrs.leaves', create: true },
     { id: 'overtime', label: 'Lembur', type: 'hrs.overtime', create: true },
     { id: 'team', label: 'Shift tim', type: 'hrs.shiftswaps', create: true },
@@ -49,17 +50,28 @@ export const SELF_MENU: ReadonlyArray<[group: string, items: readonly SelfItem[]
     { id: 'payslips', label: 'Slip gaji', type: 'hrs.payslips' },
     { id: 'loans', label: 'Pinjaman', type: 'hrs.loans', create: true },
     { id: 'advances', label: 'Kasbon', type: 'fin.advances', create: true },
+    { id: 'expenses', label: 'Klaim biaya', type: 'hrs.expenses', create: true },
   ]],
-  ['Pengembangan', [
+  ['Kinerja', [
     { id: 'appraisals', label: 'KPI saya', type: 'hrs.appraisals' },
-    { id: 'trainings', label: 'Pelatihan', type: 'hrs.trainings' },
+    { id: 'reviews', label: 'Penilaian kinerja', type: 'hrs.reviews' },
+    { id: 'feedback', label: 'Penilaian 360', type: 'hrs.feedback360', clock: true },
+    { id: 'logbook', label: 'Logbook harian', type: 'hrs.logbook', create: true },
+  ]],
+  ['Pelatihan', [
+    { id: 'courses', label: 'Kursus saya', type: 'hrs.enrollments' },
+    { id: 'trainings', label: 'Riwayat pelatihan', type: 'hrs.trainings' },
   ]],
   ['K3', [
     { id: 'mcu', label: 'Cek kesehatan', type: 'she.mcu' },
     { id: 'licences', label: 'Lisensi K3', type: 'she.licences' },
     { id: 'ppe', label: 'APD saya', type: 'she.ppeissues' },
   ]],
-  ['Akun', [{ id: 'profile', label: 'Profil saya' }]],
+  ['Akun', [
+    { id: 'profile', label: 'Profil saya' },
+    { id: 'changes', label: 'Perubahan data', type: 'hrs.profilechanges', create: true },
+    { id: 'resign', label: 'Pengajuan resign', type: 'hrs.resignations', create: true },
+  ]],
 ]
 
 /** A role leads a team when its title says so; the administrator stands in for any lead. */
@@ -101,7 +113,7 @@ export function leaveBalance(leaves: readonly ErpRecord[], year: string) {
 export const teamOf = (me: ErpRecord, employees: readonly ErpRecord[]) => employees.filter((e) => e.status === 'active' && e.values.orgunit === me.values.orgunit)
 
 /** Requests a supervisor decides from the employee area. */
-export const TEAM_TYPES = ['hrs.leaves', 'hrs.overtime', 'hrs.shiftswaps'] as const
+export const TEAM_TYPES = ['hrs.leaves', 'hrs.overtime', 'hrs.shiftswaps', 'hrs.corrections', 'hrs.expenses', 'hrs.logbook', 'hrs.resignations'] as const
 
 /** Requests of the supervisor's team that wait for a decision; their own requests go to their own superior. */
 export function teamRequests(all: Readonly<Record<string, readonly ErpRecord[]>>, me: ErpRecord) {
@@ -111,17 +123,35 @@ export function teamRequests(all: Readonly<Record<string, readonly ErpRecord[]>>
 
 const dayNumber = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 86_400_000)
 
-/**
- * The shift an employee works on a date: crews rotate through the shift patterns week by week, Sunday is the rest day,
- * and an approved swap on that date gives each of the two the other's shift.
- */
-export function shiftOn(employee: ErpRecord, date: string, shifts: readonly ErpRecord[], swaps: readonly ErpRecord[] = []): ErpRecord | undefined {
-  const swap = swaps.find((s) => s.status === 'approved' && s.values.date === date && (s.values.employee === employee.id || s.values.partner === employee.id))
-  const id = swap ? String(swap.values.employee === employee.id ? swap.values.partner : swap.values.employee) : employee.id
+export const CREWS = ['Office', 'A', 'B', 'C', 'D'] as const
+/** The continuous plant roster: two mornings, two afternoons, two nights, two days off, then again. */
+const CREW_CYCLE = ['Morning', 'Morning', 'Afternoon', 'Afternoon', 'Night', 'Night', undefined, undefined] as const
+/** Each crew starts the cycle two days after the one before, so every shift of every day has exactly one crew. */
+const CREW_OFFSET: Record<string, number> = { A: 0, B: 6, C: 4, D: 2 }
+
+/** The shift name the roster gives an employee on a date, before swaps: plant crews follow the cycle, office staff work Monday to Friday. */
+function rosterShift(employee: ErpRecord, date: string) {
   const day = dayNumber(date)
-  // 1970-01-01 was a Thursday, so day 3 is the first Sunday.
-  if ((day + 4) % 7 === 0 || !shifts.length) return undefined
-  return shifts[(hash(id) + Math.floor((day + 4) / 7)) % shifts.length]
+  const offset = CREW_OFFSET[String(employee.values.crew)]
+  if (offset !== undefined) return CREW_CYCLE[(day + offset) % CREW_CYCLE.length]
+  // 1970-01-01 was a Thursday: (day + 4) % 7 is 0 on Sunday and 6 on Saturday.
+  return (day + 4) % 7 === 0 || (day + 4) % 7 === 6 ? undefined : 'Office'
+}
+
+/**
+ * The shift an employee works on a date: the four plant crews rotate through morning, afternoon and night around the
+ * clock, office staff work weekdays, and an approved swap on that date gives each of the two the other's shift.
+ */
+export function shiftOn(employee: ErpRecord, date: string, shifts: readonly ErpRecord[], swaps: readonly ErpRecord[] = [], employees: readonly ErpRecord[] = []): ErpRecord | undefined {
+  const swap = swaps.find((s) => s.status === 'approved' && s.values.date === date && (s.values.employee === employee.id || s.values.partner === employee.id))
+  const otherId = swap ? String(swap.values.employee === employee.id ? swap.values.partner : swap.values.employee) : undefined
+  const name = rosterShift((otherId && employees.find((e) => e.id === otherId)) || employee, date)
+  return name ? shifts.find((s) => s.values.name === name) : undefined
+}
+
+/** A rest day for the employee: a day off in their roster, or a national holiday or collective leave. */
+export function isRestDay(employee: ErpRecord, date: string, holidays: readonly ErpRecord[]) {
+  return !rosterShift(employee, date) || holidays.some((h) => h.values.date === date && h.status !== 'inactive' && h.values.kind !== 'Plant shutdown')
 }
 
 /** The seven dates of the week (Monday first) that holds `date`. */
@@ -135,4 +165,17 @@ export function weekOf(date: string): string[] {
 export function clockResult(time: string, shiftStart: string): 'On time' | 'Late' {
   const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
   return minutes(time) > minutes(shiftStart) + 5 ? 'Late' : 'On time'
+}
+
+/** Where a clock-in stands against the nearest work location: inside its radius, outside it, or without a position. */
+export function geofenceOf(position: { lat: number; lng: number } | undefined, locations: readonly ErpRecord[]) {
+  if (!position || !locations.length) return { state: 'No GPS' as const }
+  const rad = (d: number) => (d * Math.PI) / 180
+  const metres = (l: ErpRecord) => {
+    const [dLat, dLng] = [rad(Number(l.values.lat) - position.lat), rad(Number(l.values.lng) - position.lng)]
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(position.lat)) * Math.cos(rad(Number(l.values.lat))) * Math.sin(dLng / 2) ** 2
+    return Math.round(6_371_000 * 2 * Math.asin(Math.sqrt(a)))
+  }
+  const [nearest] = locations.map((l) => ({ name: String(l.values.name), distance: metres(l), radius: Number(l.values.radius) || 0 })).sort((a, b) => a.distance - b.distance)
+  return { state: nearest!.distance <= nearest!.radius ? ('Inside' as const) : ('Outside' as const), name: nearest!.name, distance: nearest!.distance }
 }

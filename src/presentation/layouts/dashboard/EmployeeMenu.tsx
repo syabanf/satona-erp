@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { BadgeCheck, Banknote, BarChart3, CalendarCheck, CheckCheck, Clock, GraduationCap, HardHat, HeartPulse, House, Megaphone, Receipt, Send, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, Banknote, BarChart3, BookOpen, CalendarCheck, CalendarClock, CheckCheck, Clock, DoorOpen, MessagesSquare, NotebookPen, ReceiptText, Star, UserRoundPen, GraduationCap, HardHat, HeartPulse, House, Megaphone, Receipt, Send, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { selfMenuFor, selfPath } from '@/domain/selfService'
 import { cn } from '@/lib/cn'
 import { useSession } from '../../hooks/useSession'
@@ -21,6 +21,14 @@ const SELF_ICON: Record<string, LucideIcon> = {
   licences: BadgeCheck,
   ppe: HardHat,
   profile: UserRound,
+  corrections: CalendarClock,
+  expenses: ReceiptText,
+  reviews: Star,
+  feedback: MessagesSquare,
+  logbook: NotebookPen,
+  courses: BookOpen,
+  changes: UserRoundPen,
+  resign: DoorOpen,
 }
 
 /** The employee area menu: every page one tap away under its group label. Collapsed, the labels become hairlines. */

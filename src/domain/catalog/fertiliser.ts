@@ -36,8 +36,13 @@ export const FERTILISER: readonly RecordType[] = [
     num('qty', 'Batch size', 't', { required: true, min: 1, list: true }),
     pick('line', 'Line', LINES, { required: true, list: true }),
     date('planned', 'Planned start', { required: true, list: true }),
+    num('output', 'Actual output', 't', { min: 0 }),
     money('materialCost', 'Material cost'),
-    calc('unitCost', 'Cost per tonne', (v) => Math.round(n(v, 'materialCost') / Math.max(1, n(v, 'qty'))), { unit: 'Rp' }),
+    money('conversionCost', 'Labour, overhead and energy'),
+    money('energyCost', 'Energy from meter readings'),
+    calc('unitCost', 'Cost per tonne', (v) => Math.round((n(v, 'materialCost') + n(v, 'conversionCost')) / Math.max(1, n(v, 'output') || n(v, 'qty'))), { unit: 'Rp' }),
+    num('yieldVariance', 'Yield variance', 'Rp'),
+    num('usageVariance', 'Usage and price variance', 'Rp'),
   ], flow(
     [
       ['planned', 'Planned', 'neutral'],
@@ -156,6 +161,7 @@ export const FERTILISER: readonly RecordType[] = [
     ref('jobPlan', 'Job plan', 'eam.jobplans'),
     ref('technician', 'Technician', 'eam.technicians', { required: true }),
     ref('failure', 'Failure mode', 'eam.failurecodes'),
+    ref('turnaround', 'Turnaround', 'eam.turnarounds', { parent: true }),
     date('due', 'Due', { required: true, list: true }),
     num('labourHours', 'Labour', 'h', { min: 0 }),
     num('downtimeHours', 'Downtime', 'h', { min: 0 }),
@@ -186,6 +192,18 @@ export const FERTILISER: readonly RecordType[] = [
       ['verified', 'closed', 'Close'],
     ],
   ), { sumField: 'cost', groupBy: 'kind', dateField: 'due' }),
+  type('eam', 'turnarounds', ['Turnarounds', 'Turnaround', 'TAR'], 'name', [
+    text('name', 'Name', { required: true, list: true }),
+    text('scope', 'Plant area', { required: true, list: true }),
+    date('start', 'Start', { required: true, list: true }),
+    date('end', 'End', { required: true, list: true }),
+    money('budget', 'Budget', { required: true, list: true }),
+    num('planned', 'Work orders', 'orders'),
+    num('done', 'Completed', 'orders'),
+    money('actual', 'Actual cost'),
+    calc('progress', 'Progress', (v) => Math.round((n(v, 'done') / Math.max(1, n(v, 'planned'))) * 100), { unit: '%', list: true }),
+    calc('remaining', 'Budget left', (v) => n(v, 'budget') - n(v, 'actual'), { unit: 'Rp', list: true }),
+  ], flow([['planned', 'Planned', 'neutral'], ['running', 'Running', 'warning'], ['closed', 'Closed', 'success']], [['planned', 'running', 'Start turnaround'], ['running', 'closed', 'Close turnaround', 'approve']]), { sumField: 'budget', dateField: 'start' }),
   type('eam', 'requests', ['Maintenance requests', 'Request', 'MR'], 'title', [
     text('title', 'What is wrong', { required: true, list: true }),
     ref('asset', 'Asset', 'eam.assets', { required: true, list: true }),
@@ -300,6 +318,32 @@ export const FERTILISER: readonly RecordType[] = [
     num('used', 'Used', 't', { required: true, min: 0 }),
     calc('usage', 'Usage', (v) => (n(v, 'quota') ? round1((n(v, 'used') / n(v, 'quota')) * 100) : 0), { unit: '%', list: true }),
   ], APPROVAL, { sumField: 'quota', groupBy: 'region' }),
+  type('dms', 'returns', ['Customer returns', 'Customer return', 'SRT'], 'reason', [
+    ref('order', 'Sales order', 'dms.orders', { required: true, parent: true, list: true }),
+    num('qty', 'Quantity', 't', { required: true, min: 0.1, list: true }),
+    pick('reason', 'Reason', ['Off-spec', 'Damaged bags', 'Wrong product', 'Over-delivery'], { required: true, list: true }),
+    pick('disposition', 'Disposition', ['Restock', 'Scrap'], { required: true, list: true }),
+  ], flow([['requested', 'Requested', 'neutral'], ['received', 'Received back', 'info'], ['credited', 'Credited', 'success']], [
+    ['requested', 'received', 'Receive goods', 'approve'],
+    ['received', 'credited', 'Raise credit note'],
+  ]), { sumField: 'qty', groupBy: 'reason' }),
+  type('dms', 'sellthrough', ['Consignment sales reports', 'Consignment sales report', 'CSL'], 'date', [
+    ref('order', 'Consignment order', 'dms.orders', { required: true, parent: true, list: true }),
+    num('qty', 'Quantity sold', 't', { required: true, min: 0.1, list: true }),
+    date('date', 'Reported on', { required: true, list: true }),
+  ], flow([['draft', 'Draft', 'neutral'], ['reported', 'Reported', 'success']], [['draft', 'reported', 'Confirm report']]), { sumField: 'qty', dateField: 'date' }),
+  type('dms', 'subsidyclaims', ['Subsidy claims', 'Subsidy claim', 'SBC'], 'period', [
+    text('period', 'Period', { required: true, list: true }),
+    num('qty', 'Subsidised volume', 't', { required: true, min: 0, list: true }),
+    money('amount', 'Claim amount', { required: true, list: true }),
+    text('reference', 'Verification reference'),
+  ], flow([['draft', 'Draft', 'neutral'], ['submitted', 'Submitted', 'info'], ['verified', 'Verified', 'warning'], ['paid', 'Paid', 'success'], ['rejected', 'Rejected', 'danger']], [
+    ['draft', 'submitted', 'Submit'],
+    ['submitted', 'verified', 'Record verification', 'approve'],
+    ['submitted', 'rejected', 'Reject', 'approve'],
+    ['verified', 'paid', 'Record payment'],
+    ['rejected', 'draft', 'Reopen'],
+  ]), { sumField: 'amount', groupBy: 'period' }),
   type('dms', 'orders', ['Sales orders', 'Sales order', 'SO'], 'product', [
     ref('distributor', 'Distributor', 'dms.distributors', { required: true, list: true }),
     pick('product', 'Product', PRODUCTS, { required: true, list: true }),
@@ -307,6 +351,8 @@ export const FERTILISER: readonly RecordType[] = [
     num('qty', 'Quantity', 't', { required: true, min: 1 }),
     money('value', 'Value', { required: true, list: true }),
     date('date', 'Order date', { required: true, list: true }),
+    pick('terms', 'Sales terms', ['Sale', 'Consignment']),
+    num('sold', 'Sold through', 't', { min: 0 }),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -350,6 +396,8 @@ export const FERTILISER_MASTERS: readonly RecordType[] = [
     num('minStock', 'Minimum stock', 'pcs', { required: true, min: 0 }),
     calc('reorder', 'Reorder', (v) => (n(v, 'onHand') <= n(v, 'minStock') ? 'Yes' : 'No'), { list: true }),
     money('unitCost', 'Unit cost'),
+    num('dailyUse', 'Daily use', 'pcs', { min: 0 }),
+    num('leadTime', 'Supplier lead time', 'days', { min: 0 }),
   ], ACTIVE, { groupBy: 'reorder' }),
   master('eam', 'plans', ['Maintenance plans', 'Maintenance plan', 'MP'], 'task', [
     text('task', 'Task list', { required: true, list: true }),
@@ -398,6 +446,7 @@ export const CMMS_MASTERS: readonly RecordType[] = [
     pick('shift', 'Shift', ['A', 'B', 'C', 'Day'], { required: true, list: true }),
     num('level', 'Skill level', '/3', { required: true, min: 1, max: 3 }),
     money('hourlyCost', 'Hourly cost', { list: true }),
+    ref('employee', 'Employee record', 'mdm.employees'),
   ], ACTIVE, { groupBy: 'team' }),
   master('eam', 'tools', ['Tools', 'Tool', 'TL'], 'name', [
     text('name', 'Tool', { required: true, list: true }),
@@ -532,6 +581,14 @@ export const MES_TYPES: readonly RecordType[] = [
       ['dispositioned', 'released', 'Release hold', 'approve'],
     ],
   ), { sumField: 'qty', groupBy: 'disposition' }),
+  type('mes', 'utilities', ['Utility readings', 'Utility reading', 'UTL'], 'kind', [
+    date('date', 'Date', { required: true, list: true }),
+    pick('line', 'Line', LINES, { required: true, list: true }),
+    pick('kind', 'Utility', ['Electricity (kWh)', 'Natural gas (MMBTU)', 'Water (m³)', 'Steam (t)'], { required: true, list: true }),
+    num('qty', 'Consumption', 'units', { required: true, min: 0, list: true }),
+    money('rate', 'Rate per unit', { required: true }),
+    calc('cost', 'Cost', (v) => Math.round(n(v, 'qty') * n(v, 'rate')), { unit: 'Rp', list: true }),
+  ], flow([['logged', 'Logged', 'info'], ['verified', 'Verified', 'success']], [['logged', 'verified', 'Verify']]), { sumField: 'cost', groupBy: 'kind', dateField: 'date' }),
   type('mes', 'ncr', ['Non-conformance reports', 'NCR', 'NCR'], 'title', [
     text('title', 'Non-conformance', { required: true, list: true }),
     ref('order', 'Production order', 'bpf.orders', { list: true }),

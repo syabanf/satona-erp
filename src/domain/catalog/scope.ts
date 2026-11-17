@@ -312,6 +312,16 @@ export const SCOPE: readonly RecordType[] = [
     [['logged', 'acknowledged', 'Acknowledge']],
   ), { groupBy: 'alarm', dateField: 'date' }),
 
+  type('wms', 'weighings', ['Weighbridge tickets', 'Weighbridge ticket', 'WBT'], 'plate', [
+    pick('direction', 'Direction', ['Inbound', 'Outbound'], { required: true, list: true }),
+    text('plate', 'Vehicle plate', { required: true, list: true }),
+    ref('receipt', 'Goods receipt', 'vms.receipts'),
+    ref('order', 'Sales order', 'dms.orders'),
+    num('gross', 'Gross weight', 't', { required: true, min: 0 }),
+    num('tare', 'Tare weight', 't', { min: 0 }),
+    calc('net', 'Net weight', (v) => (n(v, 'tare') ? round1((n(v, 'gross') - n(v, 'tare')) * 100) / 100 : 0), { unit: 't', list: true }),
+    date('date', 'Date', { required: true, list: true }),
+  ], flow([['first', 'First weighing', 'info'], ['completed', 'Completed', 'success']], [['first', 'completed', 'Record second weighing']]), { sumField: 'net', groupBy: 'direction', dateField: 'date' }),
   type('wms', 'tasks', ['Putaway & picking tasks', 'Warehouse task', 'WT'], 'task', [
     text('task', 'Task', { required: true, list: true }),
     pick('kind', 'Kind', ['Putaway', 'Picking'], { required: true, list: true }),

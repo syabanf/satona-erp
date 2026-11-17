@@ -20,10 +20,12 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['1215', 'Selisih kurs piutang', 'Asset', 'Receivable', '1200', 1],
   ['1220', 'Piutang antarunit', 'Asset', 'Receivable', '1200', 4],
   ['1230', 'Uang muka karyawan', 'Asset', 'Receivable', '1200', 1],
+  ['1240', 'Piutang subsidi pemerintah', 'Asset', 'Receivable', '1200', 1],
   ['1300', 'Persediaan', 'Asset', 'Inventory', '1000', -1],
   ['1310', 'Persediaan bahan baku', 'Asset', 'Inventory', '1300', 2],
   ['1320', 'Barang dalam proses', 'Asset', 'Inventory', '1300', 2],
   ['1330', 'Persediaan barang jadi', 'Asset', 'Inventory', '1300', 2],
+  ['1335', 'Barang konsinyasi di distributor', 'Asset', 'Inventory', '1300', 2],
   ['1340', 'Persediaan suku cadang', 'Asset', 'Inventory', '1300', 2],
   ['1400', 'Pajak dibayar di muka', 'Asset', 'Tax', '1000', -1],
   ['1410', 'PPN masukan', 'Asset', 'Tax', '1400', 1],
@@ -54,6 +56,7 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['3200', 'Laba ditahan', 'Equity', 'Equity', '3000', 10],
   ['4000', 'Pendapatan', 'Revenue', 'Revenue', '', -1],
   ['4100', 'Penjualan pupuk', 'Revenue', 'Revenue', '4000', 12],
+  ['4110', 'Pendapatan subsidi pupuk', 'Revenue', 'Revenue', '4000', 12],
   ['4200', 'Penjualan kimia', 'Revenue', 'Revenue', '4000', 13],
   ['4300', 'Pendapatan jasa angkutan', 'Revenue', 'Revenue', '4000', 14],
   ['4900', 'Pendapatan lain', 'Revenue', 'Revenue', '4000', 15],
@@ -61,6 +64,10 @@ const COA: ReadonlyArray<[string, string, string, string, string, number]> = [
   ['5100', 'HPP pupuk', 'Expense', 'Cost of goods sold', '5000', 16],
   ['5200', 'HPP kimia', 'Expense', 'Cost of goods sold', '5000', 16],
   ['5300', 'Biaya langsung angkutan', 'Expense', 'Cost of goods sold', '5000', 17],
+  ['5410', 'Selisih rendemen produksi', 'Expense', 'Cost of goods sold', '5000', 16],
+  ['5420', 'Selisih pemakaian dan harga bahan', 'Expense', 'Cost of goods sold', '5000', 16],
+  ['5430', 'Selisih stok opname', 'Expense', 'Cost of goods sold', '5000', 16],
+  ['5440', 'Revaluasi persediaan barang jadi', 'Expense', 'Cost of goods sold', '5000', 16],
   ['6000', 'Beban operasi', 'Expense', 'Operating expense', '', -1],
   ['6100', 'Gaji dan tunjangan', 'Expense', 'Operating expense', '6000', 19],
   ['6200', 'BBM dan energi', 'Expense', 'Operating expense', '6000', 17],
@@ -125,6 +132,9 @@ function buildJournals(): Spec[] {
   }
   // One investment and one loan repayment, so the cash-flow statement has all three activities.
   out.push({ description: 'Pembelian tangki penyimpanan baru', entity: 'chemicals', day: -95, source: 'Payment', status: 'posted', lines: [['1520', 18 * B, 0], ['1120', 0, 18 * B]] })
+  // Head office funds the logistics unit: an intercompany balance the consolidation eliminates.
+  out.push({ description: 'Pinjaman antarunit ke Unit Logistik', entity: 'holding', day: -120, source: 'Manual', status: 'posted', lines: [['1220', 5 * B, 0], ['1120', 0, 5 * B]] })
+  out.push({ description: 'Pinjaman antarunit dari Kantor Pusat', entity: 'logistics', day: -120, source: 'Manual', status: 'posted', lines: [['1120', 5 * B, 0], ['2120', 0, 5 * B]] })
   out.push({ description: 'Angsuran pinjaman bank', entity: 'fertiliser', day: -40, source: 'Payment', status: 'posted', lines: [['2510', 12 * B, 0], ['1120', 0, 12 * B]] })
   return out
 }
@@ -140,6 +150,13 @@ const STATEMENT = [
   { day: -9, description: 'Biaya administrasi bank', amount: -350_000, journal: -1, matched: false },
   { day: -6, description: 'Jasa giro', amount: 1_240_000, journal: -1, matched: false },
   { day: -3, description: 'Transfer masuk tanpa keterangan', amount: 18_500_000, journal: -1, matched: false },
+]
+const RECURRING: ReadonlyArray<[string, string, string, number, string, string]> = [
+  ['Sewa kantor pusat', '6600', '1120', 85e6, 'Monthly', 'holding'],
+  ['Asuransi armada', '6600', '2310', 42e6, 'Monthly', 'logistics'],
+  ['Langganan sistem ERP', '6600', '1120', 30e6, 'Monthly', 'holding'],
+  ['Amortisasi lisensi proses', '6400', '1590', 120e6, 'Quarterly', 'chemicals'],
+  ['Audit tahunan', '6600', '2310', 450e6, 'Yearly', 'holding'],
 ]
 /** Yearly budget share of revenue per expense account, for the budget against actual report. */
 const BUDGET_SHARE: ReadonlyArray<[code: string, share: number]> = [['6100', 0.085], ['6200', 0.028], ['6300', 0.045], ['6400', 0.022], ['6500', 0.012], ['6600', 0.01]]
@@ -165,6 +182,21 @@ export const LEDGER_SEEDS: Record<string, { count: number; make: Make }> = {
     make: ({ i, day }): Values => {
       const s = STATEMENT[i]!
       return { bank: id('HB', 0), date: day(s.day, s.day), description: s.description, amount: s.amount, journal: s.matched ? id('JE', s.journal) : '', _status: s.matched ? 'matched' : 'unmatched' }
+    },
+  },
+  'fin.cashmoves': {
+    count: 12,
+    make: ({ i, day, int }): Values => {
+      const kind = ['Cash in', 'Cash out', 'Transfer'][i % 3]!
+      const [description, code] = ([['Penerimaan sewa gudang', '4900'], ['Bayar listrik dan air', '6500'], ['Pindah dana ke BNI', '']] as const)[i % 3]!
+      return { kind, description, bank: id('HB', 0), account: code ? acc(code) : '', toBank: kind === 'Transfer' ? id('HB', 1) : '', entity: 'holding', amount: int(5, 240) * 1e6, date: day(-3, 0), _status: 'draft' }
+    },
+  },
+  'fin.recurring': {
+    count: RECURRING.length,
+    make: ({ i, day }): Values => {
+      const [description, debit, credit, amount, frequency, entity] = RECURRING[i]!
+      return { description, entity, debit: acc(debit), credit: acc(credit), amount, frequency, nextRun: day(i < 3 ? -2 : 20, i < 3 ? -2 : 20), _status: 'active' }
     },
   },
   'epm.budgetlines': {

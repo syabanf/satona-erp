@@ -11,6 +11,9 @@ import { OwnRecords } from './OwnRecords'
 
 const dayMonth = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 
+/** Shift patterns are stored under their English names; the roster shows the Indonesian ones. */
+export const shiftLabel = (shift: { values: Record<string, unknown> }) => ({ Office: 'Kantor', Morning: 'Pagi', Afternoon: 'Siang', Night: 'Malam' } as Record<string, string>)[String(shift.values.name)] ?? String(shift.values.name)
+
 export const WEEKDAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as const
 
 /** The team's shift roster week by week, with approved swaps applied, and the employee's own swap requests below. */
@@ -63,13 +66,13 @@ export function Team({ item, all, me }: { item: SelfItem; all: AllRecords; me: E
                     {e.id === me.id && <span className="font-normal text-muted"> (Anda)</span>}
                   </th>
                   {week.map((d) => {
-                    const shift = shiftOn(e, d, shifts, swaps)
+                    const shift = shiftOn(e, d, shifts, swaps, team)
                     const swapped = shift && shift !== shiftOn(e, d, shifts)
                     return (
                       <td key={d} className="px-1 py-1.5 text-center">
                         <span className={cn('inline-flex min-w-16 items-center justify-center gap-1 rounded-full px-2 py-1 text-xs', !shift ? 'text-subtle' : swapped ? 'bg-info-soft text-info-text' : 'bg-control')}>
                           {swapped && <ArrowLeftRight aria-label="Tukar shift" className="size-3" />}
-                          {shift ? String(shift.values.name) : 'Libur'}
+                          {shift ? shiftLabel(shift) : 'Libur'}
                         </span>
                       </td>
                     )
@@ -80,7 +83,7 @@ export function Team({ item, all, me }: { item: SelfItem; all: AllRecords; me: E
           </table>
         </div>
         <p className="mt-3 text-xs text-muted">
-          {shifts.map((s) => `${String(s.values.name)} ${String(s.values.start)} sampai ${String(s.values.end)}`).join(' · ')}. Tukar shift yang disetujui atasan bertanda panah.
+          {shifts.map((s) => `${shiftLabel(s)} ${String(s.values.start)} sampai ${String(s.values.end)}`).join(' · ')}. Tukar shift yang disetujui atasan bertanda panah.
         </p>
       </Card>
       <h2 className="pt-2 text-lg font-semibold">Tukar shift saya</h2>

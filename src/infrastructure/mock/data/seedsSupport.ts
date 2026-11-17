@@ -15,7 +15,7 @@ export function employeeEntity(i: number) {
 /** Pay of the i-th seeded employee, shared by the employee master and the seeded payslips. */
 export function salaryOf(i: number) {
   const baseSalary = 5_500_000 + (i % 9) * 750_000
-  return { baseSalary, allowance: Math.round(baseSalary * 0.15), ptkp: ['TK/0', 'K/0', 'K/1', 'K/2', 'TK/1', 'K/3'][i % 6]! }
+  return { bankAccount: `${['Mandiri', 'BNI', 'BRI', 'BCA'][i % 4]} ${String(1420000000 + i * 7919)}`, baseSalary, allowance: Math.round(baseSalary * 0.15), ptkp: ['TK/0', 'K/0', 'K/1', 'K/2', 'TK/1', 'K/3'][i % 6]! }
 }
 const roleId = (name: string) => id('ROL', Math.max(0, ROLES.findIndex((r) => r.name === name)))
 
@@ -186,6 +186,11 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fin.payments': { count: 20, make: ({ i, day, int, ref }) => ({ reference: `PAY-${String(310 + i)}`, invoice: ref('fin.payables'), bank: ref('mdm.banks'), amount: int(80, 3000) * 1e6, date: day(-90, 5) }) },
   'fin.taxinvoices': { count: 24, make: ({ i, int, pick, ref }) => ({ number: `010.${String(26 + (i % 2))}.${String(73100000 + i * 37)}`, invoice: ref('fin.receivables'), tax: pick(['PPN 11%', 'PPN 11%', 'PPN 12%', 'PPh 22', 'PPh 23']), base: int(100, 5000) * 1e6 }) },
+  'fin.creditnotes': { count: 6, make: ({ i, int, pick, ref }) => ({ invoice: ref('fin.receivables'), amount: int(5, 60) * 1e6, reason: pick(['Retur barang off-spec', 'Selisih timbang', 'Potongan harga kontrak', 'Koreksi tarif angkut']), _status: i < 3 ? 'submitted' : 'draft' }) },
+  'fin.dunning': { count: 8, make: ({ i, day, ref }) => ({ invoice: ref('fin.receivables'), level: ['First reminder', 'Second reminder', 'Final notice'][i % 3], sent: day(-30, 0), fee: i % 3 === 2 ? 500_000 : 0, _status: i < 5 ? 'sent' : 'draft' }) },
+  // Two runs already executed last month; the invoices they name are long paid.
+  'fin.paymentruns': { count: 2, make: ({ i, day, int }) => ({ description: `Pembayaran pemasok minggu ${i + 1}`, bank: id('HB', 0), date: day(-30 + i * 7, -30 + i * 7), invoices: `${id('API', i)}, ${id('API', i + 2)}`, count: 2, total: int(900, 4200) * 1e6, _status: 'executed' }) },
+  'fin.allocations': { count: 6, make: ({ i, int, day, ref }) => ({ description: ['Alokasi sewa kantor', 'Alokasi listrik pabrik', 'Alokasi biaya TI'][i % 3], entity: ENTITIES[i % 4], account: '', fromCenter: ref('mdm.costcenters'), toCenter: ref('mdm.costcenters'), amount: int(5, 80) * 1e6, date: day(-20, 0), _status: 'draft' }) },
   'fin.reconciliations': {
     count: 16,
     make: ({ i, int }) => {
@@ -201,18 +206,18 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'fin.assets': {
     count: 18,
-    make: ({ i, int, pick, day }) => ({ acquired: day(-(300 + i * 170), -(300 + i * 170)), salvage: 0, name: pick(['Acid cooler HX-3', 'Sulfur melter', 'Storage tank T-104', 'Tanker B 9123 TRK', 'Granulator drum', 'Lab HPLC', 'Warehouse Lampung roof', 'Plant DCS servers']), entity: ENTITIES[(i + 3) % 4], class: pick(['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment']), cost: int(2, 90) * 1e9, life: pick([5, 8, 10, 15, 20, 25]) }),
+    make: ({ i, int, pick, day }) => ({ acquired: day(-(300 + i * 170), -(300 + i * 170)), salvage: 0, method: i % 4 === 3 ? 'Declining balance' : 'Straight line', name: pick(['Acid cooler HX-3', 'Sulfur melter', 'Storage tank T-104', 'Tanker B 9123 TRK', 'Granulator drum', 'Lab HPLC', 'Warehouse Lampung roof', 'Plant DCS servers']), entity: ENTITIES[(i + 3) % 4], class: pick(['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment']), cost: int(2, 90) * 1e9, life: pick([5, 8, 10, 15, 20, 25]) }),
   },
 
   'inv.stock': {
     count: 30,
     make: ({ i, int, day }) => {
       const minimum = int(20, 200)
-      return { material: id('MAT', i % 10), plant: id('PLT', 5 + (i % 6)), onHand: i % 6 === 0 ? Math.round(minimum * 0.6) : int(minimum + 20, minimum * 8), minimum, expiry: day(30, 540) }
+      return { material: id('MAT', i % 10), plant: id('PLT', 5 + (i % 6)), onHand: i % 6 === 0 ? Math.round(minimum * 0.6) : int(minimum + 20, minimum * 8), avgCost: (30 + ((i * 7) % 90)) * 100_000, minimum, expiry: day(30, 540) }
     },
   },
   'inv.adjustments': { count: 18, make: ({ int, pick, ref }) => ({ stock: ref('inv.stock'), qty: pick([-1, -1, 1]) * int(1, 40), reason: pick(['Count difference', 'Evaporation loss', 'Spillage', 'Reclassification', 'Damaged packaging']), value: int(5, 400) * 1e6 }) },
-  'inv.counts': { count: 12, make: ({ i, day, int }) => ({ plant: id('PLT', 5 + (i % 6)), scope: i % 2 ? 'Full count' : 'Cycle count: B3 class 8', date: day(-150, 20), items: int(40, 320), variance: Math.round(int(0, 28) * 10) / 100 }) },
+  'inv.counts': { count: 12, make: ({ i, day, int }) => ({ plant: id('PLT', 5 + (i % 6)), scope: i % 2 ? 'Full count' : 'Cycle count: B3 class 8', date: day(-150, 20), items: int(40, 320), variance: Math.round(int(0, 28) * 10) / 100, value: (i % 3 === 0 ? 1 : -1) * int(2, 60) * 1e6 }) },
   'inv.transfers': { count: 16, make: ({ i, int }) => ({ material: id('MAT', i % 10), from: id('PLT', 5 + (i % 3)), to: id('PLT', 8 + (i % 3)), qty: int(10, 400) }) },
   'inv.scrap': { count: 12, make: ({ i, int, pick }) => ({ material: id('MAT', i % 10), qty: Math.round(int(1, 300)) / 10, reason: pick(['Expired', 'Off-spec', 'Contaminated', 'Damaged packaging']), b3: i % 10 < 5 ? 'Yes' : 'No' }) },
 
@@ -292,7 +297,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
     make: ({ i, day, int, pick }) => {
       const kind = (['Hot work', 'Confined space', 'Work at height', 'Electrical LOTO', 'Excavation', 'Line breaking'] as const)[i % 6]
       const gas = kind === 'Confined space' || kind === 'Hot work' || kind === 'Line breaking'
-      return { job: pick(['Replace acid pump P-201 seal', 'Inspect tank T-104 internals', 'Weld support on pipe rack 3', 'Isolate MCC-2 for upgrade', 'Dig trench for fire water line', 'Open ammonia flange FL-12']), kind, area: id('WA', i % 10), contractor: pick(['PT Teknik Mandiri', 'In-house maintenance', 'PT Inspeksi Prima', 'PT Las Baja']), start: day(-120, 3), hours: pick([4, 8, 10, 12]), oxygen: gas ? 20 + int(0, 9) / 10 : undefined, lel: gas ? (i % 11 === 0 ? 14 : int(0, 6)) : undefined }
+      return { supervisor: i % 3 === 0 ? id('EMP', (i * 7) % 60) : '', job: pick(['Replace acid pump P-201 seal', 'Inspect tank T-104 internals', 'Weld support on pipe rack 3', 'Isolate MCC-2 for upgrade', 'Dig trench for fire water line', 'Open ammonia flange FL-12']), kind, area: id('WA', i % 10), contractor: pick(['PT Teknik Mandiri', 'In-house maintenance', 'PT Inspeksi Prima', 'PT Las Baja']), start: day(-120, 3), hours: pick([4, 8, 10, 12]), oxygen: gas ? 20 + int(0, 9) / 10 : undefined, lel: gas ? (i % 11 === 0 ? 14 : int(0, 6)) : undefined }
     },
   },
   'she.jsa': {

@@ -94,7 +94,7 @@ export function createServices(ports: Ports) {
     }
     for (const c of effects.creates) {
       const type = typeOf(c.type)!
-      await records.save({ id: nextId(type, await records.list(c.type)), type: c.type, status: type.workflow.initial, values: computeValues(type, c.values), createdAt: at, updatedAt: at, history: [{ at, by, action: 'Dibuat otomatis' }] }, { action: 'Dibuat otomatis', by })
+      await records.save({ id: nextId(type, await records.list(c.type)), type: c.type, status: c.status ?? type.workflow.initial, values: computeValues(type, c.values), createdAt: at, updatedAt: at, history: [{ at, by, action: 'Dibuat otomatis' }] }, { action: 'Dibuat otomatis', by })
     }
     for (const posting of effects.postings) await post(posting, by)
   }
@@ -131,13 +131,28 @@ export function createServices(ports: Ports) {
         await applyEffects(effects, role.name)
         return saved
       },
-      /** An employee changes a row of their own from the employee area, such as clocking out. */
-      async updateOwn(role: Role, typeKey: string, id: string, patch: Values): Promise<ErpRecord> {
+      /** Creates several records of one type in a single pass, for cycles that open many at once. */
+      async createMany(role: Role, typeKey: string, rows: readonly Values[]): Promise<number> {
+        const { type, access } = await guard(role, typeKey, 'read')
+        if (!canCreate(type, access)) throw new ForbiddenError(`${role.name} cannot create ${type.name.toLowerCase()}`)
+        const at = stamp()
+        const start = Number(nextId(type, await records.list(typeKey)).split('-').at(-1))
+        await Promise.all(rows.map((values, i) => records.save({ id: `${type.prefix}-${String(start + i).padStart(4, '0')}`, type: typeKey, status: type.workflow.initial, values: checked(type, values), createdAt: at, updatedAt: at, history: [{ at, by: role.name, action: 'Dibuat' }] }, { action: 'Dibuat', by: role.name })))
+        return rows.length
+      },
+      /**
+       * An employee changes a row of their own from the employee area, such as clocking out. With `to`, the row also
+       * takes that workflow step, as long as the step needs no approver: handing in a 360 review, for one.
+       */
+      async updateOwn(role: Role, typeKey: string, id: string, patch: Values, to?: string): Promise<ErpRecord> {
         const type = typeOf(typeKey)
         const current = await records.get(typeKey, id)
         if (!type || !canFileOwn(role, typeKey) || current.values.employee !== (await me(role)).id) throw new ForbiddenError(`${role.name} cannot change this record`)
+        const step = to ? type.workflow.transitions.find((t) => t.from === current.status && t.to === to && t.needs !== 'approve') : undefined
+        if (to && !step) throw new ForbiddenError(`${role.name} cannot move this record to ${to}`)
         const at = stamp()
-        return records.save({ ...current, values: checked(type, { ...current.values, ...patch }), updatedAt: at, history: [...current.history, { at, by: role.name, action: 'Diubah' }] }, { action: 'Diubah', by: role.name })
+        const action = step?.label ?? 'Diubah'
+        return records.save({ ...current, status: to ?? current.status, values: checked(type, { ...current.values, ...patch }), updatedAt: at, history: [...current.history, { at, by: role.name, action }] }, { action, by: role.name })
       },
       /** A supervisor approves or rejects a leave, overtime or shift-swap request of their own team. */
       async decideTeam(role: Role, typeKey: string, id: string, to: 'approved' | 'rejected'): Promise<ErpRecord> {
@@ -145,9 +160,12 @@ export function createServices(ports: Ports) {
         const team = teamOf(await me(role), await records.list('mdm.employees'))
         const mine = current.values.employee === (await me(role)).id
         if (!isSupervisor(role) || !(TEAM_TYPES as readonly string[]).includes(typeKey) || current.status !== 'submitted' || mine || !team.some((e) => e.id === current.values.employee)) throw new ForbiddenError(`${role.name} cannot decide this request`)
+        const effects = await effectsOf(typeKey, current, to)
         const at = stamp()
         const action = to === 'approved' ? 'Disetujui atasan' : 'Ditolak atasan'
-        return records.save({ ...current, status: to, updatedAt: at, history: [...current.history, { at, by: role.name, action }] }, { action, by: role.name })
+        const saved = await records.save({ ...current, status: to, updatedAt: at, history: [...current.history, { at, by: role.name, action }] }, { action, by: role.name })
+        await applyEffects(effects, role.name)
+        return saved
       },
       /** Posts a ready-made journal, such as a depreciation run or the year-end close; needs approval rights on journals. */
       async post(role: Role, posting: Posting): Promise<ErpRecord> {

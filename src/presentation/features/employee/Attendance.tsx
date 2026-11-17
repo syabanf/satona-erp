@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Camera, ChevronLeft, ChevronRight, LogIn, LogOut, MapPin } from 'lucide-react'
 import type { ErpRecord } from '@/domain/records'
-import { clockResult, ownRecords, shiftOn, weekOf } from '@/domain/selfService'
+import { clockResult, geofenceOf, ownRecords, shiftOn, weekOf } from '@/domain/selfService'
 import { cn } from '@/lib/cn'
 import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
@@ -10,7 +10,7 @@ import type { AllRecords } from '../../records/text'
 import { Button } from '../../ui/Button'
 import { Card, CardHeader } from '../../ui/Card'
 import { useToast } from '../../ui/useToast'
-import { WEEKDAYS } from './Team'
+import { shiftLabel, WEEKDAYS } from './Team'
 
 const RESULT = {
   'On time': { label: 'Tepat waktu', cell: 'bg-success-soft text-success' },
@@ -20,15 +20,11 @@ const RESULT = {
 } as const
 type Result = keyof typeof RESULT
 
-/** The device position as text, or why there is none. Resolves within eight seconds either way. */
+/** The device position, or nothing when the device has none or the employee refuses. Resolves within eight seconds either way. */
 const locate = () =>
-  new Promise<string>((resolve) => {
-    if (!navigator.geolocation) return resolve('Lokasi tidak didukung perangkat')
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve(`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)} (±${Math.round(p.coords.accuracy)} m)`),
-      () => resolve('Izin lokasi ditolak'),
-      { enableHighAccuracy: true, timeout: 8000 },
-    )
+  new Promise<{ lat: number; lng: number } | undefined>((resolve) => {
+    if (!navigator.geolocation) return resolve(undefined)
+    navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }), () => resolve(undefined), { enableHighAccuracy: true, timeout: 8000 })
   })
 
 /** A photo file as a 240 px JPEG data URL, small enough to keep on the device. */
@@ -64,19 +60,22 @@ export function Attendance({ all, me }: { all: AllRecords; me: ErpRecord }) {
   const byDate = new Map(mine.map((a) => [String(a.values.date), a]))
   const now = byDate.get(today)
   const shifts = (all['hrs.shifts'] ?? []).filter((s) => s.status !== 'inactive')
-  const shift = shiftOn(me, today, shifts, all['hrs.shiftswaps'] ?? [])
+  const shift = shiftOn(me, today, shifts, all['hrs.shiftswaps'] ?? [], all['mdm.employees'] ?? [])
 
   async function punch() {
     setBusy(true)
     try {
-      const [location, time] = [await locate(), new Date().toTimeString().slice(0, 5)]
+      const [position, time] = [await locate(), new Date().toTimeString().slice(0, 5)]
+      // The clock-in is kept either way; outside the radius it is flagged for HR to review.
+      const fence = geofenceOf(position, (all['hrs.worklocations'] ?? []).filter((l) => l.status !== 'inactive'))
+      const location = position ? `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)} · ${fence.state === 'Inside' ? 'di dalam' : `${fence.distance} m dari`} ${fence.name}` : 'Tanpa lokasi (izin ditolak atau tidak tersedia)'
       if (now) {
         await records.updateOwn(role, 'hrs.attendance', now.id, { checkOut: time, location: `${String(now.values.location ?? '')} | pulang: ${location}` })
         toast({ title: `Clock out ${time}`, description: location })
       } else {
         const work = shift ?? shifts[0]!
         const result = clockResult(time, String(work.values.start))
-        const saved = await records.create(role, 'hrs.attendance', { date: today, shift: work.id, checkIn: time, result, method: 'Mobile GPS', location }, true)
+        const saved = await records.create(role, 'hrs.attendance', { date: today, shift: work.id, checkIn: time, result, method: 'Mobile GPS', location, geofence: fence.state }, true)
         if (selfie) setSelfies({ ...selfies, [saved.id]: selfie })
         setSelfie('')
         toast({ title: `Clock in ${time}, ${RESULT[result].label.toLowerCase()}`, description: location })
@@ -104,7 +103,7 @@ export function Attendance({ all, me }: { all: AllRecords; me: ErpRecord }) {
         <div>
           <p className="text-[34px] leading-none font-medium tabular">{now ? String(now.values.checkIn ?? '--:--') : '--:--'}</p>
           <p className="mt-1 text-sm text-muted">
-            {now ? `Masuk${now.values.checkOut ? `, pulang ${String(now.values.checkOut)}` : ', belum clock out'}` : 'Belum clock in'} · Shift {shift ? `${String(shift.values.name)} ${String(shift.values.start)} sampai ${String(shift.values.end)}` : 'libur'}
+            {now ? `Masuk${now.values.checkOut ? `, pulang ${String(now.values.checkOut)}` : ', belum clock out'}` : 'Belum clock in'} · Shift {shift ? `${shiftLabel(shift)} ${String(shift.values.start)} sampai ${String(shift.values.end)}` : 'libur'}
           </p>
         </div>
         {!now && (

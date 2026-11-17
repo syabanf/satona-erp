@@ -125,6 +125,9 @@ export const CHEMICALS: readonly RecordType[] = [
     text('product', 'Product', { required: true, list: true }),
     date('produced', 'Produced', { required: true, list: true }),
     num('qty', 'Quantity', 't', { required: true, min: 0, list: true }),
+    num('remaining', 'Remaining', 't', { min: 0, list: true }),
+    ref('material', 'Material', 'mdm.materials'),
+    ref('order', 'Production order', 'bpf.orders'),
   ], flow(
     [
       ['released', 'Released', 'success'],
@@ -138,6 +141,14 @@ export const CHEMICALS: readonly RecordType[] = [
       ['released', 'recalled', 'Recall', 'approve'],
     ],
   ), { groupBy: 'product', dateField: 'produced' }),
+  type('gtr', 'movements', ['Lot movements', 'Lot movement', 'LMV'], 'lotNo', [
+    text('lotNo', 'Lot', { required: true, list: true }),
+    pick('kind', 'Movement', ['Receipt', 'Consumption', 'Production', 'Shipment', 'Return to vendor', 'Customer return'], { required: true, list: true }),
+    ref('material', 'Material', 'mdm.materials', { required: true, list: true }),
+    num('qty', 'Quantity', 't', { required: true, list: true }),
+    text('document', 'Document', { required: true, list: true }),
+    date('date', 'Date', { required: true, list: true }),
+  ], flow([['recorded', 'Recorded', 'info']], []), { sumField: 'qty', groupBy: 'kind', dateField: 'date' }),
   type('gtr', 'recalls', ['Recalls', 'Recall', 'RCL'], 'reason', [
     ref('lot', 'Lot', 'gtr.lots', { required: true, list: true }),
     note('reason', 'Reason', { required: true, list: true }),

@@ -6,6 +6,11 @@ import { ACTIVE, APPROVAL, calc, date, entity, flow, money, n, note, num, pick, 
 
 export const GRADES = ['G1 Operator', 'G2 Technician', 'G3 Supervisor', 'G4 Superintendent', 'G5 Manager', 'G6 General manager'] as const
 
+const CASH_KINDS = ['Cash in', 'Cash out', 'Transfer'] as const
+const FREQUENCIES = ['Monthly', 'Quarterly', 'Yearly'] as const
+const DEPRECIATION_METHODS = ['Straight line', 'Declining balance'] as const
+const PAYROLL_KINDS = ['Regular', 'THR'] as const
+
 export const HRIS_MASTERS: readonly RecordType[] = [
   master('hrs', 'orgunits', ['Organisation units', 'Org unit', 'ORG'], 'name', [
     text('name', 'Name', { required: true, list: true }),
@@ -44,6 +49,7 @@ export const HRIS: readonly RecordType[] = [
     pick('result', 'Result', ['On time', 'Late', 'Absent', 'On leave'], { required: true, list: true }),
     pick('method', 'Method', ['Face recognition', 'Gate RFID', 'Mobile GPS'], { required: true }),
     text('location', 'Location'),
+    pick('geofence', 'Geofence', ['Inside', 'Outside', 'No GPS']),
   ], flow([['recorded', 'Recorded', 'info'], ['verified', 'Verified', 'success'], ['disputed', 'Disputed', 'warning']], [
     ['recorded', 'verified', 'Verify'],
     ['recorded', 'disputed', 'Dispute'],
@@ -65,6 +71,7 @@ export const HRIS: readonly RecordType[] = [
   ], APPROVAL, { sumField: 'hours', groupBy: 'employee', dateField: 'date' }, true),
   type('hrs', 'payroll', ['Payroll runs', 'Payroll run', 'PAY'], 'period', [
     text('period', 'Period', { required: true, list: true }),
+    pick('kind', 'Run type', PAYROLL_KINDS, { list: true }),
     entity('entity', 'Entity', { required: true, list: true }),
     num('headcount', 'Headcount', 'people', { required: true, min: 1, list: true }),
     money('gross', 'Gross pay', { required: true, list: true }),
@@ -135,9 +142,13 @@ export const HRIS: readonly RecordType[] = [
   type('hrs', 'payslips', ['Payslips', 'Payslip', 'PSL'], 'period', [
     ref('employee', 'Employee', 'mdm.employees', { required: true, list: true }),
     text('period', 'Period', { required: true, list: true }),
+    pick('kind', 'Run type', PAYROLL_KINDS, { list: true }),
     entity('entity', 'Entity', { required: true }),
     money('base', 'Base pay', { required: true }),
     money('allowance', 'Allowance'),
+    money('shiftAllowance', 'Shift allowance'),
+    money('meal', 'Meal allowance'),
+    money('hazard', 'Hazard allowance'),
     money('overtime', 'Overtime'),
     money('bpjs', 'BPJS'),
     money('pph21', 'PPh 21'),
@@ -171,9 +182,10 @@ export const FINANCE: readonly RecordType[] = [
     pick('source', 'Source', JOURNAL_SOURCES, { required: true, list: true }),
     text('reference', 'Reference'),
     money('amount', 'Amount', { required: true, list: true }),
-  ], flow([['draft', 'Draft', 'neutral'], ['submitted', 'Submitted', 'info'], ['posted', 'Posted', 'success'], ['rejected', 'Rejected', 'danger']], [
+  ], flow([['draft', 'Draft', 'neutral'], ['submitted', 'Submitted', 'info'], ['posted', 'Posted', 'success'], ['reversed', 'Reversed', 'warning'], ['rejected', 'Rejected', 'danger']], [
     ['draft', 'submitted', 'Submit'],
     ['submitted', 'posted', 'Approve and post', 'approve'],
+    ['posted', 'reversed', 'Reverse', 'approve'],
     ['submitted', 'rejected', 'Reject', 'approve'],
     ['rejected', 'draft', 'Reopen'],
   ]), { sumField: 'amount', groupBy: 'source', dateField: 'date' }),
@@ -242,6 +254,57 @@ export const FINANCE: readonly RecordType[] = [
     ['uploaded', 'approved', 'Record approval'],
     ['uploaded', 'cancelled', 'Cancel', 'approve'],
   ]), { groupBy: 'tax' }),
+  type('fin', 'cashmoves', ['Cash and bank movements', 'Cash movement', 'CBM'], 'description', [
+    pick('kind', 'Movement', CASH_KINDS, { required: true, list: true }),
+    text('description', 'Description', { required: true, list: true }),
+    ref('bank', 'House bank', 'mdm.banks', { required: true, list: true }),
+    ref('account', 'Counter account', 'mdm.accounts'),
+    ref('toBank', 'To bank', 'mdm.banks'),
+    entity('entity', 'Entity', { required: true }),
+    money('amount', 'Amount', { required: true, list: true }),
+    date('date', 'Date', { required: true, list: true }),
+  ], flow([['draft', 'Draft', 'neutral'], ['posted', 'Posted', 'success']], [['draft', 'posted', 'Post']]), { sumField: 'amount', groupBy: 'kind', dateField: 'date' }),
+  type('fin', 'creditnotes', ['Credit notes', 'Credit note', 'CN'], 'reason', [
+    ref('invoice', 'Customer invoice', 'fin.receivables', { required: true, parent: true, list: true }),
+    money('amount', 'Amount before tax', { required: true, list: true }),
+    text('reason', 'Reason', { required: true, list: true }),
+  ], APPROVAL, { sumField: 'amount', groupBy: 'invoice' }),
+  type('fin', 'dunning', ['Dunning letters', 'Dunning letter', 'DUN'], 'level', [
+    ref('invoice', 'Customer invoice', 'fin.receivables', { required: true, parent: true, list: true }),
+    pick('level', 'Reminder level', ['First reminder', 'Second reminder', 'Final notice'], { required: true, list: true }),
+    date('sent', 'Sent on', { required: true, list: true }),
+    money('fee', 'Late fee'),
+  ], flow([['draft', 'Draft', 'neutral'], ['sent', 'Sent', 'info'], ['settled', 'Settled', 'success']], [['draft', 'sent', 'Send letter'], ['sent', 'settled', 'Mark settled']]), { groupBy: 'level', dateField: 'sent' }),
+  type('fin', 'recurring', ['Recurring journals', 'Recurring journal', 'RCJ'], 'description', [
+    text('description', 'Description', { required: true, list: true }),
+    entity('entity', 'Entity', { required: true, list: true }),
+    ref('debit', 'Debit account', 'mdm.accounts', { required: true }),
+    ref('credit', 'Credit account', 'mdm.accounts', { required: true }),
+    money('amount', 'Amount', { required: true, list: true }),
+    pick('frequency', 'Frequency', FREQUENCIES, { required: true, list: true }),
+    date('nextRun', 'Next run', { required: true, list: true }),
+  ], ACTIVE, { sumField: 'amount', groupBy: 'frequency', dateField: 'nextRun' }),
+  type('fin', 'paymentruns', ['Payment runs', 'Payment run', 'PRN'], 'description', [
+    text('description', 'Description', { required: true, list: true }),
+    ref('bank', 'House bank', 'mdm.banks', { required: true, list: true }),
+    date('date', 'Payment date', { required: true, list: true }),
+    note('invoices', 'Vendor invoices in the run', { required: true }),
+    num('count', 'Invoices', 'invoices', { list: true }),
+    money('total', 'Total', { list: true }),
+  ], flow([['draft', 'Draft', 'neutral'], ['approved', 'Approved', 'info'], ['executed', 'Executed', 'success'], ['cancelled', 'Cancelled', 'danger']], [
+    ['draft', 'approved', 'Approve', 'approve'],
+    ['draft', 'cancelled', 'Cancel'],
+    ['approved', 'executed', 'Execute payment'],
+  ]), { sumField: 'total', groupBy: 'bank', dateField: 'date' }),
+  type('fin', 'allocations', ['Cost allocations', 'Cost allocation', 'ALC'], 'description', [
+    text('description', 'Description', { required: true, list: true }),
+    entity('entity', 'Entity', { required: true, list: true }),
+    ref('account', 'Expense account', 'mdm.accounts', { required: true, list: true }),
+    ref('fromCenter', 'From cost centre', 'mdm.costcenters', { required: true, list: true }),
+    ref('toCenter', 'To cost centre', 'mdm.costcenters', { required: true, list: true }),
+    money('amount', 'Amount', { required: true, list: true }),
+    date('date', 'Date', { required: true, list: true }),
+  ], flow([['draft', 'Draft', 'neutral'], ['posted', 'Posted', 'success']], [['draft', 'posted', 'Post', 'approve']]), { sumField: 'amount', groupBy: 'toCenter', dateField: 'date' }),
   type('fin', 'statementlines', ['Bank statement lines', 'Statement line', 'BSL'], 'description', [
     ref('bank', 'House bank', 'mdm.banks', { required: true, parent: true, list: true }),
     date('date', 'Date', { required: true, list: true }),
@@ -290,8 +353,14 @@ export const FINANCE: readonly RecordType[] = [
     num('life', 'Useful life', 'years', { required: true, min: 1, max: 40 }),
     date('acquired', 'Acquired', { required: true, list: true }),
     money('salvage', 'Salvage value'),
+    pick('method', 'Depreciation method', DEPRECIATION_METHODS),
     calc('depreciation', 'Yearly depreciation', (v) => Math.round((n(v, 'cost') - n(v, 'salvage')) / Math.max(1, n(v, 'life'))), { unit: 'Rp' }),
-  ], ACTIVE, { sumField: 'cost', groupBy: 'class' }),
+    money('proceeds', 'Disposal proceeds'),
+  ], flow([['active', 'Active', 'success'], ['inactive', 'Inactive', 'neutral'], ['disposed', 'Disposed', 'danger']], [
+    ['active', 'inactive', 'Deactivate'],
+    ['inactive', 'active', 'Reactivate'],
+    ['active', 'disposed', 'Dispose', 'approve'],
+  ]), { sumField: 'cost', groupBy: 'class' }),
 ]
 
 export const INVENTORY: readonly RecordType[] = [
@@ -302,6 +371,7 @@ export const INVENTORY: readonly RecordType[] = [
     num('minimum', 'Minimum', 't', { required: true, min: 0 }),
     calc('state', 'Stock state', (v) => (n(v, 'onHand') <= n(v, 'minimum') ? 'Low' : 'OK'), { list: true }),
     date('expiry', 'Shelf life ends'),
+    money('avgCost', 'Moving average cost'),
   ], ACTIVE, { sumField: 'onHand', groupBy: 'state' }),
   type('inv', 'adjustments', ['Stock adjustments', 'Stock adjustment', 'ADJ'], 'reason', [
     ref('stock', 'Stock balance', 'inv.stock', { required: true, list: true }),
@@ -315,6 +385,7 @@ export const INVENTORY: readonly RecordType[] = [
     date('date', 'Count date', { required: true, list: true }),
     num('items', 'Items counted', 'items', { required: true, min: 1 }),
     num('variance', 'Variance', '%', { required: true, list: true }),
+    num('value', 'Variance value (shortage -)', 'Rp', { list: true }),
   ], flow([['planned', 'Planned', 'neutral'], ['counting', 'Counting', 'info'], ['review', 'In review', 'warning'], ['posted', 'Posted', 'success']], [
     ['planned', 'counting', 'Start count'],
     ['counting', 'review', 'Submit counts'],
@@ -343,6 +414,7 @@ export const PURCHASING: readonly RecordType[] = [
   type('vms', 'orders', ['Purchase orders', 'Purchase order', 'PO'], 'title', [
     text('title', 'Title', { required: true, list: true }),
     ref('requisition', 'Requisition', 'vms.requisitions', { parent: true }),
+    ref('contract', 'Outline contract', 'vms.contracts'),
     ref('vendor', 'Vendor', 'mdm.partners', { required: true, list: true }),
     ref('material', 'Material', 'mdm.materials', { required: true }),
     num('qty', 'Quantity', 't', { required: true, min: 0.1, list: true }),

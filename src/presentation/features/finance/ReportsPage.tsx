@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, CalendarCheck, Download, FileSpreadsheet, Printer, RefreshCw, TrendingDown } from 'lucide-react'
-import { efakturRows, fxRevaluation } from '@/domain/bank'
+import { ArrowLeft, Banknote, CalendarCheck, Download, FileSpreadsheet, Printer, RefreshCw, Repeat, TrendingDown } from 'lucide-react'
+import { ebupotXml, efakturRows, fxRevaluation, latestPayrollPeriod, payrollTransfer, recurringDue } from '@/domain/bank'
 import { closingEntry, depreciationRun } from '@/domain/ledger'
+import { finishedRevaluation } from '@/domain/plant'
 import { APP_NAME } from '@/lib/brand'
 import { cn } from '@/lib/cn'
 import { toCsv } from '@/lib/csv'
@@ -103,6 +104,39 @@ export default function ReportsPage() {
   const closes = Object.keys(ENTITY_NAME).flatMap((e) => closingEntry(data, e, year) ?? [])
   const revaluation = fxRevaluation(data, today)
   const efaktur = efakturRows(data)
+  const recurring = recurringDue(data, today)
+  const standard = finishedRevaluation(data, today)
+  const runStandard = async () => {
+    setBusy('std')
+    try {
+      if (standard.posting) await records.post(role, standard.posting)
+      for (const p of standard.patches) {
+        const row = data[p.type]!.find((r) => r.id === p.id)!
+        await records.update(role, p.type, p.id, { ...row.values, ...p.values })
+      }
+      toast({ title: `${standard.patches.length} saldo barang jadi direvaluasi` })
+    } catch (e) {
+      toast({ tone: 'danger', title: 'Tidak diposting', description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBusy(null)
+    }
+  }
+  const payPeriod = latestPayrollPeriod(data)
+  const bupot = ebupotXml(data, String(year))
+  const runRecurring = async () => {
+    setBusy('rec')
+    try {
+      for (const r of recurring) {
+        await records.post(role, r.posting)
+        await records.update(role, r.template.type, r.template.id, { ...r.template.values, nextRun: r.next })
+      }
+      toast({ title: `${recurring.length} jurnal berulang diposting` })
+    } catch (e) {
+      toast({ tone: 'danger', title: 'Tidak diposting', description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const post = async (what: string, postings: typeof depreciation, done: string) => {
     setBusy(what)
@@ -116,9 +150,11 @@ export default function ReportsPage() {
       setClosing(false)
     }
   }
-  const download = (rows: ReadonlyArray<ReadonlyArray<string | number>>, name: string) => {
+  /** Saves rows as a CSV (with a BOM, so Excel reads UTF-8) or a ready-made text as XML. */
+  const download = (content: ReadonlyArray<ReadonlyArray<string | number>> | string, name: string) => {
+    const blob = typeof content === 'string' ? new Blob([content], { type: 'application/xml' }) : new Blob([`﻿${toCsv(content)}`], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([`﻿${toCsv(rows)}`], { type: 'text/csv;charset=utf-8' }))
+    a.href = URL.createObjectURL(blob)
     a.download = name
     a.click()
     URL.revokeObjectURL(a.href)
@@ -183,6 +219,46 @@ export default function ReportsPage() {
       <Card>
         <h2 className="text-lg font-semibold">Proses akhir periode</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <RefreshCw aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">Revaluasi barang jadi ke standar</span>
+              <span className="block text-xs text-muted">{standard.patches.length ? `${standard.patches.length} saldo stok masih memakai harga standar lama` : 'Semua barang jadi sudah di harga standar formula'}</span>
+            </span>
+            <Button size="sm" variant="card" disabled={!standard.patches.length} loading={busy === 'std'} onClick={runStandard}>
+              Revaluasi
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <Banknote aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">File transfer gaji {payPeriod}</span>
+              <span className="block text-xs text-muted">Gaji bersih per karyawan ke rekening gajinya, untuk unggah massal ke bank</span>
+            </span>
+            <Button size="sm" variant="card" disabled={!payPeriod} onClick={() => download(payrollTransfer(data, payPeriod), `transfer-gaji-${payPeriod}.csv`)}>
+              <Download aria-hidden className="size-4" /> CSV
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <FileSpreadsheet aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">Bukti potong {year}</span>
+              <span className="block text-xs text-muted">{bupot.pph21} bukti PPh 21 dan {bupot.pph23} bukti PPh 23</span>
+            </span>
+            <Button size="sm" variant="card" disabled={!bupot.pph21 && !bupot.pph23} onClick={() => download(bupot.xml, `bupot-${year}.xml`)}>
+              <Download aria-hidden className="size-4" /> XML
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
+            <Repeat aria-hidden className="size-5 text-muted" />
+            <span className="min-w-0 flex-1 basis-40 text-sm">
+              <span className="block font-semibold">Jurnal berulang</span>
+              <span className="block text-xs text-muted">{recurring.length ? `${recurring.length} templat jatuh tempo: ${recurring.map((r) => String(r.template.values.description)).join(', ')}` : 'Tidak ada templat yang jatuh tempo'}</span>
+            </span>
+            <Button size="sm" variant="card" disabled={!recurring.length} loading={busy === 'rec'} onClick={runRecurring}>
+              Posting
+            </Button>
+          </div>
           <div className="flex flex-wrap items-center gap-3 rounded-panel bg-raised p-3">
             <RefreshCw aria-hidden className="size-5 text-muted" />
             <span className="min-w-0 flex-1 basis-40 text-sm">

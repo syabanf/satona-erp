@@ -37,6 +37,9 @@ export function Payslips({ all, me }: { all: AllRecords; me: ErpRecord }) {
             <dl className="divide-y divide-line border-t border-line px-4 pb-3">
               {line('Gaji pokok', s.values.base)}
               {line('Tunjangan tetap', s.values.allowance)}
+              {line('Tunjangan shift', s.values.shiftAllowance)}
+              {line('Uang makan', s.values.meal)}
+              {line('Tunjangan bahaya', s.values.hazard)}
               {line('Lembur', s.values.overtime)}
               {line('BPJS (kesehatan 1%, JHT 2%, JP 1%)', s.values.bpjs, true)}
               {line(`PPh 21 TER ${terCategory(ptkp)} ${terRate(Number(s.values.gross), ptkp)}% (${ptkp})`, s.values.pph21, true)}

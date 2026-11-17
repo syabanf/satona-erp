@@ -8,7 +8,8 @@ import { DISTRIBUTORS, LOTS, SITES, TANKS, TRUCKS } from './ops'
 import { MATERIAL_HAZARDS, SCOPE_SEEDS } from './seedsScope'
 import { bankAccount, LEDGER_SEEDS } from './seedsLedger'
 import { employeeEntity, salaryOf, SUPPORT_SEEDS } from './seedsSupport'
-import { alignPayables, tieSubledgers } from './seedsTie'
+import { PEOPLE_SEEDS } from './seedsPeople'
+import { alignPayables, carryStandards, tieSubledgers } from './seedsTie'
 
 export interface Ctx {
   i: number
@@ -121,6 +122,7 @@ function assetValueSeed(i: number, day: Ctx['day']): Values {
 
 const SEEDS: Record<string, { count: number; make: Make }> = {
   ...SUPPORT_SEEDS,
+  ...PEOPLE_SEEDS,
   ...SCOPE_SEEDS,
   ...LEDGER_SEEDS,
   'tms.p2h': {
@@ -381,7 +383,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'vms.contracts': {
     count: 8,
-    make: ({ i, int, day, ref }) => ({ title: `${['Ammonia', 'Phosphoric acid', 'Sulfur', 'KCl', 'Spare parts', 'Freight fuel', 'Catalyst', 'Bags'][i]} supply 2026-2027`, vendor: ref('mdm.partners'), target: int(20, 400) * 1e9, validTo: day(30, 500) }),
+    make: ({ i, int, day, ref }) => ({ material: `MAT-${String([1, 2, 3, 6, 11, 11, 3, 6][i]).padStart(4, '0')}`, price: [9.2, 11.5, 3.1, 6.4, 0, 0, 2.9, 6.1][i]! * 1e6, quota: [4000, 6000, 9000, 5000, 0, 0, 3000, 2500][i], title: `${['Ammonia', 'Phosphoric acid', 'Sulfur', 'KCl', 'Spare parts', 'Freight fuel', 'Catalyst', 'Bags'][i]} supply 2026-2027`, vendor: ref('mdm.partners'), target: int(20, 400) * 1e9, validTo: day(30, 500) }),
   },
   'grc.regulations': {
     count: 8,
@@ -499,7 +501,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'eam.parts': {
     count: 20,
-    make: ({ i, int }) => ({ partNo: `SP-${int(10000, 99999)}`, name: ['Bearing SKF 22320', 'Granulator liner plate', 'Dryer flight', 'V-belt SPC 5000', 'Gearbox oil 220', 'Load cell 30 t', 'Screen mesh 4 mm', 'Mechanical seal 60 mm', 'Chain ANSI 120', 'Burner nozzle'][i % 10] ?? '', onHand: int(0, 24), minStock: int(2, 8), unitCost: PART_COSTS[i % PART_COSTS.length]! }),
+    make: ({ i, int }) => ({ partNo: `SP-${int(10000, 99999)}`, name: ['Bearing SKF 22320', 'Granulator liner plate', 'Dryer flight', 'V-belt SPC 5000', 'Gearbox oil 220', 'Load cell 30 t', 'Screen mesh 4 mm', 'Mechanical seal 60 mm', 'Chain ANSI 120', 'Burner nozzle'][i % 10] ?? '', onHand: int(0, 24), minStock: int(2, 8), unitCost: PART_COSTS[i % PART_COSTS.length]!, dailyUse: [0.1, 0.05, 0.2, 0.3, 0.5][i % 5]!, leadTime: [14, 45, 30, 7, 60][i % 5]! }),
   },
   'eam.plans': {
     count: 16,
@@ -598,6 +600,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
         nik: `SAT-${String(10230 + i * 13)}`,
         name: `${pick(['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gilang', 'Hana', 'Indra', 'Joko', 'Kartika', 'Lina'])} ${pick(['Saputra', 'Wijaya', 'Lestari', 'Pratama', 'Hidayat', 'Kusuma', 'Siregar', 'Nugroho'])}`,
         entity: employeeEntity(i),
+        // Section staff work the four-crew plant roster; everyone else keeps office hours.
+        crew: i % 12 < 4 ? ['A', 'B', 'C', 'D'][Math.floor(i / 12) % 4] : 'Office',
         ...salaryOf(i),
         department: pick(['Finance', 'HR', 'Production', 'Logistics', 'QC', 'HSE', 'Procurement', 'IT']),
         orgunit: `ORG-${String(unit + 1).padStart(4, '0')}`,
@@ -1031,7 +1035,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'eam.technicians': {
     count: 12,
-    make: ({ i, pick, int }) => ({ name: ['Agung', 'Bima', 'Dedi', 'Rizal', 'Sutrisno', 'Hendro', 'Yoga', 'Fadli', 'Arif', 'Taufik', 'Imam', 'Rudi'][i] + ' ' + pick(['Santoso', 'Wibowo', 'Saputra', 'Hidayat']), team: ['Mechanical', 'Mechanical', 'Mechanical', 'Electrical', 'Electrical', 'Instrument', 'Utility'][i % 7] ?? 'Mechanical', shift: pick(['A', 'B', 'C', 'Day']), level: int(1, 3), hourlyCost: int(55, 95) * 1000 }),
+    make: ({ i, pick, int }) => ({ employee: `EMP-${String(i * 5 + 1).padStart(4, '0')}`, name: ['Agung', 'Bima', 'Dedi', 'Rizal', 'Sutrisno', 'Hendro', 'Yoga', 'Fadli', 'Arif', 'Taufik', 'Imam', 'Rudi'][i] + ' ' + pick(['Santoso', 'Wibowo', 'Saputra', 'Hidayat']), team: ['Mechanical', 'Mechanical', 'Mechanical', 'Electrical', 'Electrical', 'Instrument', 'Utility'][i % 7] ?? 'Mechanical', shift: pick(['A', 'B', 'C', 'Day']), level: int(1, 3), hourlyCost: int(55, 95) * 1000 }),
   },
   'eam.tools': {
     count: 12,
@@ -1136,10 +1140,11 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'dms.orders': {
     count: 40,
-    make: ({ pick, int, day, ref }) => {
+    make: ({ i, pick, int, day, ref }) => {
       const qty = int(20, 400)
       const scheme = pick(['Subsidised', 'Subsidised', 'Commercial'])
-      return { distributor: ref('dms.distributors'), product: pick(['Urea', 'NPK 15-15-15', 'NPK 16-16-16', 'ZA']), scheme, qty, value: qty * (scheme === 'Subsidised' ? 2_250_000 : 7_400_000), date: day(-160, 0) }
+      // Every eighth order is consigned: shipped to the distributor's warehouse and sold from there.
+      return { terms: i % 8 === 7 ? 'Consignment' : 'Sale', sold: 0, distributor: ref('dms.distributors'), product: pick(['Urea', 'NPK 15-15-15', 'NPK 16-16-16', 'ZA']), scheme, qty, value: qty * (scheme === 'Subsidised' ? 2_250_000 : 7_400_000), date: day(-160, 0) }
     },
   },
 
@@ -1206,7 +1211,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: LOTS.length,
     make: ({ i }) => {
       const l = LOTS[i] ?? LOTS[0]!
-      return { lotNo: l.id, product: l.product, produced: l.produced, qty: l.qty }
+      return { lotNo: l.id, product: l.product, produced: l.produced, qty: l.qty, remaining: l.qty }
     },
   },
   'gtr.recalls': {
@@ -1338,6 +1343,7 @@ export function seedRecords(today: string): Record<string, ErpRecord[]> {
     })
   }
   alignPayables(all)
+  carryStandards(all)
   tieSubledgers(all, iso(-200))
   return all
 }

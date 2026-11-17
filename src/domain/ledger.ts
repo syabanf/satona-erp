@@ -49,12 +49,23 @@ export const POSTING = {
   payroll: '6100',
   maintenance: '6300',
   bankFee: '6600',
+  general: '6600',
   fx: '6950',
   receivableFx: '1215',
+  subsidyReceivable: '1240',
+  subsidy: '4110',
+  wages: '2320',
+  yieldVariance: '5410',
+  usageVariance: '5420',
+  countVariance: '5430',
+  consignment: '1335',
+  revaluation: '5440',
   payableFx: '2115',
 } as const
 
 const num = (v: unknown) => Number(v) || 0
+/** A reversed journal stays in the ledger next to the entry that undoes it, so the audit trail keeps both. */
+const LEDGER_STATUSES = new Set(['posted', 'reversed'])
 const DEBIT_NORMAL = new Set(['Asset', 'Expense'])
 const accountsOf = (all: All) => all['mdm.accounts'] ?? []
 /** An account's balance in its own direction: debits less credits for assets and expenses, the reverse for the rest. */
@@ -84,7 +95,7 @@ export function journalProblem(journal: ErpRecord, all: All): string | undefined
 
 /** Lines of posted journals inside the scope, each with its journal's date. */
 export function ledgerLines(all: All, scope: Scope = {}): Line[] {
-  const journals = new Map((all['fin.journals'] ?? []).filter((j) => j.status === 'posted' && (!scope.entity || j.values.entity === scope.entity)).map((j) => [j.id, j]))
+  const journals = new Map((all['fin.journals'] ?? []).filter((j) => LEDGER_STATUSES.has(j.status) && (!scope.entity || j.values.entity === scope.entity)).map((j) => [j.id, j]))
   return (all['fin.journallines'] ?? []).flatMap((line) => {
     const journal = journals.get(String(line.values.journal))
     const date = String(journal?.values.date ?? '')
@@ -216,6 +227,16 @@ export function compose(all: All, journal: Values, lines: ReadonlyArray<readonly
 
 const entry = (all: All, journal: Values, debitCode: string, creditCode: string, amount: number, memo: string) => compose(all, journal, [[debitCode, amount, 0], [creditCode, 0, amount]], memo)
 
+/** What approved credit notes took off a customer invoice, PPN included when the invoice carries it. */
+export function creditedOn(all: All, invoiceId: string) {
+  const invoice = (all['fin.receivables'] ?? []).find((r) => r.id === invoiceId)
+  const base = (all['fin.creditnotes'] ?? []).filter((c) => c.values.invoice === invoiceId && c.status === 'approved').reduce((s, c) => s + num(c.values.amount), 0)
+  return base + (invoice?.values.tax === 'PPN 11%' ? Math.round(base * 0.11) : 0)
+}
+
+/** A signed amount on an account as a journal line: positive debits it, negative credits it. */
+export const signed = (code: string, amount: number): readonly [string, number, number] => [code, Math.max(0, amount), Math.max(0, -amount)]
+
 /** An exchange difference as a journal line: a loss debits the account, a gain credits it. */
 export const fxLine = (loss: number): readonly [string, number, number] => [POSTING.fx, Math.max(0, loss), Math.max(0, -loss)]
 
@@ -236,7 +257,8 @@ export function postingFor(typeKey: string, record: ErpRecord, to: string, all: 
   // A customer invoice books the receivable with its PPN; the receipt clears it at today's rate and books the difference.
   if (step === 'fin.receivables:created') return compose(all, head('Receivable', `Faktur pelanggan ${invoiceNo}`), [[POSTING.receivable, baseIdr(v) + ppnOf(v), 0], [POSTING.sales[String(v.entity)] ?? POSTING.sales.holding!, 0, baseIdr(v)], [POSTING.vatOut, 0, ppnOf(v)]], invoiceNo)
   if (step === 'fin.receivables:paid') {
-    const [booked, received] = [docTotal(v), totalAt(v, fx)]
+    const credited = creditedOn(all, record.id)
+    const [booked, received] = [docTotal(v) - credited, totalAt(v, fx) - credited]
     return compose(all, head('Receipt', `Pelunasan ${invoiceNo}`), [[POSTING.bank, received, 0], [POSTING.receivable, 0, booked], fxLine(booked - received)], invoiceNo)
   }
   // A vendor invoice clears the goods-received accrual when its PO has posted receipts, and withholds PPh 23 where it applies.
@@ -252,10 +274,36 @@ export function postingFor(typeKey: string, record: ErpRecord, to: string, all: 
     const [booked, paid] = [at(invoice?.values.rate), at(currentRate(fx, String(invoice?.values.currency)) || invoice?.values.rate)]
     return compose(all, head('Payment', `Pembayaran ${String(v.reference)}`, invoice?.values.entity), [[POSTING.payable, booked, 0], [bankOf(v.bank), 0, paid], fxLine(paid - booked)], String(v.reference))
   }
-  if (step === 'fin.pettycash:approved') return entry(all, head('Cash', `Kas kecil: ${String(v.purpose)}`), POSTING.expense, POSTING.pettyCash, num(v.amount), String(v.purpose))
+  if (step === 'fin.pettycash:approved') {
+    // The expense line carries the claim's cost centre, so departmental spend is real ledger data.
+    const posting = entry(all, head('Cash', `Kas kecil: ${String(v.purpose)}`), POSTING.expense, POSTING.pettyCash, num(v.amount), String(v.purpose))
+    return posting && { ...posting, lines: posting.lines.map((l, i) => (i === 0 ? { ...l, costcenter: v.costcenter } : l)) }
+  }
   if (step === 'fin.advances:paid') return entry(all, head('Cash', `Uang muka: ${String(v.purpose)}`), POSTING.advance, POSTING.bank, num(v.amount), String(v.purpose))
   if (step === 'fin.advances:settled') return entry(all, head('Cash', `Pertanggungjawaban uang muka: ${String(v.purpose)}`), POSTING.expense, POSTING.advance, num(v.amount), String(v.purpose))
   return undefined
+}
+
+/** Ledger account of each fixed-asset class. */
+export const ASSET_ACCOUNT: Record<string, string> = { 'Plant & machinery': '1510', 'Storage tanks': '1520', Vehicles: '1530', Buildings: '1540', 'IT equipment': '1550' }
+
+/**
+ * Where a fixed asset stands on a date. Straight line spreads cost less salvage evenly over the useful life; double
+ * declining balance charges twice the straight-line rate on the remaining book value and stops at the salvage value.
+ */
+export function assetBook(v: Values, today: string) {
+  const [cost, salvage, life] = [num(v.cost), num(v.salvage), Math.max(1, num(v.life))]
+  // Depreciation runs by full months in service, so two years to the day is exactly two years.
+  const [from, to] = [String(v.acquired || today), today]
+  const months = (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) - (to.slice(8) < from.slice(8) ? 1 : 0)
+  const ageYears = Math.max(0, months) / 12
+  if (v.method === 'Declining balance') {
+    const rate = Math.min(1, 2 / life)
+    const book = Math.max(salvage, cost * (1 - rate) ** ageYears)
+    return { ageYears, accumulated: Math.round(cost - book), book: Math.round(book), yearly: Math.round(Math.min(book - salvage, book * rate)) }
+  }
+  const accumulated = Math.min(cost - salvage, ((cost - salvage) * ageYears) / life)
+  return { ageYears, accumulated: Math.round(accumulated), book: Math.round(cost - accumulated), yearly: ageYears >= life ? 0 : Math.round((cost - salvage) / life) }
 }
 
 const referenced = (all: All, reference: string) => (all['fin.journals'] ?? []).some((j) => j.values.reference === reference && j.status !== 'rejected')
@@ -272,7 +320,7 @@ export function depreciationRun(all: All, period: string): Posting[] {
     if (a.status !== 'active' || !acquired || acquired > end) continue
     const months = (Number(period.slice(0, 4)) - Number(acquired.slice(0, 4))) * 12 + Number(period.slice(5, 7)) - Number(acquired.slice(5, 7))
     if (months >= num(a.values.life) * 12) continue
-    byEntity.set(String(a.values.entity), (byEntity.get(String(a.values.entity)) ?? 0) + Math.round(num(a.values.depreciation) / 12))
+    byEntity.set(String(a.values.entity), (byEntity.get(String(a.values.entity)) ?? 0) + Math.round(assetBook(a.values, `${period}-01`).yearly / 12))
   }
   return [...byEntity].flatMap(([entity, amount]) => {
     const reference = `DEP/${period}/${entity}`
@@ -313,8 +361,38 @@ export function subledgerTie(all: All, entity?: string) {
     const balance = new Map(trialBalance(all, { entity: unit }).rows.map((r) => [String(r.account.values.code), r.balance]))
     const row = (code: string, label: string, subledger: number) => ({ entity: unit, code, label, ledger: balance.get(code) ?? 0, subledger, difference: subledger - (balance.get(code) ?? 0) })
     return [
-      row(POSTING.receivable, 'Piutang usaha', open('fin.receivables', ['issued', 'overdue'], unit, (v) => baseIdr(v) + ppnOf(v))),
+      row(POSTING.receivable, 'Piutang usaha', (all['fin.receivables'] ?? []).filter((r) => ['issued', 'overdue'].includes(r.status) && r.values.entity === unit).reduce((s, r) => s + baseIdr(r.values) + ppnOf(r.values) - creditedOn(all, r.id), 0)),
       row(POSTING.payable, 'Utang usaha', open('fin.payables', ['approved'], unit, docTotal)),
     ]
   })
+}
+
+/**
+ * The group as one entity: each unit's totals by class, less the intercompany receivable and payable the units hold
+ * against each other. Equity carries the period's earnings, so assets equal liabilities plus equity in every column.
+ */
+export function consolidation(all: All, scope: Omit<Scope, 'entity'> = {}) {
+  const units = UNIT_IDS.map((unit) => {
+    const rows = trialBalance(all, { ...scope, entity: unit }).rows
+    const total = (cls: string) => rows.filter((r) => r.account.values.class === cls).reduce((s, r) => s + r.balance, 0)
+    const code = (c: string) => rows.find((r) => r.account.values.code === c)?.balance ?? 0
+    const [revenue, expense] = [total('Revenue'), total('Expense')]
+    return { unit, assets: total('Asset'), liabilities: total('Liability'), equity: total('Equity') + revenue - expense, revenue, expense, net: revenue - expense, due: code('1220'), owed: code('2120') }
+  })
+  const sum = (f: (u: (typeof units)[number]) => number) => units.reduce((s, u) => s + f(u), 0)
+  // Only balances both sides hold are eliminated; an unmatched remainder stays visible as a difference to investigate.
+  const eliminated = Math.min(sum((u) => u.due), sum((u) => u.owed))
+  const group = { assets: sum((u) => u.assets) - eliminated, liabilities: sum((u) => u.liabilities) - eliminated, equity: sum((u) => u.equity), revenue: sum((u) => u.revenue), expense: sum((u) => u.expense), net: sum((u) => u.net) }
+  return { units, eliminated, unmatched: sum((u) => u.due) - sum((u) => u.owed), group }
+}
+
+/** Posted expense per cost centre: debits less credits on expense accounts for lines that name a centre. */
+export function costCentreSpend(all: All, scope: Scope = {}) {
+  const expense = new Set(accountsOf(all).filter((a) => a.values.class === 'Expense').map((a) => a.id))
+  const by = new Map<string, number>()
+  for (const l of ledgerLines(all, scope)) {
+    const centre = String(l.line.values.costcenter ?? '')
+    if (centre && expense.has(l.account)) by.set(centre, (by.get(centre) ?? 0) + l.debit - l.credit)
+  }
+  return [...by].map(([centre, amount]) => ({ centre, amount })).sort((a, b) => b.amount - a.amount)
 }

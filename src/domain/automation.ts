@@ -31,16 +31,22 @@ export function duePlans(all: All, today: string) {
   })
 }
 
-/** Spare parts at or below their minimum with no open purchase requisition naming their part number. */
+/**
+ * Spare parts at or below their reorder point with no open purchase requisition naming their part number. The reorder
+ * point is the minimum stock plus what the plant uses while the supplier delivers; the order covers that and refills
+ * the minimum, and is needed by the end of the supplier's lead time.
+ */
 export function lowStock(all: All, today: string) {
   const material = (all['mdm.materials'] ?? []).find((m) => m.values.code === 'MRO-SPARE')?.id
   const openPr = (all['vms.requisitions'] ?? []).filter((r) => !DONE.has(r.status))
   return (all['eam.parts'] ?? []).flatMap((part) => {
     const onHand = Number(part.values.onHand) || 0
     const min = Number(part.values.minStock) || 0
-    if (onHand > min || !material || openPr.some((r) => String(r.values.title).includes(String(part.values.partNo)))) return []
-    const qty = Math.max(1, min * 2 - onHand)
-    const requisition: Values = { title: `Restock ${String(part.values.partNo)} ${String(part.values.name)}`, material, qty, entity: 'fertiliser', value: qty * (Number(part.values.unitCost) || 0), needBy: plusDays(today, 14) }
+    const leadTime = Number(part.values.leadTime) || 0
+    const inTransitUse = Math.ceil((Number(part.values.dailyUse) || 0) * leadTime)
+    if (onHand > min + inTransitUse || !material || openPr.some((r) => String(r.values.title).includes(String(part.values.partNo)))) return []
+    const qty = Math.max(1, min * 2 + inTransitUse - onHand)
+    const requisition: Values = { title: `Restock ${String(part.values.partNo)} ${String(part.values.name)}`, material, qty, entity: 'fertiliser', value: qty * (Number(part.values.unitCost) || 0), needBy: plusDays(today, leadTime || 14) }
     return [{ part, qty, requisition }]
   })
 }

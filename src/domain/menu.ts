@@ -34,7 +34,11 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
     { label: 'Safety ADAS & DSM', to: '/fleet/safety' },
   ],
   tfm: [{ label: 'Tank farm 3D', to: '/tank-farm?view=3d' }],
-  mrp: [{ label: 'Scheduling board & capacity', to: '/mrp/planning' }],
+  mrp: [
+    { label: 'Scheduling board & capacity', to: '/mrp/planning' },
+    { label: 'MRP: kebutuhan bahan', to: '/mrp/run' },
+  ],
+  gtr: [{ label: 'Telusur lot', to: '/traceability/ledger' }],
   bi: [{ label: 'Group analytics', to: '/analytics' }],
   mes: [
     { label: 'SCADA pabrik', to: '/mes/scada' },
@@ -45,6 +49,11 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
     { label: 'Bagan akun', to: '/finance/coa' },
     { label: 'Laporan keuangan', to: '/finance/reports' },
     { label: 'Rekonsiliasi bank', to: '/finance/bank' },
+    { label: 'Payment run pemasok', to: '/finance/payment-run' },
+  ],
+  hrs: [
+    { label: 'Kalkulator pesangon', to: '/hris/severance' },
+    { label: 'Kalibrasi dan siklus 360', to: '/hris/performance' },
   ],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },

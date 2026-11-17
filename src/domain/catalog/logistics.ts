@@ -75,6 +75,7 @@ export const LOGISTICS: readonly RecordType[] = [
     ref('zone', 'Zone', 'wms.zones'),
     num('qty', 'Quantity', 't', { required: true, min: 0, list: true }),
     date('expiry', 'Expiry (FEFO)', { required: true, list: true }),
+    ref('receipt', 'Goods receipt', 'vms.receipts'),
   ], flow(
     [
       ['received', 'Received', 'info'],

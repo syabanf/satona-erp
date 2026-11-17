@@ -4,6 +4,7 @@ import { useMe } from '../../hooks/useMe'
 import { CardSkeleton, EmptyState } from '../../ui/States'
 import { NotFound } from '../NotFound'
 import { Attendance } from './Attendance'
+import { Feedback } from './Feedback'
 import { OwnRecords } from './OwnRecords'
 import { Payslips } from './Payslips'
 import { Team } from './Team'
@@ -20,6 +21,7 @@ export default function SelfPage() {
   if (section === 'attendance') return <Attendance all={all} me={me} />
   if (section === 'payslips') return <Payslips all={all} me={me} />
   if (section === 'team') return <Team item={item} all={all} me={me} />
+  if (section === 'feedback') return <Feedback item={item} all={all} me={me} />
   if (section === 'approvals') return <TeamApprovals all={all} me={me} />
   return <OwnRecords key={section} item={item} all={all} me={me} />
 }

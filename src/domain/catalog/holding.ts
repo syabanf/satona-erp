@@ -1,5 +1,6 @@
 /** Kantor Pusat: MDM, EPM, VMS, GRC, BI. */
 import { PTKP } from '../payroll'
+import { CREWS } from '../selfService'
 import type { RecordType } from '../records'
 import { ACTIVE, APPROVAL, B3_CLASSES, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
@@ -45,6 +46,8 @@ export const HOLDING: readonly RecordType[] = [
     ref('position', 'Position', 'hrs.positions'),
     pick('employment', 'Employment', ['Permanent', 'Fixed term', 'Outsourced'], { list: true }),
     date('joined', 'Joined'),
+    pick('crew', 'Roster crew', CREWS),
+    text('bankAccount', 'Payroll bank account'),
     money('baseSalary', 'Base pay'),
     money('allowance', 'Fixed allowance'),
     pick('ptkp', 'Tax status (PTKP)', PTKP),
@@ -117,6 +120,7 @@ export const HOLDING: readonly RecordType[] = [
     ref('vendor', 'Preferred vendor', 'mdm.partners'),
     money('value', 'Estimated value', { required: true, list: true }),
     date('needBy', 'Needed by', { required: true }),
+    ref('costcenter', 'Cost centre', 'mdm.costcenters'),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -290,6 +294,9 @@ export const HOLDING_MASTERS: readonly RecordType[] = [
     text('title', 'Contract', { required: true, list: true }),
     ref('vendor', 'Vendor', 'mdm.partners', { required: true, list: true }),
     money('target', 'Target value', { required: true, list: true }),
+    ref('material', 'Material', 'mdm.materials'),
+    money('price', 'Contract price per unit'),
+    num('quota', 'Contract quantity', 't', { min: 0 }),
     date('validTo', 'Valid to', { required: true, list: true }),
   ], APPROVAL, { sumField: 'target', dateField: 'validTo' }),
   master('grc', 'regulations', ['Regulations register', 'Regulation', 'REG'], 'title', [

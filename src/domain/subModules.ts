@@ -6,13 +6,13 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
   eam: [
     ['Aset dan mesin', ['assets', 'partfits', 'meters', 'conditions']],
     ['Suku cadang', ['parts', 'issues']],
-    ['Perencanaan perawatan', ['plans', 'jobplans', 'workorders', 'requests']],
+    ['Perencanaan perawatan', ['plans', 'jobplans', 'workorders', 'requests', 'turnarounds']],
     ['Tim dan alat', ['technicians', 'tools']],
     ['Keandalan dan kalibrasi', ['failurecodes', 'rca', 'calibrations']],
   ],
   mes: [
     ['Rute dan shift', ['routing', 'shifts', 'workorders']],
-    ['Kinerja (OEE)', ['reasons', 'oee', 'downtime']],
+    ['Kinerja (OEE)', ['reasons', 'oee', 'downtime', 'utilities']],
     ['Mutu', ['defects', 'holds', 'ncr']],
   ],
   mdm: [
@@ -32,10 +32,12 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
     ['Lingkungan dan lisensi', ['waste', 'licences']],
   ],
   hrs: [
-    ['Organisasi', ['orgunits', 'positions', 'contracts']],
-    ['Waktu kerja', ['shifts', 'leavetypes', 'attendance', 'leaves', 'overtime', 'shiftswaps']],
-    ['Gaji dan pinjaman', ['payroll', 'payslips', 'loans']],
-    ['Talenta', ['candidates', 'onboarding', 'appraisals', 'trainings', 'announcements']],
+    ['Kepegawaian', ['orgunits', 'positions', 'contracts', 'profilechanges', 'onboarding', 'resignations', 'offboarding', 'announcements']],
+    ['Rekrutmen', ['requisitions', 'jobs', 'candidates', 'psikotes', 'offers']],
+    ['Kehadiran dan cuti', ['shifts', 'worklocations', 'leavetypes', 'attendance', 'corrections', 'leaves', 'overtime', 'shiftswaps']],
+    ['Penggajian', ['payroll', 'payslips', 'grades', 'merit', 'loans', 'expenses']],
+    ['Kinerja', ['appraisals', 'reviews', 'feedback360', 'logbook', 'depttasks', 'succession']],
+    ['Pembelajaran', ['courses', 'enrollments', 'trainings']],
   ],
   vms: [
     ['Pemasok', ['avl', 'criteria', 'ratings', 'inforecords', 'contracts']],
@@ -48,9 +50,9 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
     ['Telemetri dan keselamatan', ['telemetry', 'safety']],
   ],
   fin: [
-    ['Buku besar', ['journals', 'journallines', 'closing', 'assets']],
-    ['Utang dan piutang', ['payables', 'receivables', 'payments', 'taxinvoices']],
-    ['Kas dan bank', ['reconciliations', 'statementlines', 'pettycash', 'advances']],
+    ['Buku besar', ['journals', 'journallines', 'recurring', 'allocations', 'closing', 'assets']],
+    ['Utang dan piutang', ['payables', 'receivables', 'creditnotes', 'dunning', 'payments', 'paymentruns', 'taxinvoices']],
+    ['Kas dan bank', ['cashmoves', 'reconciliations', 'statementlines', 'pettycash', 'advances']],
   ],
   epm: [
     ['Konsolidasi', ['periods', 'consolidations', 'intercompany', 'adjustments']],

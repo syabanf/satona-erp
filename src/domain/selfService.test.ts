@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ErpRecord } from './records'
-import { areaOf, areasFor, canFileOwn, clockResult, employeeOf, isSupervisor, leaveBalance, selfMenuFor, shiftOn, teamRequests, weekOf } from './selfService'
+import { areaOf, areasFor, canFileOwn, clockResult, employeeOf, isRestDay, isSupervisor, leaveBalance, selfMenuFor, shiftOn, teamRequests, weekOf } from './selfService'
 
 const rec = (id: string, values: ErpRecord['values'], status = 'active'): ErpRecord => ({ id, type: 't', status, values, createdAt: '', updatedAt: '', history: [] })
 
@@ -34,16 +34,24 @@ describe('employee', () => {
     const leaves = [rec('LV-1', { from: '2026-03-02', days: 3 }, 'approved'), rec('LV-2', { from: '2026-11-20', days: 2 }, 'submitted'), rec('LV-3', { from: '2025-12-20', days: 5 }, 'approved')]
     expect(leaveBalance(leaves, '2026')).toEqual({ taken: 3, waiting: 2, left: 9 })
   })
-  it('rotates shifts weekly, rests on Sunday and honours an approved swap', () => {
-    const shifts = [rec('SHF-1', { start: '07:00' }), rec('SHF-2', { start: '15:00' })]
-    const [a, b] = [rec('EMP-1', {}), rec('EMP-4', {})]
+  it('runs four crews around the clock, keeps office staff on weekdays and honours an approved swap', () => {
+    const shifts = ['Office', 'Morning', 'Afternoon', 'Night'].map((name, i) => rec(`SHF-${i}`, { name }))
+    const crew = (id: string, c: string) => rec(id, { crew: c })
+    const crews = [crew('EMP-A', 'A'), crew('EMP-B', 'B'), crew('EMP-C', 'C'), crew('EMP-D', 'D')]
     expect(weekOf('2026-11-18')).toEqual(['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22'])
-    expect(shiftOn(a, '2026-11-22', shifts)).toBeUndefined()
-    expect(shiftOn(a, '2026-11-16', shifts)).toBe(shiftOn(a, '2026-11-21', shifts))
-    expect(shiftOn(a, '2026-11-16', shifts)).not.toBe(shiftOn(a, '2026-11-23', shifts))
+    // Every day has one crew on each shift and one crew off.
+    for (const date of weekOf('2026-11-18')) expect(crews.map((c) => String(shiftOn(c, date, shifts)?.values.name)).sort()).toEqual(['Afternoon', 'Morning', 'Night', 'undefined'])
+    const cycle = Array.from({ length: 8 }, (_, i) => String(shiftOn(crews[0]!, new Date(Date.UTC(2026, 10, 16 + i)).toISOString().slice(0, 10), shifts)?.values.name))
+    expect([...cycle, ...cycle].join()).toContain('Morning,Morning,Afternoon,Afternoon,Night,Night,undefined,undefined')
+    const office = crew('EMP-O', 'Office')
+    expect(shiftOn(office, '2026-11-20', shifts)?.values.name).toBe('Office')
+    expect(shiftOn(office, '2026-11-21', shifts)).toBeUndefined()
+    expect(isRestDay(office, '2026-11-22', [])).toBe(true)
+    expect(isRestDay(office, '2026-11-18', [rec('HOL-1', { date: '2026-11-18', kind: 'National holiday' })])).toBe(true)
+    const [a, b] = [crews[0]!, crews[2]!]
     const swap = rec('SWP-1', { employee: a.id, partner: b.id, date: '2026-11-18' }, 'approved')
-    expect(shiftOn(a, '2026-11-18', shifts, [swap])).toBe(shiftOn(b, '2026-11-18', shifts))
-    expect(shiftOn(b, '2026-11-18', shifts, [swap])).toBe(shiftOn(a, '2026-11-18', shifts))
+    expect(shiftOn(a, '2026-11-18', shifts, [swap], crews)).toBe(shiftOn(b, '2026-11-18', shifts))
+    expect(shiftOn(b, '2026-11-18', shifts, [swap], crews)).toBe(shiftOn(a, '2026-11-18', shifts))
     expect(clockResult('07:05', '07:00')).toBe('On time')
     expect(clockResult('07:06', '07:00')).toBe('Late')
   })

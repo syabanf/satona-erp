@@ -48,6 +48,7 @@ export const SHE: readonly RecordType[] = [
     pick('kind', 'Permit type', PERMIT_KINDS, { required: true, list: true }),
     ref('area', 'Work area', 'she.areas', { required: true, parent: true, list: true }),
     text('contractor', 'Performed by', { required: true }),
+    ref('supervisor', 'K3 supervisor', 'mdm.employees'),
     date('start', 'Start', { required: true, list: true }),
     num('hours', 'Duration', 'h', { required: true, min: 1, max: 24 }),
     num('oxygen', 'Gas test O2', '%', { min: 0, max: 30 }),

@@ -42,6 +42,12 @@ export function overtimePay(hours: number, monthlyWage: number, restDay = false)
   return Math.round((monthlyWage / 173) * factor)
 }
 
+/** Flat deduction for each day clocked in late, past the shift's tolerance. */
+export const LATE_DEDUCTION = 25_000
+
+/** Working days in a month, for the daily rate of absence deductions. */
+export const WORKING_DAYS = 21
+
 /** Plant allowances: per afternoon or night shift worked, per day present, and a monthly hazard allowance for plant crews. */
 const ALLOWANCE = { shift: { Afternoon: 25_000, Night: 40_000 } as Record<string, number>, meal: 30_000, hazard: 750_000 } as const
 
@@ -92,7 +98,11 @@ export function payslipFor(employee: ErpRecord, period: string, all: All): Value
   const present = (all['hrs.attendance'] ?? []).filter((a) => a.values.employee === employee.id && String(a.values.date).startsWith(period) && ['On time', 'Late'].includes(String(a.values.result)))
   const shiftAllowance = present.reduce((s, a) => s + (ALLOWANCE.shift[shiftName.get(String(a.values.shift)) ?? ''] ?? 0), 0)
   const plantCrew = Boolean(employee.values.crew) && employee.values.crew !== 'Office'
-  const values = { base, allowance, overtime: extra, shiftAllowance, meal: present.length * ALLOWANCE.meal, hazard: plantCrew ? ALLOWANCE.hazard : 0 }
+  // A day absent without leave, or on unpaid leave, costs one working day of base pay and fixed allowance.
+  const unpaid = new Set((all['hrs.leavetypes'] ?? []).filter((t) => t.values.paid === 'No' || /unpaid/i.test(String(t.values.name))).map((t) => t.id))
+  const lostDays = (all['hrs.attendance'] ?? []).filter((a) => a.values.employee === employee.id && String(a.values.date).startsWith(period) && a.values.result === 'Absent').length
+    + (all['hrs.leaves'] ?? []).filter((l) => mine(l) && unpaid.has(String(l.values.leaveType)) && String(l.values.from).startsWith(period)).reduce((s, l) => s + n(l.values.days), 0)
+  const values = { base, allowance, overtime: extra, shiftAllowance, meal: present.length * ALLOWANCE.meal, hazard: plantCrew ? ALLOWANCE.hazard : 0, absence: Math.round(((base + allowance) / WORKING_DAYS) * lostDays), late: present.filter((a) => a.values.result === 'Late').length * LATE_DEDUCTION }
   const gross = slipGross(values)
   const year = (all['hrs.payslips'] ?? []).filter((p) => p.values.employee === employee.id && String(p.values.period).startsWith(period.slice(0, 4)) && p.values.period !== period)
   const settled = Math.max(0, annualPph21(year.reduce((s, p) => s + slipGross(p.values), 0) + gross, ptkp) - year.reduce((s, p) => s + n(p.values.pph21), 0))
@@ -111,7 +121,7 @@ export function payslipFor(employee: ErpRecord, period: string, all: All): Value
 /** The THR payslip of an employee: the bonus itself, taxed at its TER rate, with no BPJS and no loan deduction. */
 export function thrSlipFor(employee: ErpRecord, period: string, reference: string): Values {
   const thr = thrOf(employee, reference)
-  return { employee: employee.id, period, kind: 'THR', entity: employee.values.entity, base: thr, allowance: 0, overtime: 0, bpjs: 0, pph21: pph21(thr, String(employee.values.ptkp ?? 'TK/0')), loan: 0 }
+  return { employee: employee.id, period, kind: 'THR', entity: employee.values.entity, base: thr, allowance: 0, overtime: 0, absence: 0, late: 0, bpjs: 0, pph21: pph21(thr, String(employee.values.ptkp ?? 'TK/0')), loan: 0 }
 }
 
 /** Months of wage per completed year band: severance pay (uang pesangon) and long-service pay (UPMK), PP 35/2021 articles 40. */
@@ -138,5 +148,6 @@ export function severanceOf(wage: number, years: number, reason: string) {
   return { severance, service, compensation, total: severance + service + compensation }
 }
 
-export const slipGross = (v: Values) => n(v.base) + n(v.allowance) + n(v.overtime) + n(v.shiftAllowance) + n(v.meal) + n(v.hazard)
+/** Earnings of the month: pay and allowances less what absence and unpaid leave took off. */
+export const slipGross = (v: Values) => n(v.base) + n(v.allowance) + n(v.overtime) + n(v.shiftAllowance) + n(v.meal) + n(v.hazard) - n(v.absence) - n(v.late)
 export const slipNet = (v: Values) => slipGross(v) - n(v.bpjs) - n(v.pph21) - n(v.loan)

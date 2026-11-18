@@ -153,6 +153,8 @@ export const HRIS: readonly RecordType[] = [
     money('bpjs', 'BPJS'),
     money('pph21', 'PPh 21'),
     money('loan', 'Loan installment'),
+    money('absence', 'Absence and unpaid leave'),
+    money('late', 'Late deduction'),
     calc('gross', 'Gross pay', slipGross, { unit: 'Rp', list: true }),
     calc('net', 'Net pay', slipNet, { unit: 'Rp', list: true }),
   ], flow([['calculated', 'Calculated', 'info'], ['paid', 'Paid', 'success']], []), { sumField: 'net', groupBy: 'period' }),
@@ -223,6 +225,7 @@ export const FINANCE: readonly RecordType[] = [
     text('invoiceNo', 'Invoice no.', { required: true, list: true }),
     ref('customer', 'Customer', 'mdm.partners', { required: true, list: true }),
     ref('salesOrder', 'Sales order', 'dms.orders'),
+    ref('delivery', 'Delivery', 'dms.deliveries'),
     entity('entity', 'Entity', { required: true }),
     money('amount', 'Amount before tax', { required: true, list: true }),
     pick('tax', 'VAT', TAXES),
@@ -392,6 +395,17 @@ export const INVENTORY: readonly RecordType[] = [
     ['review', 'posted', 'Approve and post', 'approve'],
     ['review', 'counting', 'Recount'],
   ]), { dateField: 'date' }),
+  type('inv', 'countlines', ['Stock count lines', 'Stock count line', 'OPL'], 'stock', [
+    ref('count', 'Stock count', 'inv.counts', { required: true, parent: true, list: true }),
+    ref('stock', 'Stock balance', 'inv.stock', { required: true, list: true }),
+    ref('lot', 'Stock lot', 'wms.lots', { list: true }),
+    text('bin', 'Storage bin'),
+    num('system', 'System quantity', 't', { required: true, list: true }),
+    num('counted', 'Counted quantity', 't', { required: true, min: 0, list: true }),
+    money('unitCost', 'Unit cost'),
+    calc('difference', 'Difference', (v) => Math.round((n(v, 'counted') - n(v, 'system')) * 1000) / 1000, { unit: 't', list: true }),
+    calc('value', 'Difference value', (v) => Math.round((n(v, 'counted') - n(v, 'system')) * n(v, 'unitCost')), { unit: 'Rp', list: true }),
+  ], flow([['open', 'Open', 'neutral'], ['counted', 'Counted', 'success']], [['open', 'counted', 'Confirm count'], ['counted', 'open', 'Recount']]), { sumField: 'value', groupBy: 'count' }),
   type('inv', 'transfers', ['Stock transfers', 'Stock transfer', 'TRF'], 'material', [
     ref('material', 'Material', 'mdm.materials', { required: true, list: true }),
     ref('from', 'From plant', 'mdm.plants', { required: true, list: true }),
@@ -436,6 +450,7 @@ export const PURCHASING: readonly RecordType[] = [
   ], flow([['received', 'Received', 'info'], ['quarantine', 'In quarantine', 'warning'], ['accepted', 'Accepted', 'success'], ['rejected', 'Rejected', 'danger']], [
     ['received', 'quarantine', 'Send to QC'],
     ['quarantine', 'accepted', 'Release', 'approve'],
+    ['accepted', 'quarantine', 'Reverse acceptance', 'approve'],
     ['quarantine', 'rejected', 'Reject', 'approve'],
   ]), { sumField: 'qty', dateField: 'date' }),
   type('vms', 'inspections', ['Incoming QC', 'Incoming inspection', 'IQC'], 'parameter', [

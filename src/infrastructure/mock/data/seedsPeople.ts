@@ -29,6 +29,15 @@ export const PEOPLE_SEEDS: Record<string, { count: number; make: Make }> = {
       return { date: day(-Math.floor(i / 12) - 1, -Math.floor(i / 12) - 1), line: LINES[Math.floor(i / 4) % 3], kind, qty: Math.round(qty * (0.8 + int(0, 40) / 100)), rate, _status: i < 12 ? 'logged' : 'verified' }
     },
   },
+  'dms.deliveries': { count: 4, make: ({ i, int, day }) => ({ order: id('SO', i * 5 + 1), qty: int(10, 60), date: day(-12 + i * 3, -12 + i * 3), plate: `L ${8100 + i * 21} UZ`, _status: 'draft' }) },
+  // One count is under way with a line per stock row; two lines already differ from the system.
+  'inv.countlines': {
+    count: 6,
+    make: ({ i, int }) => {
+      const system = int(60, 900)
+      return { count: id('OPN', 0), stock: id('STK', i * 5), system, counted: i === 1 ? system - 4 : i === 4 ? system + 2 : system, unitCost: (30 + i * 9) * 100_000, _status: i < 4 ? 'counted' : 'open' }
+    },
+  },
   'dms.returns': { count: 4, make: ({ i, int, pick }) => ({ order: id('SO', i * 3), qty: int(2, 12), reason: pick(['Off-spec', 'Damaged bags', 'Wrong product']), disposition: i % 2 ? 'Scrap' : 'Restock', _status: ['requested', 'received', 'credited', 'requested'][i] }) },
   'dms.sellthrough': { count: 3, make: ({ i, int, day }) => ({ order: id('SO', 7 + i * 8), qty: int(5, 30), date: day(-20 + i * 5, -20 + i * 5), _status: i < 2 ? 'reported' : 'draft' }) },
   'eam.turnarounds': {

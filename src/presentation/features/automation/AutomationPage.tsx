@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { BellRing, PackageMinus, Play, Wrench } from 'lucide-react'
+import { BellRing, PackageMinus, Play, UserX, Wrench } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { useAutomation, type Rule } from '../../hooks/useAutomation'
 import { recordPath } from '../../records/text'
@@ -85,6 +85,20 @@ export default function AutomationPage() {
                 <span className="text-xs text-muted tabular">{String(s.part.values.onHand)} / min {String(s.part.values.minStock)} · pesan {s.qty}</span>
               </li>
             ))}
+          </ul>
+        )}
+      </RuleCard>
+      <RuleCard rule="absent" icon={<UserX className="size-5" />} title="Tidak clock in menjadi tidak hadir" body={`Karyawan yang dijadwalkan kerja pada ${pending.yesterday} tanpa absensi dan tanpa cuti disetujui dicatat tidak hadir, dan memotong gajinya.`} count={pending.absent.length} onRun={go('absent', 'karyawan dicatat tidak hadir')} auto={auto.absent} onAuto={(on) => toggle('absent', on)}>
+        {pending.absent.length === 0 ? empty('Semua karyawan yang dijadwalkan sudah punya catatan absensi atau cuti.') : (
+          <ul className="divide-y divide-line">
+            {pending.absent.slice(0, 8).map((a) => (
+              <li key={a.employee.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                <Link to={recordPath(typeOf('mdm.employees')!, a.employee.id)} className="font-mono text-xs hover:underline">{String(a.employee.values.nik)}</Link>
+                <span className="min-w-0 flex-1 truncate">{String(a.employee.values.name)}</span>
+                <span className="text-xs text-muted">Shift {String(a.shift.values.name)} · regu {String(a.employee.values.crew ?? '-')}</span>
+              </li>
+            ))}
+            {pending.absent.length > 8 && <li className="py-2 text-xs text-muted">dan {pending.absent.length - 8} lainnya</li>}
           </ul>
         )}
       </RuleCard>

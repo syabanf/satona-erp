@@ -102,11 +102,17 @@ export const ownRecords = (list: readonly ErpRecord[], employeeId: string) => li
 
 const ANNUAL_LEAVE_DAYS = 12
 
-/** Annual leave left this year: the entitlement less approved days, and the days still waiting for a decision. */
-export function leaveBalance(leaves: readonly ErpRecord[], year: string) {
-  const days = (status: string) => leaves.filter((l) => l.status === status && String(l.values.from).startsWith(year)).reduce((s, l) => s + (Number(l.values.days) || 0), 0)
+/**
+ * Annual leave this year: the entitlement less approved days, and the days still waiting for a decision. Someone who
+ * joined during the year earns one day per month from the month they joined. With `annualType`, only leave of that
+ * type counts against the entitlement; sick, maternity and other leave have their own limits.
+ */
+export function leaveBalance(leaves: readonly ErpRecord[], year: string, opts: { joined?: string; annualType?: string } = {}) {
+  const counts = (l: ErpRecord) => String(l.values.from).startsWith(year) && (!opts.annualType || l.values.leaveType === opts.annualType)
+  const days = (status: string) => leaves.filter((l) => l.status === status && counts(l)).reduce((s, l) => s + (Number(l.values.days) || 0), 0)
+  const entitlement = opts.joined?.startsWith(year) ? Math.min(ANNUAL_LEAVE_DAYS, 13 - Number(opts.joined.slice(5, 7))) : ANNUAL_LEAVE_DAYS
   const taken = days('approved')
-  return { taken, waiting: days('submitted'), left: Math.max(0, ANNUAL_LEAVE_DAYS - taken) }
+  return { entitlement, taken, waiting: days('submitted'), left: Math.max(0, entitlement - taken) }
 }
 
 /** Colleagues in the employee's org unit, the employee included. */

@@ -4,10 +4,10 @@ import { bankOnlyPosting, bankReconciliation, ebupotXml, efakturRows, fxRevaluat
 import { bomNeeds, effectsFor, licenceProblem, runInvoices, threeWayMatch } from '@/domain/effects'
 import { assetBook, consolidation, costCentreSpend, incomeStatement, journalBalance, subledgerTie, trialBalance } from '@/domain/ledger'
 import { calibration, feedbackAssignments, feedbackSummary } from '@/domain/performance'
-import { capacityLoad, energyCostOf, finishedLots, finishedRevaluation, lotCleared, mrpRun, overheadCostOf, traceLot } from '@/domain/plant'
-import { lowStock } from '@/domain/automation'
+import { capacityLoad, energyCostOf, finishedLots, finishedRevaluation, lotCleared, mrpRun, overheadCostOf, sampleFailures, traceLot } from '@/domain/plant'
+import { lowStock, missingAttendance } from '@/domain/automation'
 import { cashForecast } from '@/domain/bank'
-import { annualPph21, bpjsOf, employerBpjsOf, overtimePay, payslipFor, pph21, ptkpOf, severanceOf, terCategory, thrOf } from '@/domain/payroll'
+import { annualPph21, bpjsOf, employerBpjsOf, overtimePay, payslipFor, pph21, ptkpOf, severanceOf, slipGross, terCategory, thrOf } from '@/domain/payroll'
 import type { ErpRecord, Values } from '@/domain/records'
 import { employeeOf, isRestDay } from '@/domain/selfService'
 import { createMockPorts } from '@/infrastructure/mock'
@@ -103,14 +103,14 @@ describe('order to cash', () => {
     expect(effectsFor('dms.orders', so(10_000_000), 'shipped', seed, today).blocker).toMatch(/kurang/)
     const fx = effectsFor('dms.orders', so(5), 'shipped', seed, today)
     expect(fx.blocker).toBeUndefined()
-    expect(fx.patches.every((p) => p.type === 'inv.stock')).toBe(true)
-    expect(fx.patches.length).toBeGreaterThan(0)
+    expect(fx.patches.some((p) => p.type === 'inv.stock')).toBe(true)
+    expect(fx.patches.find((p) => p.id === 'SO-T')!.values).toEqual({ shippedQty: 5 })
     expect(fx.postings[0]!.lines.map((l) => code(seed, l.account))).toEqual(['5100', '1330'])
   })
 
-  it('invoices a delivered order once, with output VAT and a tax invoice', async () => {
+  it('invoices a delivered order up to its value, with output VAT and a tax invoice', async () => {
     const s = services()
-    const delivered = (await s.records.list('dms.orders')).find((o) => o.status === 'delivered')!
+    const delivered = (await s.records.list('dms.orders')).find((o) => o.status === 'delivered' && Number(o.values.value) > 200_000_000)!
     const values = { invoiceNo: 'INV/T', customer: 'BP-0001', salesOrder: delivered.id, entity: 'fertiliser', amount: 200_000_000, tax: 'PPN 11%', currency: 'IDR', due: '2026-11-30' }
     const before = (await s.records.list('fin.taxinvoices')).length
     const inv = await s.records.create(ADMIN_ROLE, 'fin.receivables', values)
@@ -119,7 +119,8 @@ describe('order to cash', () => {
     const lines = all['fin.journallines']!.filter((l) => l.values.journal === journal.id)
     expect(Object.fromEntries(lines.map((l) => [code(all, l.values.account), Number(l.values.debit) || -Number(l.values.credit)]))).toEqual({ '1210': 222_000_000, '4100': -200_000_000, '2210': -22_000_000 })
     expect(all['fin.taxinvoices']!.length).toBe(before + 1)
-    await expect(s.records.create(ADMIN_ROLE, 'fin.receivables', { ...values, invoiceNo: 'INV/T2' })).rejects.toThrow(/sudah punya faktur/)
+    // A second invoice may bill the rest of the order, but not more than the order is worth.
+    await expect(s.records.create(ADMIN_ROLE, 'fin.receivables', { ...values, invoiceNo: 'INV/T2', amount: Number(delivered.values.value) })).rejects.toThrow(/melebihi nilai yang sudah dikirim/)
     expect(subledgerTie(all, 'fertiliser').find((r) => r.code === '1210')!.difference).toBe(0)
   }, 30_000)
 })
@@ -720,5 +721,208 @@ describe('planning and commercial controls', () => {
     expect(effectsFor('vms.orders', po({}), 'created', put(all, rec('vms.orders', 'PO-U', 'released', { contract: 'CTR-T', qty: 80 })), today).blocker).toMatch(/Kuota/)
     expect(effectsFor('vms.orders', po({}), 'created', put(seed, contract({ validTo: '2026-01-01' })), today).blocker).toMatch(/masa berlaku/)
     expect(effectsFor('vms.orders', po({}), 'created', put(seed, contract({}, 'submitted')), today).blocker).toMatch(/belum disetujui/)
+  })
+})
+
+describe('corrections and partial steps', () => {
+  const codes = (p: { lines: readonly Values[] }) => Object.fromEntries(p.lines.map((l) => [code(seed, l.account), Number(l.debit) || -Number(l.credit)]))
+  const so = (values: Values, status = 'confirmed') => rec('dms.orders', 'SO-T', status, { distributor: 'DST-0001', product: 'NPK 15-15-15', scheme: 'Commercial', qty: 10, value: 90e6, date: today, shippedQty: 0, ...values })
+  const stdOf = (all: All) => Number(all['bpf.formulas']!.find((f) => f.values.grade === 'NPK 15-15-15')!.values.costPerT)
+
+  it('ships an order in parts and marks it shipped with the last one', () => {
+    const dlv = (qty: number) => rec('dms.deliveries', 'DLV-T', 'draft', { order: 'SO-T', qty, date: today })
+    const all = put(seed, so({ shippedQty: 4 }))
+    expect(effectsFor('dms.deliveries', dlv(7), 'created', all, today).blocker).toMatch(/melebihi sisa/)
+    const part = effectsFor('dms.deliveries', dlv(3), 'shipped', all, today)
+    expect(part.patches.find((p) => p.id === 'SO-T')!.values).toEqual({ shippedQty: 7 })
+    expect(part.moves).toEqual([])
+    expect(part.postings[0]!.journal).toEqual(expect.objectContaining({ reference: 'DLV-T', amount: 3 * stdOf(seed) }))
+    expect(effectsFor('dms.deliveries', dlv(6), 'shipped', all, today).moves).toEqual([expect.objectContaining({ id: 'SO-T', status: 'shipped' })])
+    // The order's own ship step sends only what is left.
+    expect(effectsFor('dms.orders', so({ shippedQty: 4 }), 'shipped', seed, today).postings[0]!.journal.amount).toBe(6 * stdOf(seed))
+  })
+
+  it('bills a partly shipped order only for what has shipped', () => {
+    const invoice = (amount: number) => rec('fin.receivables', 'ARI-T', 'issued', { invoiceNo: 'T', salesOrder: 'SO-T', entity: 'fertiliser', amount })
+    expect(effectsFor('fin.receivables', invoice(1), 'created', put(seed, so({})), today).blocker).toMatch(/belum ada yang dikirim/)
+    const half = put(seed, so({ shippedQty: 5 }))
+    expect(effectsFor('fin.receivables', invoice(45e6), 'created', half, today).blocker).toBeUndefined()
+    expect(effectsFor('fin.receivables', invoice(46e6), 'created', half, today).blocker).toMatch(/melebihi nilai yang sudah dikirim/)
+    expect(effectsFor('fin.receivables', invoice(20e6), 'created', put(half, rec('fin.receivables', 'ARI-U', 'issued', { salesOrder: 'SO-T', amount: 30e6 })), today).blocker).toMatch(/sudah ditagih/)
+  })
+
+  it('cancels a shipment: stock and lots come back and the journals are reversed once', () => {
+    const shipped = so({ shippedQty: 10 }, 'shipped')
+    const journal = rec('fin.journals', 'JE-T', 'posted', { description: 'Harga pokok SO-T', entity: 'fertiliser', source: 'Cost of sales', reference: 'SO-T', amount: 100 })
+    const lines = [['5100', 100, 0], ['1330', 0, 100]].map(([c, d, k], i) => rec('fin.journallines', `JL-T${i}`, 'recorded', { journal: journal.id, account: seed['mdm.accounts']!.find((a) => a.values.code === c)!.id, debit: d, credit: k }))
+    const fgId = seed['mdm.materials']!.find((m) => m.values.code === 'FG-NPK15')!.id
+    const lot = rec('gtr.lots', 'GLT-T', 'released', { lotNo: 'FG-T', material: fgId, remaining: 2 })
+    const move = rec('gtr.movements', 'LMV-T', 'recorded', { lotNo: 'FG-T', kind: 'Shipment', material: fgId, qty: 8, document: 'SO-T' })
+    const all = put(seed, shipped, journal, ...lines, lot, move)
+    const fx = effectsFor('dms.orders', shipped, 'confirmed', all, today)
+    expect(codes(fx.postings[0]!)).toEqual({ '5100': -100, '1330': 100 })
+    expect(fx.patches.find((p) => p.id === lot.id)!.values).toEqual({ remaining: 10 })
+    expect(fx.patches.some((p) => p.type === 'inv.stock')).toBe(true)
+    expect(fx.patches.find((p) => p.id === 'SO-T')!.values).toEqual({ shippedQty: 0 })
+    expect(fx.creates[0]!.values).toEqual(expect.objectContaining({ kind: 'Shipment', qty: -8 }))
+    const reversed = rec('fin.journals', 'JE-R', 'posted', { reference: 'REV/JE-T' })
+    expect(effectsFor('dms.orders', shipped, 'confirmed', put(all, reversed), today).postings).toEqual([])
+    expect(effectsFor('dms.orders', shipped, 'confirmed', put(all, rec('fin.receivables', 'ARI-T', 'issued', { salesOrder: 'SO-T' })), today).blocker).toMatch(/sudah difaktur/)
+    // A first confirmation still runs the credit check and nothing else.
+    expect(effectsFor('dms.orders', so({}, 'draft'), 'confirmed', seed, today).postings).toEqual([])
+  })
+
+  it('reverses a goods receipt unless its lot was already used, and reopens the order', () => {
+    const po = rec('vms.orders', 'PO-T', 'closed', { vendor: 'BP-0001', material: 'MAT-0001', qty: 40, value: 4e8 })
+    const grn = rec('vms.receipts', 'GRN-T', 'accepted', { po: po.id, qty: 40 })
+    const lot = (qty: number) => rec('wms.lots', 'SL-T', 'stored', { lotNo: 'RM-GRN-T', material: 'MAT-0001', qty, receipt: grn.id })
+    const fx = effectsFor(grn.type, grn, 'quarantine', put(seed, po, grn, lot(40)), today)
+    expect(fx.patches.find((p) => p.id === 'SL-T')!.values).toEqual({ qty: 0 })
+    expect(fx.moves).toEqual([expect.objectContaining({ id: po.id, status: 'released' })])
+    expect(effectsFor(grn.type, grn, 'quarantine', put(seed, po, grn, lot(25)), today).blocker).toMatch(/sudah dipakai 15/)
+    // Sending a fresh receipt to QC is the same status and must do nothing.
+    expect(effectsFor(grn.type, { ...grn, status: 'received' }, 'quarantine', put(seed, po, grn), today)).toEqual({ patches: [], moves: [], creates: [], postings: [] })
+  })
+
+  it('cancels a running batch and returns its materials to stock and to their lots', () => {
+    const order = rec('bpf.orders', 'PRD-T', 'running', { title: 'Uji', formula: 'FRM-0002', qty: 1, line: 'Line A Gresik', planned: today, materialCost: 500 })
+    const needs = bomNeeds(seed, order)
+    const lot = rec('wms.lots', 'SL-T', 'stored', { lotNo: 'RM-T', material: needs[0]!.material, qty: 1 })
+    const move = rec('gtr.movements', 'LMV-T', 'recorded', { lotNo: 'RM-T', kind: 'Consumption', material: needs[0]!.material, qty: 0.25, document: order.id })
+    const fx = effectsFor(order.type, order, 'released', put(seed, order, lot, move), today)
+    expect(fx.blocker).toBeUndefined()
+    expect(fx.patches.filter((p) => p.type === 'inv.stock').length).toBeGreaterThan(0)
+    expect(fx.patches.find((p) => p.id === lot.id)!.values).toEqual({ qty: 1.25 })
+    expect(fx.patches.find((p) => p.id === order.id)!.values).toEqual({ materialCost: 0 })
+  })
+
+  it('releases a lab sample only inside its inspection plan', () => {
+    const order = rec('bpf.orders', 'PRD-T', 'completed', { formula: 'FRM-T' })
+    const plan = (parameter: string, min: number | undefined, max: number | undefined) => rec('qc.plans', `IP-${parameter}`, 'active', { formula: 'FRM-T', parameter, min, max })
+    const sample = (values: Values) => rec('qc.samples', 'SMP-T', 'tested', { order: order.id, n: 15, p: 15, k: 15, moisture: 2, hardness: 3, ...values })
+    const all = put({ ...seed, 'qc.plans': [] }, order, plan('Total N', 14.5, 16), plan('Moisture', undefined, 2.5), plan('Hardness', 2, undefined))
+    expect(sampleFailures(all, sample({}))).toEqual([])
+    expect(sampleFailures(all, sample({ n: 14, moisture: 3 }))).toEqual(['Total N 14 (minimum 14.5)', 'Moisture 3 (maksimum 2.5)'])
+    // Hardness is in the plan, so a sample without it cannot pass, and one below the limit fails.
+    expect(sampleFailures(all, sample({ hardness: undefined }))).toEqual(['Hardness belum diukur'])
+    expect(sampleFailures(all, sample({ hardness: 1.5 }))).toEqual(['Hardness 1.5 (minimum 2)'])
+    expect(effectsFor('qc.samples', sample({ n: 14 }), 'approved', all, today).blocker).toMatch(/di luar spesifikasi: Total N 14/)
+    expect(effectsFor('qc.samples', sample({}), 'approved', all, today).blocker).toBeUndefined()
+  })
+
+  it('counts stock per item: lines from the system, value at review, stock set at posting', () => {
+    const plant = String(seed['inv.stock']![0]!.values.plant)
+    const rows = seed['inv.stock']!.filter((r) => r.values.plant === plant && r.status !== 'inactive')
+    const count = rec('inv.counts', 'OPN-T', 'planned', { plant, scope: 'Uji', date: today })
+    const started = effectsFor(count.type, count, 'counting', seed, today).creates
+    expect(started).toHaveLength(rows.length)
+    expect(started[0]!.values).toEqual(expect.objectContaining({ count: 'OPN-T', system: Number(rows[0]!.values.onHand), counted: Number(rows[0]!.values.onHand) }))
+    const line = (id: string, stock: string, system: number, counted: number) => rec('inv.countlines', id, 'counted', { count: 'OPN-T', stock, system, counted, unitCost: 1_000_000, difference: counted - system, value: (counted - system) * 1_000_000 })
+    const all = put({ ...seed, 'inv.countlines': [] }, line('OPL-1', rows[0]!.id, 100, 97), line('OPL-2', rows[1]!.id, 50, 50))
+    expect(effectsFor(count.type, count, 'review', all, today).patches[0]!.values).toEqual({ items: 2, value: -3_000_000, variance: 2 })
+    const posted = effectsFor(count.type, { ...count, values: { ...count.values, value: -3_000_000 } }, 'posted', all, today)
+    expect(posted.patches).toEqual([expect.objectContaining({ type: 'inv.stock', id: rows[0]!.id, values: { onHand: Number(rows[0]!.values.onHand) - 3 } })])
+    expect(codes(posted.postings[0]!)).toEqual({ '1310': -3_000_000, '5430': 3_000_000 })
+  })
+
+  it('holds annual leave to the balance and takes absence and unpaid leave off pay', () => {
+    const annual = seed['hrs.leavetypes']!.find((t) => /annual/i.test(String(t.values.name)))!
+    const unpaid = seed['hrs.leavetypes']!.find((t) => /unpaid/i.test(String(t.values.name)))!
+    const me = rec('mdm.employees', 'EMP-T', 'active', { entity: 'holding', baseSalary: 8_400_000, allowance: 2_100_000, ptkp: 'TK/0', joined: '2026-09-15', crew: 'Office' })
+    const leave = (id: string, days: number, status: string, type = annual.id) => rec('hrs.leaves', id, status, { employee: me.id, leaveType: type, from: '2026-11-10', days })
+    const all = put({ ...seed, 'hrs.leaves': [], 'hrs.attendance': [], 'hrs.payslips': [], 'hrs.overtime': [], 'hrs.loans': [] }, me, leave('LV-A', 2, 'approved'))
+    // Joined in September: four days earned this year, two taken.
+    expect(effectsFor('hrs.leaves', leave('LV-B', 3, 'draft'), 'created', all, today).blocker).toMatch(/tinggal 2 hari \(hak 4/)
+    expect(effectsFor('hrs.leaves', leave('LV-B', 2, 'draft'), 'created', all, today).blocker).toBeUndefined()
+    expect(effectsFor('hrs.leaves', leave('LV-B', 9, 'draft', unpaid.id), 'created', all, today).blocker).toBeUndefined()
+    const absent = rec('hrs.attendance', 'ATT-T', 'verified', { employee: me.id, date: '2026-11-05', result: 'Absent' })
+    const slip = payslipFor(me, '2026-11', put(all, absent, leave('LV-C', 2, 'approved', unpaid.id)))
+    expect(slip.absence).toBe(3 * 500_000)
+    expect(slipGross(slip)).toBe(8_400_000 + 2_100_000 - 1_500_000)
+  })
+})
+
+describe('finer corrections', () => {
+  const codes = (p: { lines: readonly Values[] }) => Object.fromEntries(p.lines.map((l) => [code(seed, l.account), Number(l.debit) || -Number(l.credit)]))
+  const so = (values: Values, status = 'confirmed') => rec('dms.orders', 'SO-T', status, { distributor: 'DST-0001', product: 'NPK 15-15-15', scheme: 'Commercial', qty: 10, value: 90e6, date: today, shippedQty: 0, ...values })
+  const fgId = (all: All) => all['mdm.materials']!.find((m) => m.values.code === 'FG-NPK15')!.id
+  const journal = (id: string, description: string, reference: string, lines: Array<[string, number, number]>) => [
+    rec('fin.journals', id, 'posted', { description, entity: 'fertiliser', source: 'Production', reference, amount: lines[0]![1] }),
+    ...lines.map(([c, d, k], i) => rec('fin.journallines', `${id}-L${i}`, 'recorded', { journal: id, account: seed['mdm.accounts']!.find((a) => a.values.code === c)!.id, debit: d, credit: k })),
+  ]
+
+  it('reopens a completed batch: output leaves stock and only the conversion and receipt journals are reversed', () => {
+    const order = rec('bpf.orders', 'PRD-T', 'completed', { title: 'Uji', formula: 'FRM-0002', qty: 2, output: 2, materialCost: 800, conversionCost: 100 })
+    const lot = (remaining: number) => rec('gtr.lots', 'GLT-T', 'released', { lotNo: 'FG-PRD-T', material: fgId(seed), qty: 2, remaining, order: order.id })
+    const books = [...journal('JE-A', 'Pemakaian bahan PRD-T', order.id, [['1320', 800, 0], ['1310', 0, 800]]), ...journal('JE-B', 'Tenaga kerja, overhead dan energi PRD-T', order.id, [['1320', 100, 0], ['2310', 0, 100]]), ...journal('JE-C', 'Hasil produksi PRD-T', order.id, [['1330', 900, 0], ['1320', 0, 900]])]
+    const all = put(seed, order, lot(2), ...books)
+    const fx = effectsFor(order.type, order, 'running', all, today)
+    expect(fx.postings.map((p) => p.journal.reference).sort()).toEqual(['REV/JE-B', 'REV/JE-C'])
+    expect(codes(fx.postings.find((p) => p.journal.reference === 'REV/JE-C')!)).toEqual({ '1330': -900, '1320': 900 })
+    expect(fx.patches.find((p) => p.id === 'GLT-T')!.values).toEqual({ qty: 0, remaining: 0 })
+    expect(fx.patches.find((p) => p.id === order.id)!.values).toEqual(expect.objectContaining({ output: 0, conversionCost: 0 }))
+    expect(fx.patches.some((p) => p.type === 'inv.stock')).toBe(true)
+    expect(fx.moves).toEqual([expect.objectContaining({ id: 'GLT-T', status: 'hold' })])
+    expect(effectsFor(order.type, order, 'running', put(seed, order, lot(1.5), ...books), today).blocker).toMatch(/sudah dikirim 0.5 t/)
+  })
+
+  it('cancels one delivery and takes its tonnes off the order, unless it was invoiced', () => {
+    const dlv = rec('dms.deliveries', 'DLV-T', 'shipped', { order: 'SO-T', qty: 4, date: today })
+    const lot = rec('gtr.lots', 'GLT-T', 'released', { lotNo: 'FG-T', material: fgId(seed), remaining: 1 })
+    const move = rec('gtr.movements', 'LMV-T', 'recorded', { lotNo: 'FG-T', kind: 'Shipment', material: fgId(seed), qty: 4, document: dlv.id })
+    const all = put(seed, so({ shippedQty: 10 }, 'shipped'), dlv, lot, move, ...journal('JE-A', 'Harga pokok DLV-T', dlv.id, [['5100', 400, 0], ['1330', 0, 400]]))
+    const fx = effectsFor(dlv.type, dlv, 'draft', all, today)
+    expect(fx.patches.find((p) => p.id === 'SO-T')!.values).toEqual({ shippedQty: 6 })
+    expect(fx.patches.find((p) => p.id === 'GLT-T')!.values).toEqual({ remaining: 5 })
+    expect(fx.moves).toEqual([expect.objectContaining({ id: 'SO-T', status: 'confirmed' })])
+    expect(codes(fx.postings[0]!)).toEqual({ '5100': -400, '1330': 400 })
+    expect(effectsFor(dlv.type, dlv, 'draft', put(all, rec('fin.receivables', 'ARI-T', 'issued', { salesOrder: 'SO-T', delivery: dlv.id, amount: 1 })), today).blocker).toMatch(/sudah difaktur/)
+    expect(effectsFor(dlv.type, dlv, 'draft', put(all, rec('fin.receivables', 'ARI-T', 'issued', { salesOrder: 'SO-T', amount: 80e6 })), today).blocker).toMatch(/lebih dari nilai yang tersisa/)
+  })
+
+  it('bills one delivery for its own tonnes, once', () => {
+    const dlv = rec('dms.deliveries', 'DLV-T', 'shipped', { order: 'SO-T', qty: 4, date: today })
+    const invoice = (amount: number, id = 'ARI-T') => rec('fin.receivables', id, 'issued', { invoiceNo: id, salesOrder: 'SO-T', delivery: dlv.id, entity: 'fertiliser', amount })
+    const all = put(seed, so({ shippedQty: 4 }), dlv)
+    expect(effectsFor('fin.receivables', invoice(36e6), 'created', all, today).blocker).toBeUndefined()
+    expect(effectsFor('fin.receivables', invoice(37e6), 'created', all, today).blocker).toMatch(/melebihi nilai/)
+    expect(effectsFor('fin.receivables', invoice(10e6, 'ARI-U'), 'created', put(all, invoice(20e6)), today).blocker).toMatch(/sudah punya faktur/)
+    expect(effectsFor('fin.receivables', invoice(10e6), 'created', put(seed, so({ shippedQty: 4 }), { ...dlv, status: 'draft' }), today).blocker).toMatch(/sudah dikirim dari pesanan yang sama/)
+  })
+
+  it('counts a material lot by lot in its bin and moves the stock balance by the lots\' differences', () => {
+    const stock = seed['inv.stock']![0]!
+    const plant = String(stock.values.plant)
+    const warehouse = rec('wms.warehouses', 'WH-T', 'active', { plant })
+    const zone = rec('wms.zones', 'ZON-T', 'active', { warehouse: warehouse.id })
+    const bin = rec('wms.bins', 'BIN-T', 'active', { bin: 'A-01-01', zone: zone.id })
+    const lot = (id: string, qty: number) => rec('wms.lots', id, 'stored', { lotNo: id, bin: bin.id, material: stock.values.material, qty })
+    const count = rec('inv.counts', 'OPN-T', 'planned', { plant, scope: 'Uji', date: today })
+    const all = put({ ...seed, 'wms.lots': [], 'inv.stock': [stock] }, warehouse, zone, bin, lot('SL-A', 30), lot('SL-B', 12))
+    const lines = effectsFor(count.type, count, 'counting', all, today).creates
+    expect(lines.map((l) => [l.values.lot, l.values.bin, l.values.system])).toEqual([['SL-A', 'A-01-01', 30], ['SL-B', 'A-01-01', 12]])
+    const line = (id: string, lotId: string, system: number, counted: number) => rec('inv.countlines', id, 'counted', { count: count.id, stock: stock.id, lot: lotId, system, counted, difference: counted - system })
+    const posted = effectsFor(count.type, count, 'posted', put({ ...all, 'inv.countlines': [] }, line('OPL-1', 'SL-A', 30, 28), line('OPL-2', 'SL-B', 12, 13)), today)
+    expect(posted.patches).toEqual([
+      expect.objectContaining({ type: 'wms.lots', id: 'SL-A', values: { qty: 28 } }),
+      expect.objectContaining({ type: 'wms.lots', id: 'SL-B', values: { qty: 13 } }),
+      expect.objectContaining({ type: 'inv.stock', id: stock.id, values: { onHand: Number(stock.values.onHand) - 1 } }),
+    ])
+  })
+
+  it('deducts late days from pay and files absences for rostered staff who never clocked in', () => {
+    const me = rec('mdm.employees', 'EMP-T', 'active', { entity: 'holding', baseSalary: 8_400_000, allowance: 2_100_000, ptkp: 'TK/0', joined: '2020-01-01', crew: 'Office' })
+    const day = (date: string, result: string) => rec('hrs.attendance', `ATT-${date}`, 'verified', { employee: me.id, date, result })
+    const slip = payslipFor(me, '2026-11', { 'hrs.attendance': [day('2026-11-02', 'Late'), day('2026-11-03', 'Late'), day('2026-11-04', 'On time')] })
+    expect(slip.late).toBe(50_000)
+    expect(slipGross(slip)).toBe(8_400_000 + 2_100_000 + 3 * 30_000 - 50_000)
+    const shifts = [rec('hrs.shifts', 'SHF-O', 'active', { name: 'Office' })]
+    const base = { 'mdm.employees': [me], 'hrs.shifts': shifts }
+    // Monday 2 November 2026 is a working day for office staff; Sunday the 1st is not.
+    expect(missingAttendance(base, '2026-11-02').map((a) => a.record)).toEqual([{ employee: me.id, date: '2026-11-02', shift: 'SHF-O', result: 'Absent', method: 'Mobile GPS', location: 'Otomatis: tidak clock in' }])
+    expect(missingAttendance(base, '2026-11-01')).toEqual([])
+    expect(missingAttendance({ ...base, 'hrs.attendance': [day('2026-11-02', 'On time')] }, '2026-11-02')).toEqual([])
+    expect(missingAttendance({ ...base, 'hrs.leaves': [rec('hrs.leaves', 'LV-T', 'approved', { employee: me.id, from: '2026-10-30', days: 4 })] }, '2026-11-02')).toEqual([])
+    expect(missingAttendance({ ...base, 'sys.holidays': [rec('sys.holidays', 'HOL-T', 'active', { date: '2026-11-02', kind: 'National holiday' })] }, '2026-11-02')).toEqual([])
   })
 })

@@ -53,6 +53,8 @@ export const FERTILISER: readonly RecordType[] = [
     [
       ['planned', 'released', 'Release', 'approve'],
       ['released', 'running', 'Start batch'],
+      ['running', 'released', 'Cancel batch', 'approve'],
+      ['completed', 'running', 'Reopen batch', 'approve'],
       ['running', 'completed', 'Complete'],
     ],
   ), { sumField: 'qty', groupBy: 'line', dateField: 'planned' }),
@@ -98,6 +100,8 @@ export const FERTILISER: readonly RecordType[] = [
     num('p', 'P₂O₅', '%', { required: true, min: 0, max: 50 }),
     num('k', 'K₂O', '%', { required: true, min: 0, max: 60 }),
     num('moisture', 'Moisture', '%', { required: true, min: 0, max: 10, list: true }),
+    num('granule', 'Granules 2-4 mm', '%', { min: 0, max: 100 }),
+    num('hardness', 'Hardness', 'kgf', { min: 0 }),
     calc('result', 'Result', (v) => (n(v, 'moisture') <= 2.5 ? 'Pass' : 'Fail'), { list: true }),
   ], flow(
     [
@@ -318,6 +322,12 @@ export const FERTILISER: readonly RecordType[] = [
     num('used', 'Used', 't', { required: true, min: 0 }),
     calc('usage', 'Usage', (v) => (n(v, 'quota') ? round1((n(v, 'used') / n(v, 'quota')) * 100) : 0), { unit: '%', list: true }),
   ], APPROVAL, { sumField: 'quota', groupBy: 'region' }),
+  type('dms', 'deliveries', ['Deliveries', 'Delivery', 'DLV'], 'date', [
+    ref('order', 'Sales order', 'dms.orders', { required: true, parent: true, list: true }),
+    num('qty', 'Quantity', 't', { required: true, min: 0.1, list: true }),
+    date('date', 'Delivery date', { required: true, list: true }),
+    text('plate', 'Vehicle plate'),
+  ], flow([['draft', 'Draft', 'neutral'], ['shipped', 'Shipped', 'success']], [['draft', 'shipped', 'Ship'], ['shipped', 'draft', 'Cancel delivery', 'approve']]), { sumField: 'qty', dateField: 'date' }),
   type('dms', 'returns', ['Customer returns', 'Customer return', 'SRT'], 'reason', [
     ref('order', 'Sales order', 'dms.orders', { required: true, parent: true, list: true }),
     num('qty', 'Quantity', 't', { required: true, min: 0.1, list: true }),
@@ -353,6 +363,7 @@ export const FERTILISER: readonly RecordType[] = [
     date('date', 'Order date', { required: true, list: true }),
     pick('terms', 'Sales terms', ['Sale', 'Consignment']),
     num('sold', 'Sold through', 't', { min: 0 }),
+    num('shippedQty', 'Shipped so far', 't', { min: 0 }),
   ], flow(
     [
       ['draft', 'Draft', 'neutral'],
@@ -364,6 +375,7 @@ export const FERTILISER: readonly RecordType[] = [
       ['draft', 'confirmed', 'Confirm', 'approve'],
       ['confirmed', 'shipped', 'Ship'],
       ['shipped', 'delivered', 'Confirm delivery'],
+      ['shipped', 'confirmed', 'Cancel shipment', 'approve'],
     ],
   ), { sumField: 'value', groupBy: 'product', dateField: 'date' }),
 ]

@@ -26,7 +26,8 @@ export default function EmployeeHome() {
   if (!me) return <EmptyState title="Data karyawan belum ada">Minta HR mendaftarkan Anda di data karyawan.</EmptyState>
 
   const own = (key: string) => ownRecords(all[key] ?? [], me.id)
-  const leave = leaveBalance(own('hrs.leaves'), today.slice(0, 4))
+  const annualType = (all['hrs.leavetypes'] ?? []).find((t) => /annual/i.test(String(t.values.name)))?.id
+  const leave = leaveBalance(own('hrs.leaves'), today.slice(0, 4), { joined: String(me.values.joined ?? ''), annualType })
   const month = own('hrs.attendance').filter((a) => String(a.values.date).startsWith(today.slice(0, 7)))
   const requests = REQUESTS.flatMap((item) => own(item.type!).map((record) => ({ item, record }))).sort((a, b) => b.record.updatedAt.localeCompare(a.record.updatedAt))
   const waiting = requests.filter(({ record }) => ['submitted', 'requested'].includes(record.status)).length
@@ -55,7 +56,7 @@ export default function EmployeeHome() {
       </Card>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiTile label="Sisa cuti tahunan" value={leave.left} format={days} to={selfPath('leaves')} accent note={`${leave.taken} hari terpakai, ${leave.waiting} menunggu`} />
+        <KpiTile label="Sisa cuti tahunan" value={leave.left} format={days} to={selfPath('leaves')} accent note={`dari ${leave.entitlement} hari: ${leave.taken} terpakai, ${leave.waiting} menunggu`} />
         <KpiTile label="Hadir bulan ini" value={month.filter((a) => a.values.result === 'On time').length} format={days} to={selfPath('attendance')} note={`${month.filter((a) => a.values.result === 'Late').length} kali terlambat`} />
         <KpiTile label="Pengajuan menunggu" value={waiting} format={(v) => String(Math.round(v))} to={selfPath('leaves')} note="cuti, lembur, pinjaman, kasbon" />
         {team > 0 ? (

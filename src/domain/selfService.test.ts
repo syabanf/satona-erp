@@ -32,7 +32,9 @@ describe('employee', () => {
   })
   it('counts approved leave against the entitlement', () => {
     const leaves = [rec('LV-1', { from: '2026-03-02', days: 3 }, 'approved'), rec('LV-2', { from: '2026-11-20', days: 2 }, 'submitted'), rec('LV-3', { from: '2025-12-20', days: 5 }, 'approved')]
-    expect(leaveBalance(leaves, '2026')).toEqual({ taken: 3, waiting: 2, left: 9 })
+    expect(leaveBalance(leaves, '2026')).toEqual({ entitlement: 12, taken: 3, waiting: 2, left: 9 })
+    // Joined in October: three days earned in the first year.
+    expect(leaveBalance(leaves, '2026', { joined: '2026-10-05' })).toEqual({ entitlement: 3, taken: 3, waiting: 2, left: 0 })
   })
   it('runs four crews around the clock, keeps office staff on weekdays and honours an approved swap', () => {
     const shifts = ['Office', 'Morning', 'Afternoon', 'Night'].map((name, i) => rec(`SHF-${i}`, { name }))

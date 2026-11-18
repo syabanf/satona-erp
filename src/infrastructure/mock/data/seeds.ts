@@ -9,7 +9,7 @@ import { MATERIAL_HAZARDS, SCOPE_SEEDS } from './seedsScope'
 import { bankAccount, LEDGER_SEEDS } from './seedsLedger'
 import { employeeEntity, salaryOf, SUPPORT_SEEDS } from './seedsSupport'
 import { PEOPLE_SEEDS } from './seedsPeople'
-import { alignPayables, carryStandards, tieSubledgers } from './seedsTie'
+import { alignDeliveries, alignPayables, carryStandards, tieSubledgers } from './seedsTie'
 
 export interface Ctx {
   i: number
@@ -905,7 +905,7 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
   },
   'qc.samples': {
     count: 34,
-    make: ({ int, ref }) => ({ order: ref('bpf.orders'), n: int(140, 162) / 10, p: int(140, 162) / 10, k: int(140, 162) / 10, moisture: int(12, 31) / 10 }),
+    make: ({ int, ref }) => ({ order: ref('bpf.orders'), n: int(140, 162) / 10, p: int(140, 162) / 10, k: int(140, 162) / 10, moisture: int(12, 31) / 10, granule: int(880, 970) / 10, hardness: int(20, 40) / 10 }),
   },
   'qc.coa': {
     count: 16,
@@ -1344,6 +1344,7 @@ export function seedRecords(today: string): Record<string, ErpRecord[]> {
   }
   alignPayables(all)
   carryStandards(all)
+  alignDeliveries(all)
   tieSubledgers(all, iso(-200))
   return all
 }

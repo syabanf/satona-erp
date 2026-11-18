@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { RECORD_TYPES } from '@/domain/catalog'
-import { duePlans, lowStock, staleApprovals } from '@/domain/automation'
+import { duePlans, lowStock, missingAttendance, staleApprovals } from '@/domain/automation'
 import { useAllRecords } from './useRecords'
 import { useServices } from './useServices'
 import { useSession } from './useSession'
 import { useStored } from './useStored'
 
-export type Rule = 'pm' | 'stock' | 'remind'
+export type Rule = 'pm' | 'stock' | 'remind' | 'absent'
 const KEY = 'wit-automation'
 const RAN = 'wit-automation-ran'
 
 /**
- * The three automation rules for the session role: what each would do now, a runner that creates the work orders,
+ * The automation rules for the session role: what each would do now, a runner that creates the work orders,
  * requisitions and reminders, and per-rule switches that run once per session when the dashboard opens.
  */
 export function useAutomation() {
@@ -19,10 +19,12 @@ export function useAutomation() {
   const { records, clock } = useServices()
   const { role } = useSession()
   const today = clock.today()
-  const [auto, setAuto] = useStored<Record<Rule, boolean>>(KEY, { pm: false, stock: false, remind: false })
+  const [auto, setAuto] = useStored<Record<Rule, boolean>>(KEY, { pm: false, stock: false, remind: false, absent: false })
   const pending = useMemo(() => {
     if (!all.data) return null
-    return { pm: duePlans(all.data, today), stock: lowStock(all.data, today), remind: staleApprovals(RECORD_TYPES, all.data, today) }
+    // Yesterday is the last day whose shifts have all ended.
+    const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+    return { pm: duePlans(all.data, today), stock: lowStock(all.data, today), remind: staleApprovals(RECORD_TYPES, all.data, today), absent: missingAttendance(all.data, yesterday), yesterday }
   }, [all.data, today])
 
   const run = useCallback(
@@ -47,6 +49,8 @@ export function useAutomation() {
           })
       if (rule === 'stock') for (const s of pending.stock) await attempt(() => records.create(role, 'vms.requisitions', s.requisition))
       if (rule === 'remind') for (const s of pending.remind.slice(0, 20)) await attempt(() => records.note(role, s.type.key, s.record.id, `Pengingat persetujuan: menunggu ${s.days} hari`))
+      if (rule === 'absent' && pending.absent.length) await attempt(() => records.createMany(role, 'hrs.attendance', pending.absent.map((a) => a.record)))
+      if (rule === 'absent' && done) done = pending.absent.length
       return { done, failed }
     },
     [pending, records, role],
@@ -69,6 +73,6 @@ export function useAutomationRunner() {
     } catch {
       return
     }
-    for (const rule of ['pm', 'stock', 'remind'] as const) if (auto[rule]) void run(rule)
+    for (const rule of ['pm', 'stock', 'remind', 'absent'] as const) if (auto[rule]) void run(rule)
   }, [pending, run, auto])
 }

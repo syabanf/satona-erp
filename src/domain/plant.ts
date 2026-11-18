@@ -3,10 +3,10 @@
  * holds and the COA gate, weighbridge tickets, metered energy, turnaround packages and the budget check on requisitions.
  * A rule here adds to the base rule of the same step; a blocker from either stops the step.
  */
-import { averageCost, bomNeeds, CONVERSION, finishedCost, finishedGood, moveStock, receiveStock, type Effects } from './effects'
+import { averageCost, bomNeeds, CONVERSION, finishedCost, finishedGood, moveStock, receiveStock, shipGoods, unshipped, type Effects } from './effects'
 import { compose, costCentreSpend, POSTING, signed, type Posting } from './ledger'
 import type { ErpRecord, Values } from './records'
-import { weekOf } from './selfService'
+import { leaveBalance, weekOf } from './selfService'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 type Rule = (record: ErpRecord, all: All, today: string) => Partial<Effects> | undefined
@@ -131,6 +131,105 @@ export function finishedRevaluation(all: All, today: string): { posting?: Postin
 const head = (record: ErpRecord, source: string, description: string, today: string): Values => ({ description, entity: 'fertiliser', date: today, source, reference: record.id })
 const returned = (all: All, type: string, field: string, id: unknown, except: string) => list(all, type).filter((r) => r.values[field] === id && r.id !== except).reduce((s, r) => s + n(r.values.qty), 0)
 
+const blocked = (reason: string | undefined) => (reason ? { blocker: reason } : undefined)
+
+/** Finished lots a shipment of `qty` draws from, oldest first; refuses stock that quality still holds. */
+function shipLots(so: ErpRecord, qty: number, doc: ErpRecord, all: All, today: string): Partial<Effects> | undefined {
+  const fg = finishedGood(all, String(so.values.product))
+  if (!fg) return undefined
+  const { cleared, held } = finishedLots(all, fg.id)
+  const stock = list(all, 'inv.stock').filter((s) => s.values.material === fg.id && s.status !== 'inactive').reduce((s, r) => s + n(r.values.onHand), 0)
+  if (held > 0 && qty > stock - held) return { blocker: `${held} t ${String(fg.values.name)} masih ditahan mutu atau belum ber-COA. Yang boleh dikirim ${Math.max(0, stock - held)} t.` }
+  const taken = allocate(cleared, qty, 'remaining')
+  return {
+    patches: taken.map(({ lot, take }) => ({ type: lot.type, id: lot.id, values: { remaining: Math.round((n(lot.values.remaining) - take) * 1000) / 1000 }, action: `Dikirim ${take} untuk ${doc.id}` })),
+    creates: taken.map(({ lot, take }) => movement('Shipment', String(lot.values.lotNo), fg.id, take, doc.id, today)),
+  }
+}
+
+/** The opposite entry of every posted journal that points at one of `references` and was not reversed before. */
+function reverseJournals(all: All, references: readonly string[], today: string, only: (journal: ErpRecord) => boolean = () => true): Posting[] {
+  const journals = list(all, 'fin.journals')
+  return journals.filter((j) => j.status === 'posted' && references.includes(String(j.values.reference)) && only(j) && !journals.some((r) => r.values.reference === `REV/${j.id}`)).map((j) => ({
+    journal: { description: `Pembatalan ${String(j.values.description)}`, entity: j.values.entity, date: today, source: j.values.source, reference: `REV/${j.id}`, amount: j.values.amount },
+    lines: list(all, 'fin.journallines').filter((l) => l.values.journal === j.id).map((l) => ({ account: l.values.account, costcenter: l.values.costcenter, debit: n(l.values.credit), credit: n(l.values.debit), memo: `Pembatalan ${j.id}` })),
+  }))
+}
+
+/** Gives lots back what the movements of `kind` for these documents took, and records the return as a negative movement. */
+function restoreLots(all: All, documents: readonly string[], kind: string, lotType: string, field: string, today: string, doc: string) {
+  const back = new Map<string, { qty: number; material: unknown }>()
+  for (const m of list(all, 'gtr.movements')) {
+    if (m.values.kind !== kind || !documents.includes(String(m.values.document))) continue
+    back.set(String(m.values.lotNo), { qty: (back.get(String(m.values.lotNo))?.qty ?? 0) + n(m.values.qty), material: m.values.material })
+  }
+  const rows = [...back].filter(([, v]) => v.qty > 0).flatMap(([lotNo, v]) => {
+    const lot = list(all, lotType).find((l) => l.values.lotNo === lotNo)
+    return lot ? [{ lot, lotNo, ...v }] : []
+  })
+  return {
+    patches: rows.map(({ lot, qty }) => ({ type: lot.type, id: lot.id, values: { [field]: Math.round((n(lot.values[field]) + qty) * 1000) / 1000 }, action: `${doc} dibatalkan, ${qty} t kembali` })),
+    creates: rows.map(({ lotNo, qty, material }) => movement(kind, lotNo, material, -qty, doc, today)),
+  }
+}
+
+/** Stock lots of a material that sit in a bin of one of the plant's warehouses and still hold stock. */
+function lotsAt(all: All, material: unknown, plant: unknown) {
+  const plantOf = (lot: ErpRecord) => find(all, 'wms.warehouses', find(all, 'wms.zones', find(all, 'wms.bins', lot.values.bin)?.values.zone)?.values.warehouse)?.values.plant
+  return list(all, 'wms.lots').filter((l) => l.values.material === material && ['received', 'stored'].includes(l.status) && n(l.values.qty) > 0 && plantOf(l) === plant)
+}
+
+/**
+ * Reopens a completed batch: its output leaves finished stock, its lot is emptied, and the conversion and receipt
+ * journals are reversed. The material issue stays, since the batch is running again with the same materials.
+ */
+function reopenBatch(order: ErpRecord, all: All, today: string): Partial<Effects> {
+  const output = n(order.values.output) || n(order.values.qty)
+  const fg = finishedGood(all, String(find(all, 'bpf.formulas', order.values.formula)?.values.grade ?? ''))
+  const lot = list(all, 'gtr.lots').find((l) => l.values.order === order.id)
+  if (lot && n(lot.values.remaining) < n(lot.values.qty)) return { blocker: `Lot ${String(lot.values.lotNo)} sudah dikirim ${n(lot.values.qty) - n(lot.values.remaining)} t, batch tidak bisa dibuka lagi.` }
+  const stock = fg ? list(all, 'inv.stock').filter((r) => r.values.material === fg.id && r.status !== 'inactive').reduce((s, r) => s + n(r.values.onHand), 0) : 0
+  if (fg && stock < output) return { blocker: `Stok barang jadi tinggal ${stock} t, kurang dari hasil batch ${output} t.` }
+  return {
+    patches: [
+      ...(fg ? moveStock(all, fg.id, output, `Batch ${order.id} dibuka lagi`) : []),
+      ...(lot ? [{ type: lot.type, id: lot.id, values: { qty: 0, remaining: 0 }, action: `Batch ${order.id} dibuka lagi` }] : []),
+      { type: order.type, id: order.id, values: { output: 0, conversionCost: 0, energyCost: 0, yieldVariance: 0, usageVariance: 0 }, action: 'Batch dibuka lagi' },
+    ],
+    creates: lot && fg ? [movement('Production', String(lot.values.lotNo), fg.id, -output, order.id, today)] : [],
+    moves: lot && lot.status === 'released' ? [{ type: lot.type, id: lot.id, status: 'hold', action: `Batch ${order.id} dibuka lagi` }] : [],
+    postings: reverseJournals(all, [order.id], today, (j) => !String(j.values.description).startsWith('Pemakaian bahan')),
+  }
+}
+
+const SAMPLE_FIELD: Record<string, string> = { 'Total N': 'n', 'P₂O₅': 'p', 'K₂O': 'k', Moisture: 'moisture', 'Granule size 2-4 mm': 'granule', Hardness: 'hardness' }
+
+/** Characteristics of a lab sample that fall outside the inspection plan of its order's formula. */
+export function sampleFailures(all: All, sample: ErpRecord) {
+  const formula = find(all, 'bpf.orders', sample.values.order)?.values.formula
+  return list(all, 'qc.plans').filter((p) => p.values.formula === formula && p.status !== 'inactive' && SAMPLE_FIELD[String(p.values.parameter)]).flatMap((p) => {
+    const raw = sample.values[SAMPLE_FIELD[String(p.values.parameter)]!]
+    // A characteristic the plan asks for must be measured before the sample can pass.
+    if (raw === undefined || raw === '') return [`${String(p.values.parameter)} belum diukur`]
+    const value = n(raw)
+    const [min, max] = [p.values.min, p.values.max].map((x) => (x === undefined || x === '' ? undefined : Number(x)))
+    const low = min !== undefined && value < min
+    return low || (max !== undefined && value > max) ? [`${String(p.values.parameter)} ${value} (${low ? `minimum ${min}` : `maksimum ${max}`})`] : []
+  })
+}
+
+/** Why an annual leave request cannot be filed: it asks for more days than the employee has left this year. */
+function leaveProblem(all: All, leave: ErpRecord) {
+  const type = find(all, 'hrs.leavetypes', leave.values.leaveType)
+  if (!type || !/annual/i.test(String(type.values.name))) return undefined
+  const employee = find(all, 'mdm.employees', leave.values.employee)
+  const year = String(leave.values.from).slice(0, 4)
+  const others = list(all, 'hrs.leaves').filter((l) => l.values.employee === leave.values.employee && l.id !== leave.id)
+  const balance = leaveBalance(others, year, { joined: String(employee?.values.joined ?? ''), annualType: type.id })
+  const free = balance.left - balance.waiting
+  return n(leave.values.days) > free ? `Sisa cuti tahunan ${year} tinggal ${Math.max(0, free)} hari (hak ${balance.entitlement}, terpakai ${balance.taken}, menunggu ${balance.waiting}).` : undefined
+}
+
 const ticketsFor = (all: All, field: 'receipt' | 'order', id: string) => list(all, 'wms.weighings').filter((w) => w.values[field] === id)
 /** Why a document may not move on its weighbridge tickets: one is still open, or the net weight is off the document quantity. */
 function weighProblem(tickets: readonly ErpRecord[], qty: number, what: string) {
@@ -165,6 +264,7 @@ export const PLANT_RULES: Record<string, Rule> = {
     return { creates: [{ type: 'wms.lots', values: { lotNo, bin: bin.id, material: po.values.material, zone: bin.values.zone, qty: n(grn.values.qty), expiry: plusDays(today, 365), receipt: grn.id } }, movement('Receipt', lotNo, po.values.material, n(grn.values.qty), grn.id, today)] }
   },
   'bpf.orders:running': (order, all, today) => {
+    if (order.status === 'completed') return reopenBatch(order, all, today)
     const taken = bomNeeds(all, order).flatMap((need) => allocate(rawLots(all, need.material), need.qty, 'qty').map((a) => ({ ...a, material: need.material })))
     return {
       patches: taken.map(({ lot, take }) => ({ type: lot.type, id: lot.id, values: { qty: Math.round((n(lot.values.qty) - take) * 1000) / 1000 }, action: `Dipakai ${take} untuk ${order.id}` })),
@@ -181,7 +281,6 @@ export const PLANT_RULES: Record<string, Rule> = {
     const approved = list(all, 'qc.samples').some((s) => s.values.order === order.id && s.status === 'approved')
     return { creates: [{ type: 'gtr.lots', status: approved ? 'released' : 'hold', values: { lotNo, product: grade, produced: today, qty: output, remaining: output, material: fg.id, order: order.id } }, movement('Production', lotNo, fg.id, output, order.id, today)] }
   },
-  'qc.samples:approved': (sample, all) => ({ moves: list(all, 'gtr.lots').filter((l) => l.values.order === sample.values.order && l.status === 'hold').map((l) => ({ type: l.type, id: l.id, status: 'released', action: `Sampel ${sample.id} lulus` })) }),
   'qc.samples:rejected': (sample, all) => {
     const order = find(all, 'bpf.orders', sample.values.order)
     const defect = list(all, 'mes.defects')[0]
@@ -191,19 +290,89 @@ export const PLANT_RULES: Record<string, Rule> = {
       creates: order && defect && !held ? [{ type: 'mes.holds', values: { order: order.id, defect: defect.id, qty: n(order.values.output) || n(order.values.qty) } }] : [],
     }
   },
-  'dms.orders:shipped': (so, all, today) => {
-    const qty = n(so.values.qty)
-    const problem = weighProblem(ticketsFor(all, 'order', so.id), qty, 'pesanan')
-    if (problem) return { blocker: problem }
-    const fg = finishedGood(all, String(so.values.product))
-    if (!fg) return undefined
-    const { cleared, held } = finishedLots(all, fg.id)
-    const stock = list(all, 'inv.stock').filter((s) => s.values.material === fg.id && s.status !== 'inactive').reduce((s, r) => s + n(r.values.onHand), 0)
-    if (held > 0 && qty > stock - held) return { blocker: `${held} t ${String(fg.values.name)} masih ditahan mutu atau belum ber-COA. Yang boleh dikirim ${Math.max(0, stock - held)} t.` }
-    const taken = allocate(cleared, qty, 'remaining')
+  'dms.orders:shipped': (so, all, today) => blocked(weighProblem(ticketsFor(all, 'order', so.id), n(so.values.qty), 'pesanan')) ?? shipLots(so, unshipped(so), so, all, today),
+
+  // Deliveries: an order ships in parts; each part moves its own stock, lots and cost of sales.
+  'dms.deliveries:created': (dlv, all) => {
+    const so = find(all, 'dms.orders', dlv.values.order)
+    if (!so || so.status !== 'confirmed') return { blocker: 'Pengiriman sebagian hanya untuk pesanan yang sudah dikonfirmasi dan belum terkirim penuh.' }
+    const open = list(all, dlv.type).filter((d) => d.values.order === so.id && d.id !== dlv.id && d.status === 'draft').reduce((s, d) => s + n(d.values.qty), 0)
+    return n(dlv.values.qty) > unshipped(so) - open ? { blocker: `Pengiriman ${n(dlv.values.qty)} t melebihi sisa ${so.id}: ${unshipped(so) - open} t.` } : undefined
+  },
+  'dms.deliveries:shipped': (dlv, all, today) => {
+    const so = find(all, 'dms.orders', dlv.values.order)
+    if (!so || so.status !== 'confirmed') return { blocker: 'Pesanan tidak lagi menunggu pengiriman.' }
+    const qty = n(dlv.values.qty)
+    if (qty > unshipped(so)) return { blocker: `Pengiriman ${qty} t melebihi sisa ${so.id}: ${unshipped(so)} t.` }
+    const parts = [shipGoods(so, qty, dlv, all, today), shipLots(so, qty, dlv, all, today) ?? {}]
+    const blocker = parts.find((x) => x.blocker)?.blocker
+    if (blocker) return { blocker }
+    const total = Math.round((n(so.values.shippedQty) + qty) * 1000) / 1000
     return {
-      patches: taken.map(({ lot, take }) => ({ type: lot.type, id: lot.id, values: { remaining: Math.round((n(lot.values.remaining) - take) * 1000) / 1000 }, action: `Dikirim ${take} untuk ${so.id}` })),
-      creates: taken.map(({ lot, take }) => movement('Shipment', String(lot.values.lotNo), fg.id, take, so.id, today)),
+      patches: [...parts.flatMap((x) => x.patches ?? []), { type: so.type, id: so.id, values: { shippedQty: total }, action: `${dlv.id}: ${qty} t dikirim, total ${total} t` }],
+      creates: parts.flatMap((x) => x.creates ?? []),
+      postings: parts.flatMap((x) => x.postings ?? []),
+      moves: total >= n(so.values.qty) ? [{ type: so.type, id: so.id, status: 'shipped', action: `Terkirim penuh lewat ${dlv.id}` }] : [],
+    }
+  },
+
+  'dms.deliveries:draft': (dlv, all, today) => {
+    const so = find(all, 'dms.orders', dlv.values.order)
+    if (dlv.status !== 'shipped' || !so) return undefined
+    if (so.status === 'delivered') return { blocker: `${so.id} sudah dikonfirmasi sampai. Gunakan retur pelanggan.` }
+    if (list(all, 'fin.receivables').some((r) => r.values.delivery === dlv.id)) return { blocker: `${dlv.id} sudah difaktur. Batalkan lewat retur pelanggan dan nota kredit.` }
+    const qty = n(dlv.values.qty)
+    const left = Math.max(0, Math.round((n(so.values.shippedQty) - qty) * 1000) / 1000)
+    const billed = list(all, 'fin.receivables').filter((r) => r.values.salesOrder === so.id).reduce((s, r) => s + n(r.values.amount), 0)
+    if (billed > Math.round(n(so.values.value) * (left / Math.max(1, n(so.values.qty))))) return { blocker: `Faktur ${so.id} sudah ${rp(billed)}, lebih dari nilai yang tersisa setelah pembatalan.` }
+    const fg = finishedGood(all, String(so.values.product))
+    const lots = restoreLots(all, [dlv.id], 'Shipment', 'gtr.lots', 'remaining', today, dlv.id)
+    return {
+      patches: [...(fg ? receiveStock(all, fg.id, qty, Math.round(finishedCost(all, String(so.values.product))), `Pengiriman ${dlv.id} dibatalkan`) : []), ...lots.patches, { type: so.type, id: so.id, values: { shippedQty: left }, action: `${dlv.id} dibatalkan, terkirim ${left} t` }],
+      creates: lots.creates,
+      moves: so.status === 'shipped' ? [{ type: so.type, id: so.id, status: 'confirmed', action: `${dlv.id} dibatalkan` }] : [],
+      postings: reverseJournals(all, [dlv.id], today),
+    }
+  },
+  // An invoice raised for one delivery bills that delivery's tonnes, once.
+  'fin.receivables:created': (invoice, all) => {
+    const dlv = find(all, 'dms.deliveries', invoice.values.delivery)
+    if (!dlv) return undefined
+    const so = find(all, 'dms.orders', dlv.values.order)
+    if (dlv.status !== 'shipped' || !so || so.id !== invoice.values.salesOrder) return { blocker: 'Faktur per pengiriman butuh pengiriman yang sudah dikirim dari pesanan yang sama.' }
+    if (list(all, 'fin.receivables').some((r) => r.id !== invoice.id && r.values.delivery === dlv.id)) return { blocker: `${dlv.id} sudah punya faktur.` }
+    const worth = Math.round((n(so.values.value) / Math.max(1, n(so.values.qty))) * n(dlv.values.qty))
+    return n(invoice.values.amount) > worth ? { blocker: `Faktur melebihi nilai ${dlv.id}: ${n(dlv.values.qty)} t senilai ${rp(worth)}.` } : undefined
+  },
+
+  // Reversals: a step taken by mistake goes back with its stock, lots and journals.
+  'dms.orders:confirmed': (so, all, today) => {
+    if (so.status !== 'shipped') return undefined
+    if (list(all, 'fin.receivables').some((r) => r.values.salesOrder === so.id)) return { blocker: `${so.id} sudah difaktur. Batalkan lewat retur pelanggan dan nota kredit.` }
+    const docs = [so.id, ...list(all, 'dms.deliveries').filter((d) => d.values.order === so.id).map((d) => d.id)]
+    const fg = finishedGood(all, String(so.values.product))
+    const qty = n(so.values.shippedQty) || n(so.values.qty)
+    const lots = restoreLots(all, docs, 'Shipment', 'gtr.lots', 'remaining', today, so.id)
+    return {
+      patches: [...(fg ? receiveStock(all, fg.id, qty, Math.round(finishedCost(all, String(so.values.product))), `Pengiriman ${so.id} dibatalkan`) : []), ...lots.patches, { type: so.type, id: so.id, values: { shippedQty: 0 }, action: 'Pengiriman dibatalkan' }],
+      creates: lots.creates,
+      postings: reverseJournals(all, docs, today),
+    }
+  },
+  'vms.receipts:quarantine': (grn, all, today) => {
+    if (grn.status !== 'accepted') return undefined
+    const po = find(all, 'vms.orders', grn.values.po)
+    if (!po) return undefined
+    const qty = n(grn.values.qty)
+    const lot = list(all, 'wms.lots').find((l) => l.values.receipt === grn.id)
+    if (lot && n(lot.values.qty) < qty) return { blocker: `Lot ${String(lot.values.lotNo)} sudah dipakai ${qty - n(lot.values.qty)} t, penerimaan tidak bisa dibatalkan. Gunakan retur ke pemasok.` }
+    const stock = list(all, 'inv.stock').filter((r) => r.values.material === po.values.material && r.status !== 'inactive').reduce((s, r) => s + n(r.values.onHand), 0)
+    if (stock < qty) return { blocker: `Stok tinggal ${stock}, kurang dari ${qty} yang mau dibatalkan.` }
+    return {
+      patches: [...moveStock(all, po.values.material, qty, `Penerimaan ${grn.id} dibatalkan`), ...(lot ? [{ type: lot.type, id: lot.id, values: { qty: 0 }, action: `Penerimaan ${grn.id} dibatalkan` }] : [])],
+      creates: lot ? [movement('Receipt', String(lot.values.lotNo), po.values.material, -qty, grn.id, today)] : [],
+      moves: po.status === 'closed' ? [{ type: po.type, id: po.id, status: 'released', action: `Penerimaan ${grn.id} dibatalkan` }] : [],
+      postings: reverseJournals(all, [grn.id], today),
     }
   },
 
@@ -230,7 +399,57 @@ export const PLANT_RULES: Record<string, Rule> = {
   },
 
   // Capacity: a line takes an order only while the week still has room.
-  'bpf.orders:released': (order, all) => (capacityProblem(all, order) ? { blocker: capacityProblem(all, order) } : undefined),
+  'bpf.orders:released': (order, all, today) => {
+    if (order.status !== 'running') return blocked(capacityProblem(all, order))
+    // Cancelling a running batch puts its materials back: stock at the cost it left with, lots by their consumption.
+    const lots = restoreLots(all, [order.id], 'Consumption', 'wms.lots', 'qty', today, order.id)
+    return {
+      patches: [...bomNeeds(all, order).flatMap((x) => receiveStock(all, x.material, x.qty, Math.round(x.cost / Math.max(0.001, x.qty)), `Batch ${order.id} dibatalkan`)), ...lots.patches, { type: order.type, id: order.id, values: { materialCost: 0 }, action: 'Batch dibatalkan, bahan kembali ke stok' }],
+      creates: lots.creates,
+      postings: reverseJournals(all, [order.id], today),
+    }
+  },
+
+  // Quality: the lab releases a sample only when every measured characteristic sits inside its inspection plan.
+  'qc.samples:approved': (sample, all) => {
+    const failures = sampleFailures(all, sample)
+    if (failures.length) return { blocker: `Sampel di luar spesifikasi: ${failures.join('; ')}. Tolak sampelnya atau uji ulang.` }
+    return { moves: list(all, 'gtr.lots').filter((l) => l.values.order === sample.values.order && l.status === 'hold').map((l) => ({ type: l.type, id: l.id, status: 'released', action: `Sampel ${sample.id} lulus` })) }
+  },
+
+  // Stock count: starting a count lists every stock row of the plant; review values the differences; posting sets stock to the count.
+  'inv.counts:counting': (count, all) => ({
+    // A material kept in lots is counted lot by lot in its bin; one without lots is counted as a single balance.
+    creates: list(all, 'inv.stock').filter((r) => r.values.plant === count.values.plant && r.status !== 'inactive').flatMap((r) => {
+      const line = (system: number, extra: Values = {}) => ({ type: 'inv.countlines', values: { count: count.id, stock: r.id, system, counted: system, unitCost: n(r.values.avgCost), ...extra } })
+      const lots = lotsAt(all, r.values.material, count.values.plant)
+      return lots.length ? lots.map((l) => line(n(l.values.qty), { lot: l.id, bin: String(find(all, 'wms.bins', l.values.bin)?.values.bin ?? l.values.bin) })) : [line(n(r.values.onHand))]
+    }),
+  }),
+  'inv.counts:review': (count, all) => {
+    const lines = list(all, 'inv.countlines').filter((l) => l.values.count === count.id)
+    if (!lines.length) return undefined
+    const system = lines.reduce((s, l) => s + n(l.values.system), 0)
+    const value = lines.reduce((s, l) => s + n(l.values.value), 0)
+    return { patches: [{ type: count.type, id: count.id, values: { items: lines.length, value, variance: Math.round((Math.abs(lines.reduce((s, l) => s + n(l.values.difference), 0)) / Math.max(1, system)) * 10000) / 100 }, action: `Selisih ${rp(value)} dari ${lines.length} barang` }] }
+  },
+  'inv.counts:posted': (count, all) => {
+    const lines = list(all, 'inv.countlines').filter((l) => l.values.count === count.id && n(l.values.difference) !== 0)
+    // Each lot takes its own count; the stock balance moves by the sum of its lines' differences.
+    const byStock = new Map<string, number>()
+    for (const l of lines) byStock.set(String(l.values.stock), (byStock.get(String(l.values.stock)) ?? 0) + n(l.values.difference))
+    return {
+      patches: [
+        ...lines.filter((l) => l.values.lot).map((l) => ({ type: 'wms.lots', id: String(l.values.lot), values: { qty: n(l.values.counted) }, action: `Stok opname ${count.id}: ${n(l.values.system)} menjadi ${n(l.values.counted)}` })),
+        ...[...byStock].map(([id, difference]) => ({ type: 'inv.stock', id, values: { onHand: Math.max(0, Math.round((n(find(all, 'inv.stock', id)?.values.onHand) + difference) * 1000) / 1000) }, action: `Stok opname ${count.id}: selisih ${difference}` })),
+      ],
+    }
+  },
+
+  // Leave: annual leave cannot exceed what the employee has left this year.
+  'hrs.leaves:created': (leave, all) => blocked(leaveProblem(all, leave)),
+  'hrs.leaves:submitted': (leave, all) => blocked(leaveProblem(all, leave)),
+
 
   // Returns: goods going back to the vendor leave stock, their lot and the accrual; goods coming back from a customer re-enter stock.
   'vms.returns:shipped': (ret, all, today) => {

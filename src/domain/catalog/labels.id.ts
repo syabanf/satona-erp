@@ -1,5 +1,16 @@
 /** Indonesian labels for the catalogue: field labels and record type names, keyed by their English text. */
 export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
+  'Granules 2-4 mm': 'Granul 2-4 mm',
+  'Hardness': 'Kekerasan',
+  'Stock lot': 'Lot stok',
+  'Late deduction': 'Potongan terlambat',
+  'Delivery': 'Pengiriman',
+  'Shipped so far': 'Sudah dikirim',
+  'Absence and unpaid leave': 'Potongan tidak hadir dan cuti tanpa upah',
+  'Stock count': 'Stok opname',
+  'System quantity': 'Jumlah sistem',
+  'Counted quantity': 'Jumlah hitung',
+  'Difference value': 'Nilai selisih',
   'Contract price per unit': 'Harga kontrak per satuan',
   'Contract quantity': 'Kuota kontrak',
   'Outline contract': 'Kontrak payung',
@@ -835,6 +846,10 @@ export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
 }
 
 export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
+  'Deliveries': 'Pengiriman sebagian',
+  'Delivery': 'Pengiriman',
+  'Stock count lines': 'Baris stok opname',
+  'Stock count line': 'Baris stok opname',
   'Customer returns': 'Retur pelanggan',
   'Customer return': 'Retur pelanggan',
   'Consignment sales reports': 'Laporan penjualan konsinyasi',
@@ -1311,6 +1326,7 @@ export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
 }
 
 export const STATE_LABELS_ID: Readonly<Record<string, string>> = {
+  'Counted': 'Sudah dihitung',
   'Received back': 'Diterima kembali',
   'Credited': 'Dikreditkan',
   'First weighing': 'Timbang pertama',
@@ -1475,6 +1491,12 @@ export const STATE_LABELS_ID: Readonly<Record<string, string>> = {
 }
 
 export const MOVE_LABELS_ID: Readonly<Record<string, string>> = {
+  'Reopen batch': 'Buka lagi batch',
+  'Cancel delivery': 'Batalkan pengiriman ini',
+  'Cancel shipment': 'Batalkan pengiriman',
+  'Cancel batch': 'Batalkan batch',
+  'Reverse acceptance': 'Batalkan penerimaan',
+  'Confirm count': 'Konfirmasi hitungan',
   'Receive goods': 'Terima barang',
   'Raise credit note': 'Buat nota kredit',
   'Confirm report': 'Konfirmasi laporan',

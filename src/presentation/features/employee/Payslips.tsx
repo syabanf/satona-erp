@@ -41,6 +41,8 @@ export function Payslips({ all, me }: { all: AllRecords; me: ErpRecord }) {
               {line('Uang makan', s.values.meal)}
               {line('Tunjangan bahaya', s.values.hazard)}
               {line('Lembur', s.values.overtime)}
+              {line('Potongan tidak hadir dan cuti tanpa upah', s.values.absence, true)}
+              {line('Potongan terlambat', s.values.late, true)}
               {line('BPJS (kesehatan 1%, JHT 2%, JP 1%)', s.values.bpjs, true)}
               {line(`PPh 21 TER ${terCategory(ptkp)} ${terRate(Number(s.values.gross), ptkp)}% (${ptkp})`, s.values.pph21, true)}
               {line('Cicilan pinjaman', s.values.loan, true)}

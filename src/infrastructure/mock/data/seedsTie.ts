@@ -6,6 +6,17 @@ import { computeValues, type ErpRecord, type Values } from '@/domain/records'
  * Vendor invoices name their PO's vendor, and invoices still waiting for the three-way match bill half of the goods
  * their PO has accepted, so the match passes in the demo. Runs before the subledger tie, which reads approved invoices only.
  */
+/** Seeded draft deliveries point at confirmed orders and carry a quarter of the order, so they can ship in the demo. */
+export function alignDeliveries(all: Record<string, ErpRecord[]>) {
+  const type = typeOf('dms.deliveries')!
+  const confirmed = (all['dms.orders'] ?? []).filter((o) => o.status === 'confirmed')
+  if (!confirmed.length) return
+  all['dms.deliveries'] = (all['dms.deliveries'] ?? []).map((d, i) => {
+    const order = confirmed[i % confirmed.length]!
+    return { ...d, values: computeValues(type, { ...d.values, order: order.id, qty: Math.max(1, Math.round((Number(order.values.qty) || 4) / 4)) }) }
+  })
+}
+
 /** Finished goods are carried at the standard cost of the formula that makes them, so cost of sales starts at standard. */
 export function carryStandards(all: Record<string, ErpRecord[]>) {
   const type = typeOf('inv.stock')!

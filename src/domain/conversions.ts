@@ -73,6 +73,26 @@ export const CONVERSIONS: readonly Conversion[] = [
   },
   {
     from: 'dms.orders',
+    to: 'dms.deliveries',
+    label: 'Kirim sebagian',
+    when: ['confirmed'],
+    link: 'order',
+    map: (so, _all, today) => ({ order: so.id, qty: 0, date: today }),
+  },
+  {
+    from: 'dms.deliveries',
+    to: 'fin.receivables',
+    label: 'Buat faktur pengiriman ini',
+    when: ['shipped'],
+    link: 'delivery',
+    map: (dlv, all, today) => {
+      const so = find(all, 'dms.orders', dlv.values.order)
+      const unit = (Number(so?.values.value) || 0) / Math.max(1, Number(so?.values.qty) || 1)
+      return { invoiceNo: `INV/${dlv.id}`, salesOrder: dlv.values.order, delivery: dlv.id, entity: 'fertiliser', amount: Math.round(unit * (Number(dlv.values.qty) || 0)), tax: 'PPN 11%', currency: 'IDR', due: plusDays(today, 30) }
+    },
+  },
+  {
+    from: 'dms.orders',
     to: 'dms.returns',
     label: 'Buat retur pelanggan',
     when: ['shipped', 'delivered'],

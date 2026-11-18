@@ -1,6 +1,7 @@
 /** Rules that create work from the data: PM plans come due, spare parts run low, approvals wait too long. */
 import { meterDue } from './maintenance'
 import type { ErpRecord, RecordType, Values } from './records'
+import { isRestDay, shiftOn } from './selfService'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -48,6 +49,23 @@ export function lowStock(all: All, today: string) {
     const qty = Math.max(1, min * 2 + inTransitUse - onHand)
     const requisition: Values = { title: `Restock ${String(part.values.partNo)} ${String(part.values.name)}`, material, qty, entity: 'fertiliser', value: qty * (Number(part.values.unitCost) || 0), needBy: plusDays(today, leadTime || 14) }
     return [{ part, qty, requisition }]
+  })
+}
+
+/**
+ * Employees who were rostered on `date` and have no attendance row and no approved leave covering it, each with the
+ * absence record to file. Rest days and holidays never count.
+ */
+export function missingAttendance(all: All, date: string) {
+  const employees = (all['mdm.employees'] ?? []).filter((e) => e.status === 'active')
+  const shifts = (all['hrs.shifts'] ?? []).filter((s) => s.status !== 'inactive')
+  const clocked = new Set((all['hrs.attendance'] ?? []).filter((a) => a.values.date === date).map((a) => a.values.employee))
+  const onLeave = (id: string) => (all['hrs.leaves'] ?? []).some((l) => l.values.employee === id && l.status === 'approved' && String(l.values.from) <= date && date < plusDays(String(l.values.from), Math.ceil(Number(l.values.days) || 1)))
+  return employees.flatMap((employee) => {
+    const shift = shiftOn(employee, date, shifts, all['hrs.shiftswaps'] ?? [], employees)
+    if (!shift || isRestDay(employee, date, all['sys.holidays'] ?? []) || clocked.has(employee.id) || onLeave(employee.id)) return []
+    const record: Values = { employee: employee.id, date, shift: shift.id, result: 'Absent', method: 'Mobile GPS', location: 'Otomatis: tidak clock in' }
+    return [{ employee, shift, record }]
   })
 }
 

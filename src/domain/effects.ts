@@ -144,6 +144,33 @@ export const runInvoices = (all: All, run: ErpRecord) => String(run.values.invoi
 
 const blocked = (reason: string | undefined) => (reason ? { blocker: reason } : undefined)
 
+/** Tonnes of a sales order not shipped yet. */
+export const unshipped = (so: ErpRecord) => Math.max(0, Math.round((n(so.values.qty) - n(so.values.shippedQty)) * 1000) / 1000)
+
+/**
+ * What shipping `qty` tonnes of a sales order does to stock and the ledger. `doc` is the document the journals point at:
+ * the order itself for a full shipment, or one of its deliveries for a partial one.
+ */
+export function shipGoods(so: ErpRecord, qty: number, doc: ErpRecord, all: All, today: string): Partial<Effects> {
+  const product = String(so.values.product)
+  const fg = finishedGood(all, product)
+  if (qty <= 0) return { blocker: `${so.id} sudah terkirim seluruhnya.` }
+  if (fg && onHand(stockOf(all, fg.id)) < qty) return { blocker: `Stok ${String(fg.values.name)} ${onHand(stockOf(all, fg.id))} t, kurang untuk mengirim ${qty} t.` }
+  const unitPrice = n(so.values.value) / Math.max(1, n(so.values.qty))
+  const cost = Math.round(finishedCost(all, product, unitPrice * 0.6) * qty)
+  const stockMove = fg ? moveStock(all, fg.id, qty, `Dikirim ${qty} untuk ${doc.id}`) : []
+  // Consigned goods stay the plant's own until the distributor reports them sold: they move to consignment stock at cost.
+  if (so.values.terms === 'Consignment') {
+    const transfer = compose(all, head(doc, 'Cost of sales', `Konsinyasi ${doc.id} ${product}`, 'fertiliser', today), [[POSTING.consignment, cost, 0], [POSTING.finished, 0, cost]], doc.id)
+    return { patches: stockMove, postings: transfer ? [transfer] : [] }
+  }
+  const posting = compose(all, head(doc, 'Cost of sales', `Harga pokok ${doc.id} ${product}`, 'fertiliser', today), [[POSTING.cogs.fertiliser!, cost, 0], [POSTING.finished, 0, cost]], doc.id)
+  // Subsidised fertiliser sells at the government's retail ceiling; the state owes the gap to cost plus a 10% margin.
+  const gap = so.values.scheme === 'Subsidised' ? Math.max(0, Math.round(cost * 1.1) - Math.round(unitPrice * qty)) : 0
+  const subsidy = compose(all, head(doc, 'Receivable', `Piutang subsidi ${doc.id} ${product}`, 'fertiliser', today), [[POSTING.subsidyReceivable, gap, 0], [POSTING.subsidy, 0, gap]], doc.id)
+  return { patches: stockMove, postings: [posting, subsidy].flatMap((p) => p ?? []) }
+}
+
 type Rule = (record: ErpRecord, all: All, today: string) => Partial<Effects> | undefined
 
 const RULES: Record<string, Rule> = {
@@ -194,34 +221,26 @@ const RULES: Record<string, Rule> = {
 
   // Order to cash
   'dms.orders:confirmed': (so, all) => {
+    // Cancelling a shipment comes back to this status; the credit check belongs to the first confirmation only.
+    if (so.status === 'shipped') return undefined
     const d = find(all, 'dms.distributors', so.values.distributor)
     const limit = n(d?.values.creditLimit)
     return d && limit && n(d.values.outstanding) + n(so.values.value) > limit ? { blocker: `Limit kredit ${String(d.values.name)} terlampaui: terpakai ${rp(n(d.values.outstanding))} dari ${rp(limit)}.` } : undefined
   },
   'dms.orders:shipped': (so, all, today) => {
-    const product = String(so.values.product)
-    const fg = finishedGood(all, product)
-    const qty = n(so.values.qty)
-    if (fg && onHand(stockOf(all, fg.id)) < qty) return { blocker: `Stok ${String(fg.values.name)} ${onHand(stockOf(all, fg.id))} t, kurang untuk mengirim ${qty} t.` }
-    const cost = Math.round(finishedCost(all, product, n(so.values.value) / Math.max(1, qty) * 0.6) * qty)
-    const stockMove = fg ? moveStock(all, fg.id, qty, `Dikirim ${qty} untuk ${so.id}`) : []
-    // Consigned goods stay the plant's own until the distributor reports them sold: they move to consignment stock at cost.
-    if (so.values.terms === 'Consignment') {
-      const transfer = compose(all, head(so, 'Cost of sales', `Konsinyasi ${so.id} ${product}`, 'fertiliser', today), [[POSTING.consignment, cost, 0], [POSTING.finished, 0, cost]], so.id)
-      return { patches: stockMove, postings: transfer ? [transfer] : [] }
-    }
-    const posting = compose(all, head(so, 'Cost of sales', `Harga pokok ${so.id} ${product}`, 'fertiliser', today), [[POSTING.cogs.fertiliser!, cost, 0], [POSTING.finished, 0, cost]], so.id)
-    // Subsidised fertiliser sells at the government's retail ceiling; the state owes the gap to cost plus a 10% margin.
-    const gap = so.values.scheme === 'Subsidised' ? Math.max(0, Math.round(cost * 1.1) - n(so.values.value)) : 0
-    const subsidy = compose(all, head(so, 'Receivable', `Piutang subsidi ${so.id} ${product}`, 'fertiliser', today), [[POSTING.subsidyReceivable, gap, 0], [POSTING.subsidy, 0, gap]], so.id)
-    return { patches: stockMove, postings: [posting, subsidy].flatMap((p) => p ?? []) }
+    const shipment = shipGoods(so, unshipped(so), so, all, today)
+    return shipment.blocker ? shipment : { ...shipment, patches: [...(shipment.patches ?? []), { type: so.type, id: so.id, values: { shippedQty: n(so.values.qty) }, action: 'Terkirim penuh' }] }
   },
   'fin.receivables:created': (invoice, all) => {
     const so = find(all, 'dms.orders', invoice.values.salesOrder)
     const patches: Effects['patches'] = []
     if (so) {
-      if (so.status !== 'delivered') return { blocker: `${so.id} belum terkirim sampai tujuan, faktur belum bisa dibuat.` }
-      if (list(all, 'fin.receivables').some((r) => r.id !== invoice.id && r.values.salesOrder === so.id)) return { blocker: `${so.id} sudah punya faktur.` }
+      // An order is invoiced for what has shipped: all of it once shipped or delivered, the delivered share before that.
+      const share = ['shipped', 'delivered'].includes(so.status) ? 1 : n(so.values.shippedQty) / Math.max(1, n(so.values.qty))
+      if (!share) return { blocker: `${so.id} belum ada yang dikirim, faktur belum bisa dibuat.` }
+      const billed = list(all, 'fin.receivables').filter((r) => r.id !== invoice.id && r.values.salesOrder === so.id).reduce((s, r) => s + baseIdr(r.values), 0)
+      const billable = Math.round(n(so.values.value) * share)
+      if (billed + baseIdr(invoice.values) > billable) return { blocker: `Faktur melebihi nilai yang sudah dikirim lewat ${so.id}: ${rp(billable)}, sudah ditagih ${rp(billed)}.` }
       const d = find(all, 'dms.distributors', so.values.distributor)
       if (d) patches.push({ type: d.type, id: d.id, values: { outstanding: n(d.values.outstanding) + baseIdr(invoice.values) + ppnOf(invoice.values) }, action: `Piutang ${invoice.id}` })
     }
@@ -235,10 +254,14 @@ const RULES: Record<string, Rule> = {
 
   // Production
   'bpf.orders:released': (order, all) => {
+    // Cancelling a running batch returns here with its materials back in stock; nothing to check.
+    if (order.status === 'running') return undefined
     const short = bomNeeds(all, order).find((x) => x.available < x.qty)
     return short ? { blocker: `Bahan ${String(find(all, 'mdm.materials', short.material)?.values.name ?? short.material)} kurang: butuh ${short.qty}, tersedia ${short.available}.` } : undefined
   },
   'bpf.orders:running': (order, all, today) => {
+    // Reopening a completed batch returns here; its materials were consumed the first time.
+    if (order.status === 'completed') return undefined
     const needs = bomNeeds(all, order)
     const short = needs.find((x) => x.available < x.qty)
     if (short) return { blocker: `Bahan ${String(find(all, 'mdm.materials', short.material)?.values.name ?? short.material)} kurang: butuh ${short.qty}, tersedia ${short.available}.` }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, type DragEvent } from 'react'
 import { Link } from 'react-router'
 import { CalendarRange, Gauge } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
@@ -7,6 +7,8 @@ import type { ErpRecord } from '@/domain/records'
 import { cn } from '@/lib/cn'
 import { useAllRecords } from '../../hooks/useRecords'
 import { useServices } from '../../hooks/useServices'
+import { useSession } from '../../hooks/useSession'
+import { useToast } from '../../ui/useToast'
 import { NewButtons } from '../../records/NewButtons'
 import { recordPath, refTitle } from '../../records/text'
 import { Card, CardHeader } from '../../ui/Card'
@@ -30,9 +32,15 @@ function lanes<J extends { job: ErpRecord; from: number; to: number }>(jobs: rea
   })
 }
 
-/** MRP scheduling board for granulators, dryers and mixers, with capacity requirement planning beside it. */
+/**
+ * Scheduling board per work centre with changeovers, and capacity requirement beside it. A slot can be dragged to
+ * another day or to another work centre of the same line; the slot record takes the new start and machine.
+ */
 export default function PlanningBoard() {
-  const { clock } = useServices()
+  const { clock, records } = useServices()
+  const { role } = useSession()
+  const toast = useToast()
+  const [dragged, setDragged] = useState<ErpRecord | null>(null)
   const all = useAllRecords()
   const today = clock.today()
   const start = shiftDay(today, -BEFORE)
@@ -73,24 +81,42 @@ export default function PlanningBoard() {
   const capacity = k.rows.reduce((s, r) => s + r.available, 0)
   const setupHours = k.rows.reduce((s, r) => s + r.setup, 0)
   const days = Array.from({ length: DAYS }, (_, i) => shiftDay(start, i))
+  const lineOf = (machine: unknown) => all.data!['mrp.workcenters']?.find((w) => w.id === machine)?.values.line
+  const canTake = (wc: ErpRecord) => Boolean(dragged && lineOf(dragged.values.machine) === wc.values.line)
+  const drop = async (e: DragEvent<HTMLDivElement>, wc: ErpRecord) => {
+    e.preventDefault()
+    const slot = dragged
+    setDragged(null)
+    if (!slot || !canTake(wc)) return
+    const box = e.currentTarget.getBoundingClientRect()
+    const day = Math.min(DAYS - 1, Math.max(0, Math.floor(((e.clientX - box.left) / box.width) * DAYS)))
+    const startDay = shiftDay(start, day)
+    if (startDay === slot.values.start && wc.id === slot.values.machine) return
+    try {
+      await records.update(role, slot.type, slot.id, { ...slot.values, start: startDay, machine: wc.id })
+      toast({ title: `${slot.id} dipindah ke ${String(wc.values.name)}, ${startDay}` })
+    } catch (err) {
+      toast({ tone: 'danger', title: 'Jadwal tidak berubah', description: err instanceof Error ? err.message : String(err) })
+    }
+  }
 
   return (
     <div className="space-y-4">
       <NewButtons types={['mrp.schedule', 'mrp.planned', 'mrp.requirements']} />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-        <KpiTile label="Hours scheduled, next 7 days" value={scheduled} format={(v) => `${Math.round(v)} h`} to={list('mrp.schedule')} accent note={`${k.rows.length} work centres`} />
-        <KpiTile label="Group load" value={capacity ? (scheduled / capacity) * 100 : 0} format={(v) => `${Math.round(v)}%`} to={list('mrp.workcenters')} note={`${capacity} h available`} />
-        <KpiTile label="Bottleneck" value={(k.bottleneck?.load ?? 0) * 100} format={(v) => `${Math.round(v)}%`} to={k.bottleneck ? recordPath(t('mrp.workcenters'), k.bottleneck.wc.id) : list('mrp.workcenters')} note={String(k.bottleneck?.wc.values.name ?? 'none')} />
-        <KpiTile label="Changeover, next 7 days" value={setupHours} format={(v) => `${Math.round(v)} h`} to={list('mrp.changeovers')} note={`${capacity ? Math.round((setupHours / capacity) * 100) : 0}% of capacity`} />
-        <KpiTile label="Planned orders to firm" value={(all.data['mrp.planned'] ?? []).filter((p) => p.status === 'planned').length} format={(v) => String(Math.round(v))} to={list('mrp.planned', '?status=planned')} note="from the last MRP run" />
+        <KpiTile label="Jam terjadwal, 7 hari ke depan" value={scheduled} format={(v) => `${Math.round(v)} h`} to={list('mrp.schedule')} accent note={`${k.rows.length} work centre`} />
+        <KpiTile label="Beban grup" value={capacity ? (scheduled / capacity) * 100 : 0} format={(v) => `${Math.round(v)}%`} to={list('mrp.workcenters')} note={`${capacity} jam tersedia`} />
+        <KpiTile label="Bottleneck" value={(k.bottleneck?.load ?? 0) * 100} format={(v) => `${Math.round(v)}%`} to={k.bottleneck ? recordPath(t('mrp.workcenters'), k.bottleneck.wc.id) : list('mrp.workcenters')} note={String(k.bottleneck?.wc.values.name ?? 'tidak ada')} />
+        <KpiTile label="Changeover, 7 hari ke depan" value={setupHours} format={(v) => `${Math.round(v)} h`} to={list('mrp.changeovers')} note={`${capacity ? Math.round((setupHours / capacity) * 100) : 0}% dari kapasitas`} />
+        <KpiTile label="Planned order untuk dikunci" value={(all.data['mrp.planned'] ?? []).filter((p) => p.status === 'planned').length} format={(v) => String(Math.round(v))} to={list('mrp.planned', '?status=planned')} note="dari MRP terakhir" />
       </div>
 
       <Card className="p-0">
         <div className="p-5 pb-3">
-          <CardHeader title="Scheduling board" icon={<CalendarRange aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">click a job to open it</span>} />
+          <CardHeader title="Papan jadwal per work centre" icon={<CalendarRange aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">seret slot untuk memindah hari atau mesin di lini yang sama</span>} />
           <p className="-mt-2 flex flex-wrap gap-4 text-xs text-muted">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm bg-warning/70" /> Setup / changeover before the job</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm bg-danger" /> Setup shorter than the changeover matrix</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm bg-warning/70" /> Setup atau changeover sebelum slot</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm bg-danger" /> Setup lebih pendek dari matriks changeover</span>
           </p>
         </div>
         <div className="overflow-x-auto pb-4">
@@ -113,13 +139,24 @@ export default function PlanningBoard() {
                     <span className="truncate font-medium">{String(wc.values.name)}</span>
                     <span className="truncate text-xs text-muted">{String(wc.values.line)}</span>
                   </Link>
-                  <div className="relative" style={{ height }}>
+                  <div
+                    className={cn('relative transition-colors', dragged && canTake(wc) && 'bg-accent-soft/40')}
+                    style={{ height }}
+                    onDragOver={(e) => canTake(wc) && e.preventDefault()}
+                    onDrop={(e) => void drop(e, wc)}
+                  >
                     <span aria-hidden className="absolute inset-y-0 w-0.5 bg-accent/60" style={{ left: `${(BEFORE / DAYS) * 100}%` }} />
                     {jobs.map(({ job, from, to, lane, setup, matrix }) => (
                       <Link
                         key={job.id}
                         to={recordPath(t('mrp.schedule'), job.id)}
-                        title={`${job.id}, ${String(job.values.hours)} h from ${String(job.values.start)}${setup ? `, setup ${setup} min` : ''}${matrix ? ` (matrix ${matrix} min)` : ''}`}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDragged(job)
+                        }}
+                        onDragEnd={() => setDragged(null)}
+                        title={`${job.id}, ${String(job.values.hours)} jam mulai ${String(job.values.start)}${setup ? `, setup ${setup} menit` : ''}${matrix ? ` (matriks ${matrix} menit)` : ''}`}
                         className={cn('absolute flex h-6 items-center overflow-hidden rounded-full text-[11px] font-medium whitespace-nowrap transition-opacity hover:opacity-80', BAR[job.status] ?? BAR.scheduled)}
                         style={{ top: 4 + lane * 30, left: `${(Math.max(0, from) / DAYS) * 100}%`, width: `max(28px, ${((Math.min(DAYS, to) - Math.max(0, from)) / DAYS) * 100}%)` }}
                       >
@@ -136,7 +173,7 @@ export default function PlanningBoard() {
       </Card>
 
       <Card>
-        <CardHeader title="Capacity requirement, next 7 days" icon={<Gauge aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">scheduled hours against shift hours</span>} />
+        <CardHeader title="Kebutuhan kapasitas, 7 hari ke depan" icon={<Gauge aria-hidden className="size-5 text-muted" />} action={<span className="text-xs text-muted">jam terjadwal terhadap jam shift</span>} />
         <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2">
           {[...k.rows]
             .sort((a, b) => b.load - a.load)
@@ -146,10 +183,10 @@ export default function PlanningBoard() {
                   <span className="flex justify-between gap-3 text-sm">
                     <span className="truncate">{String(r.wc.values.name)}</span>
                     <span className={cn('shrink-0 text-xs tabular', r.load > 1 ? 'font-semibold text-accent-text' : 'text-muted')}>
-                      {Math.round(r.week)} of {r.available} h, {Math.round(r.load * 100)}%
+                      {Math.round(r.week)} dari {r.available} jam, {Math.round(r.load * 100)}%
                     </span>
                   </span>
-                  <Meter value={Math.min(1, r.load)} tone={r.load > 1 ? 'accent' : r.load > 0.8 ? 'fg' : 'info'} className="mt-1" label={`Load ${String(r.wc.values.name)}`} />
+                  <Meter value={Math.min(1, r.load)} tone={r.load > 1 ? 'accent' : r.load > 0.8 ? 'fg' : 'info'} className="mt-1" label={`Beban ${String(r.wc.values.name)}`} />
                 </Link>
               </li>
             ))}

@@ -109,7 +109,7 @@ export default function ReportsPage() {
   const runStandard = async () => {
     setBusy('std')
     try {
-      if (standard.posting) await records.post(role, standard.posting)
+      for (const posting of standard.postings) await records.post(role, posting)
       for (const p of standard.patches) {
         const row = data[p.type]!.find((r) => r.id === p.id)!
         await records.update(role, p.type, p.id, { ...row.values, ...p.values })

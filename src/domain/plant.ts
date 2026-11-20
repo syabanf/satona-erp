@@ -3,10 +3,11 @@
  * holds and the COA gate, weighbridge tickets, metered energy, turnaround packages and the budget check on requisitions.
  * A rule here adds to the base rule of the same step; a blocker from either stops the step.
  */
-import { averageCost, bomNeeds, CONVERSION, finishedCost, finishedGood, moveStock, receiveStock, shipGoods, unshipped, type Effects } from './effects'
+import { averageCost, bomNeeds, CONVERSION, entityOfPlant, finishedCost, finishedGood, moveStock, receiveStock, shipGoods, unshipped, type Effects } from './effects'
 import { compose, costCentreSpend, POSTING, signed, type Posting } from './ledger'
 import type { ErpRecord, Values } from './records'
-import { leaveBalance, weekOf } from './selfService'
+import { weekOf } from './selfService'
+import { fromTonnes, toTonnes } from './units'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 type Rule = (record: ErpRecord, all: All, today: string) => Partial<Effects> | undefined
@@ -21,7 +22,7 @@ const movement = (kind: string, lotNo: string, material: unknown, qty: number, d
 const WEIGH_TOLERANCE = 0.005
 
 /** Raw-material lots of a material that still hold stock, first to expire first. */
-const rawLots = (all: All, material: unknown) => list(all, 'wms.lots').filter((l) => l.values.material === material && ['received', 'stored'].includes(l.status) && n(l.values.qty) > 0).toSorted((a, b) => String(a.values.expiry).localeCompare(String(b.values.expiry)))
+const rawLots = (all: All, material: unknown, today = '') => list(all, 'wms.lots').filter((l) => l.values.material === material && ['received', 'stored'].includes(l.status) && n(l.values.qty) > 0 && (!today || !l.values.expiry || String(l.values.expiry) >= today)).toSorted((a, b) => String(a.values.expiry).localeCompare(String(b.values.expiry)))
 
 /** Takes `qty` from lots in order; returns what each lot gives. */
 function allocate(lots: readonly ErpRecord[], qty: number, field: string) {
@@ -111,7 +112,7 @@ const put = (all: All, record: ErpRecord): All => ({ ...all, [record.type]: [...
  * Finished goods carried at an old standard, trued up to the formula's current standard cost: one journal for the
  * difference and the stock rows that take the new cost. Nothing comes back when every row already sits at standard.
  */
-export function finishedRevaluation(all: All, today: string): { posting?: Posting; patches: Effects['patches'] } {
+export function finishedRevaluation(all: All, today: string): { postings: Posting[]; patches: Effects['patches'] } {
   // Each finished-goods material takes the standard of the first formula that makes it.
   const standardOf = new Map<string, number>()
   for (const f of list(all, 'bpf.formulas')) {
@@ -123,13 +124,22 @@ export function finishedRevaluation(all: All, today: string): { posting?: Postin
     const carried = n(row.values.avgCost)
     return standard && carried && standard !== carried && n(row.values.onHand) > 0 ? [{ row, standard, change: Math.round(n(row.values.onHand) * (standard - carried)) }] : []
   })
-  const change = rows.reduce((s, r) => s + r.change, 0)
-  const posting = compose(all, { description: `Revaluasi barang jadi ke standar baru ${today}`, entity: 'fertiliser', date: today, source: 'Revaluation', reference: `STD/${today}` }, [signed(POSTING.finished, change), signed(POSTING.revaluation, -change)], `Revaluasi standar ${today}`)
-  return { posting, patches: rows.map(({ row, standard }) => ({ type: row.type, id: row.id, values: { avgCost: standard }, action: `Harga standar baru ${rp(standard)}` })) }
+  // One journal per business unit, by the plant each stock row sits in.
+  const byEntity = new Map<string, number>()
+  for (const r of rows) byEntity.set(entityOfPlant(all, r.row.values.plant), (byEntity.get(entityOfPlant(all, r.row.values.plant)) ?? 0) + r.change)
+  const postings = [...byEntity].flatMap(([entity, change]) => compose(all, { description: `Revaluasi barang jadi ke standar baru ${today}`, entity, date: today, source: 'Revaluation', reference: `STD/${today}/${entity}` }, [signed(POSTING.finished, change), signed(POSTING.revaluation, -change)], `Revaluasi standar ${today}`) ?? [])
+  return { postings, patches: rows.map(({ row, standard }) => ({ type: row.type, id: row.id, values: { avgCost: standard }, action: `Harga standar baru ${rp(standard)}` })) }
 }
 
 const head = (record: ErpRecord, source: string, description: string, today: string): Values => ({ description, entity: 'fertiliser', date: today, source, reference: record.id })
 const returned = (all: All, type: string, field: string, id: unknown, except: string) => list(all, type).filter((r) => r.values[field] === id && r.id !== except).reduce((s, r) => s + n(r.values.qty), 0)
+
+/** Stock rows of a material at one plant. */
+const stockAt = (all: All, material: unknown, plant: unknown) => list(all, 'inv.stock').filter((r) => r.values.material === material && r.values.plant === plant && r.status !== 'inactive')
+
+/** Takes `qty` from stock rows, fullest first. */
+const takeFrom = (rows: readonly ErpRecord[], qty: number, action: string): Effects['patches'] => allocate(rows.toSorted((a, b) => n(b.values.onHand) - n(a.values.onHand)), qty, 'onHand').map(({ lot, take }) => ({ type: lot.type, id: lot.id, values: { onHand: Math.round((n(lot.values.onHand) - take) * 1000) / 1000 }, action }))
+
 
 const blocked = (reason: string | undefined) => (reason ? { blocker: reason } : undefined)
 
@@ -218,20 +228,10 @@ export function sampleFailures(all: All, sample: ErpRecord) {
   })
 }
 
-/** Why an annual leave request cannot be filed: it asks for more days than the employee has left this year. */
-function leaveProblem(all: All, leave: ErpRecord) {
-  const type = find(all, 'hrs.leavetypes', leave.values.leaveType)
-  if (!type || !/annual/i.test(String(type.values.name))) return undefined
-  const employee = find(all, 'mdm.employees', leave.values.employee)
-  const year = String(leave.values.from).slice(0, 4)
-  const others = list(all, 'hrs.leaves').filter((l) => l.values.employee === leave.values.employee && l.id !== leave.id)
-  const balance = leaveBalance(others, year, { joined: String(employee?.values.joined ?? ''), annualType: type.id })
-  const free = balance.left - balance.waiting
-  return n(leave.values.days) > free ? `Sisa cuti tahunan ${year} tinggal ${Math.max(0, free)} hari (hak ${balance.entitlement}, terpakai ${balance.taken}, menunggu ${balance.waiting}).` : undefined
-}
 
 const ticketsFor = (all: All, field: 'receipt' | 'order', id: string) => list(all, 'wms.weighings').filter((w) => w.values[field] === id)
 /** Why a document may not move on its weighbridge tickets: one is still open, or the net weight is off the document quantity. */
+/** Why a document may not move on its weighbridge tickets. `qty` is in tonnes; the scale weighs tonnes. */
 function weighProblem(tickets: readonly ErpRecord[], qty: number, what: string) {
   if (!tickets.length) return undefined
   const open = tickets.find((w) => w.status !== 'completed')
@@ -256,7 +256,9 @@ export const PLANT_RULES: Record<string, Rule> = {
   // Lots: a receipt opens a raw-material lot, production draws lots down and opens a finished lot, a shipment draws that down.
   'vms.receipts:accepted': (grn, all, today) => {
     const po = find(all, 'vms.orders', grn.values.po)
-    const problem = weighProblem(ticketsFor(all, 'receipt', grn.id), n(grn.values.qty), 'penerimaan')
+    const material = find(all, 'mdm.materials', po?.values.material)
+    // A liquid is received in cubic metres and weighed in tonnes; the check compares tonnes with tonnes.
+    const problem = weighProblem(ticketsFor(all, 'receipt', grn.id), toTonnes(n(grn.values.qty), material), 'penerimaan')
     if (problem) return { blocker: problem }
     const bin = list(all, 'wms.bins')[0]
     if (!po || !bin) return undefined
@@ -265,7 +267,7 @@ export const PLANT_RULES: Record<string, Rule> = {
   },
   'bpf.orders:running': (order, all, today) => {
     if (order.status === 'completed') return reopenBatch(order, all, today)
-    const taken = bomNeeds(all, order).flatMap((need) => allocate(rawLots(all, need.material), need.qty, 'qty').map((a) => ({ ...a, material: need.material })))
+    const taken = bomNeeds(all, order).flatMap((need) => allocate(rawLots(all, need.material, today), need.qty, 'qty').map((a) => ({ ...a, material: need.material })))
     return {
       patches: taken.map(({ lot, take }) => ({ type: lot.type, id: lot.id, values: { qty: Math.round((n(lot.values.qty) - take) * 1000) / 1000 }, action: `Dipakai ${take} untuk ${order.id}` })),
       creates: taken.map(({ lot, take, material }) => movement('Consumption', String(lot.values.lotNo), material, take, order.id, today)),
@@ -446,9 +448,6 @@ export const PLANT_RULES: Record<string, Rule> = {
     }
   },
 
-  // Leave: annual leave cannot exceed what the employee has left this year.
-  'hrs.leaves:created': (leave, all) => blocked(leaveProblem(all, leave)),
-  'hrs.leaves:submitted': (leave, all) => blocked(leaveProblem(all, leave)),
 
 
   // Returns: goods going back to the vendor leave stock, their lot and the accrual; goods coming back from a customer re-enter stock.
@@ -522,6 +521,71 @@ export const PLANT_RULES: Record<string, Rule> = {
     if (quota && called + n(po.values.qty) > quota) return { blocker: `Kuota ${contract.id} tidak cukup: ${quota} t, sudah dipanggil ${called} t.` }
     const price = n(contract.values.price)
     return price ? { patches: [{ type: po.type, id: po.id, values: { value: Math.round(price * n(po.values.qty)) }, action: `Harga kontrak ${contract.id}: ${rp(price)} per satuan` }] } : undefined
+  },
+
+  // Transfers between plants: stock leaves the sending plant on dispatch and joins the receiving plant on receipt.
+  'inv.transfers:transit': (trf, all) => {
+    const qty = n(trf.values.qty)
+    const rows = stockAt(all, trf.values.material, trf.values.from)
+    const have = rows.reduce((s, r) => s + n(r.values.onHand), 0)
+    if (qty > have) return { blocker: `Stok di pabrik asal tinggal ${have}, kurang untuk mengirim ${qty}.` }
+    if (trf.values.from === trf.values.to) return { blocker: 'Pabrik asal dan tujuan harus berbeda.' }
+    return { patches: takeFrom(rows, qty, `Dikirim ${qty} lewat ${trf.id}`) }
+  },
+  'inv.transfers:received': (trf, all, today) => {
+    const qty = n(trf.values.qty)
+    const unit = averageCost(all, trf.values.material)
+    const [row] = stockAt(all, trf.values.material, trf.values.to)
+    const stock: Partial<Effects> = row
+      ? { patches: [{ type: row.type, id: row.id, values: { onHand: Math.round((n(row.values.onHand) + qty) * 1000) / 1000, avgCost: Math.round((n(row.values.onHand) * (n(row.values.avgCost) || unit) + qty * unit) / Math.max(1, n(row.values.onHand) + qty)) }, action: `Diterima ${qty} lewat ${trf.id}` }] }
+      : { creates: [{ type: 'inv.stock', values: { material: trf.values.material, plant: trf.values.to, onHand: qty, minimum: 0, avgCost: unit } }] }
+    // Between units the goods change owner: the sender books an intercompany receivable, the receiver a payable.
+    const [from, to] = [entityOfPlant(all, trf.values.from), entityOfPlant(all, trf.values.to)]
+    const value = Math.round(qty * unit)
+    const postings = from === to ? [] : [
+      compose(all, { ...head(trf, 'Manual', `Transfer ${trf.id} ke ${to}`, today), entity: from }, [[POSTING.intercompanyReceivable, value, 0], [POSTING.inventory, 0, value]], trf.id),
+      compose(all, { ...head(trf, 'Manual', `Transfer ${trf.id} dari ${from}`, today), entity: to }, [[POSTING.inventory, value, 0], [POSTING.intercompanyPayable, 0, value]], trf.id),
+    ].flatMap((x) => x ?? [])
+    return { ...stock, postings }
+  },
+
+  // Scrap: approved disposal takes the goods out of stock and expenses their value; hazardous scrap goes to TPS as B3 waste.
+  'inv.scrap:approved': (scr, all, today) => {
+    const qty = n(scr.values.qty)
+    const rows = scr.values.plant ? stockAt(all, scr.values.material, scr.values.plant) : list(all, 'inv.stock').filter((r) => r.values.material === scr.values.material && r.status !== 'inactive')
+    const have = rows.reduce((s, r) => s + n(r.values.onHand), 0)
+    if (qty > have) return { blocker: `Stok tinggal ${have}, kurang untuk memusnahkan ${qty}.` }
+    const material = find(all, 'mdm.materials', scr.values.material)
+    const value = Math.round(qty * averageCost(all, scr.values.material))
+    const fullest = rows.toSorted((a, b) => n(b.values.onHand) - n(a.values.onHand))[0]
+    const entity = entityOfPlant(all, scr.values.plant ?? fullest?.values.plant)
+    const stockAccount = String(material?.values.code).startsWith('FG-') ? POSTING.finished : POSTING.inventory
+    const posting = compose(all, { ...head(scr, 'Manual', `Pemusnahan ${scr.id} ${String(material?.values.name ?? '')}: ${String(scr.values.reason)}`, today), entity }, [[POSTING.scrap, value, 0], [stockAccount, 0, value]], scr.id)
+    const area = list(all, 'she.areas')[0]
+    const transporter = list(all, 'mdm.partners').find((p) => p.values.kind === 'Vendor')
+    return {
+      patches: takeFrom(rows, qty, `Dimusnahkan ${qty} lewat ${scr.id}`),
+      creates: scr.values.b3 === 'Yes' && area && transporter ? [{ type: 'she.waste', values: { wasteCode: 'A108d Contaminated packaging', area: area.id, qty: toTonnes(qty, material), transporter: transporter.id, date: today } }] : [],
+      postings: posting ? [posting] : [],
+    }
+  },
+
+  // Chemical campaigns: closing one turns its output into a finished lot and its conversion cost into finished stock.
+  'cfp.campaigns:closed': (cmp, all, today) => {
+    const output = n(cmp.values.actual)
+    if (!output) return { blocker: 'Isi hasil aktual kampanye sebelum menutupnya.' }
+    const product = list(all, 'mdm.materials').find((m) => m.values.code === 'RM-H2SO4')
+    const cost = Math.round(output * (CONVERSION.labour + CONVERSION.overhead + CONVERSION.energy))
+    const entity = 'chemicals'
+    const lotNo = `FG-${cmp.id}`
+    const conversion = compose(all, { ...head(cmp, 'Production', `Biaya konversi kampanye ${cmp.id} ${String(cmp.values.name)}`, today), entity }, [[POSTING.wip, cost, 0], [POSTING.wages, 0, Math.round(output * CONVERSION.labour)], [POSTING.accrual, 0, cost - Math.round(output * CONVERSION.labour)]], cmp.id)
+    const receipt = compose(all, { ...head(cmp, 'Production', `Hasil kampanye ${cmp.id} ${String(cmp.values.name)}`, today), entity }, [[POSTING.finished, cost, 0], [POSTING.wip, 0, cost]], cmp.id)
+    const qty = product ? fromTonnes(output, product) : output
+    return {
+      patches: product ? receiveStock(all, product.id, qty, Math.round(cost / Math.max(0.001, qty)), `Hasil ${cmp.id}`) : [],
+      creates: product ? [{ type: 'gtr.lots', status: 'released', values: { lotNo, product: String(product.values.name), produced: today, qty, remaining: qty, material: product.id } }, movement('Production', lotNo, product.id, qty, cmp.id, today)] : [],
+      postings: [conversion, receipt].flatMap((x) => x ?? []),
+    }
   },
 
   // Budget check on purchase requisitions.

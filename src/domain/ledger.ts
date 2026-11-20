@@ -3,7 +3,7 @@
  * Pure functions over the record store, so the same numbers drive the reports, the cockpit and the tests.
  */
 import type { ErpRecord, Values } from './records'
-import { baseIdr, currentRate, docTotal, isForeign, ppnOf, pph23Of, totalAt } from './tax'
+import { baseIdr, currentRate, docTotal, isForeign, ppnOf, totalAt, WITHHOLDING, withheldOf } from './tax'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -44,6 +44,8 @@ export const POSTING = {
   grir: '2130',
   pph21: '2220',
   pph23: '2230',
+  vatDeferred: '1415',
+  feeReceivable: '1250',
   accrual: '2310',
   cogs: { fertiliser: '5100', chemicals: '5200', logistics: '5300', holding: '5100' } as Record<string, string>,
   payroll: '6100',
@@ -60,6 +62,9 @@ export const POSTING = {
   countVariance: '5430',
   consignment: '1335',
   revaluation: '5440',
+  scrap: '5450',
+  intercompanyReceivable: '1220',
+  intercompanyPayable: '2120',
   payableFx: '2115',
 } as const
 
@@ -265,7 +270,11 @@ export function postingFor(typeKey: string, record: ErpRecord, to: string, all: 
   if (step === 'fin.payables:approved') {
     const receipts = new Set((all['vms.receipts'] ?? []).filter((g) => v.po && g.values.po === v.po).map((g) => g.id))
     const accrued = (all['fin.journals'] ?? []).some((j) => j.status === 'posted' && receipts.has(String(j.values.reference)))
-    return compose(all, head('Payable', `Tagihan pemasok ${invoiceNo}`), [[accrued ? POSTING.grir : POSTING.inventory, baseIdr(v), 0], [POSTING.vatIn, ppnOf(v), 0], [POSTING.payable, 0, docTotal(v)], [POSTING.pph23, 0, pph23Of(v)]], invoiceNo)
+    // Input VAT that may not be credited becomes part of the goods' cost; deferred VAT waits on its own account.
+    const credit = String(v.vatCredit || 'Credited')
+    const vatAccount = credit === 'Deferred' ? POSTING.vatDeferred : POSTING.vatIn
+    const cost = baseIdr(v) + (credit === 'Not creditable' ? ppnOf(v) : 0)
+    return compose(all, head('Payable', `Tagihan pemasok ${invoiceNo}`), [[accrued ? POSTING.grir : POSTING.inventory, cost, 0], [vatAccount, credit === 'Not creditable' ? 0 : ppnOf(v), 0], [POSTING.payable, 0, docTotal(v)], [WITHHOLDING[String(v.withholding)]?.account ?? POSTING.pph23, 0, withheldOf(v)]], invoiceNo)
   }
   if (step === 'fin.payments:approved') {
     const invoice = (all['fin.payables'] ?? []).find((p) => p.id === v.invoice)
@@ -285,7 +294,7 @@ export function postingFor(typeKey: string, record: ErpRecord, to: string, all: 
 }
 
 /** Ledger account of each fixed-asset class. */
-export const ASSET_ACCOUNT: Record<string, string> = { 'Plant & machinery': '1510', 'Storage tanks': '1520', Vehicles: '1530', Buildings: '1540', 'IT equipment': '1550' }
+export const ASSET_ACCOUNT: Record<string, string> = { 'Plant & machinery': '1510', 'Storage tanks': '1520', Vehicles: '1530', Buildings: '1540', 'IT equipment': '1550', 'Construction in progress': '1560' }
 
 /**
  * Where a fixed asset stands on a date. Straight line spreads cost less salvage evenly over the useful life; double
@@ -293,6 +302,8 @@ export const ASSET_ACCOUNT: Record<string, string> = { 'Plant & machinery': '151
  */
 export function assetBook(v: Values, today: string) {
   const [cost, salvage, life] = [num(v.cost), num(v.salvage), Math.max(1, num(v.life))]
+  // Construction in progress is not in service yet, so nothing depreciates.
+  if (v.class === 'Construction in progress') return { ageYears: 0, accumulated: 0, book: cost, yearly: 0 }
   // Depreciation runs by full months in service, so two years to the day is exactly two years.
   const [from, to] = [String(v.acquired || today), today]
   const months = (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) - (to.slice(8) < from.slice(8) ? 1 : 0)
@@ -371,7 +382,7 @@ export function subledgerTie(all: All, entity?: string) {
  * The group as one entity: each unit's totals by class, less the intercompany receivable and payable the units hold
  * against each other. Equity carries the period's earnings, so assets equal liabilities plus equity in every column.
  */
-export function consolidation(all: All, scope: Omit<Scope, 'entity'> = {}) {
+export function consolidation(all: All, scope: Omit<Scope, 'entity'> = {}, ownership: Readonly<Record<string, number>> = {}) {
   const units = UNIT_IDS.map((unit) => {
     const rows = trialBalance(all, { ...scope, entity: unit }).rows
     const total = (cls: string) => rows.filter((r) => r.account.values.class === cls).reduce((s, r) => s + r.balance, 0)
@@ -382,8 +393,12 @@ export function consolidation(all: All, scope: Omit<Scope, 'entity'> = {}) {
   const sum = (f: (u: (typeof units)[number]) => number) => units.reduce((s, u) => s + f(u), 0)
   // Only balances both sides hold are eliminated; an unmatched remainder stays visible as a difference to investigate.
   const eliminated = Math.min(sum((u) => u.due), sum((u) => u.owed))
-  const group = { assets: sum((u) => u.assets) - eliminated, liabilities: sum((u) => u.liabilities) - eliminated, equity: sum((u) => u.equity), revenue: sum((u) => u.revenue), expense: sum((u) => u.expense), net: sum((u) => u.net) }
-  return { units, eliminated, unmatched: sum((u) => u.due) - sum((u) => u.owed), group }
+  // Sales between units are matched in the intercompany register; the group drops them from both revenue and cost.
+  const icSales = (all['epm.intercompany'] ?? []).filter((e) => ['matched', 'eliminated'].includes(e.status) && (!scope.from || String(e.values.date) >= scope.from) && (!scope.to || String(e.values.date) <= scope.to)).reduce((s, e) => s + num(e.values.amount), 0)
+  // Minority shareholders own the rest of a partly owned unit's equity and profit.
+  const minority = { equity: Math.round(sum((u) => u.equity * (1 - (ownership[u.unit] ?? 1)))), net: Math.round(sum((u) => u.net * (1 - (ownership[u.unit] ?? 1)))) }
+  const group = { assets: sum((u) => u.assets) - eliminated, liabilities: sum((u) => u.liabilities) - eliminated, equity: sum((u) => u.equity), revenue: sum((u) => u.revenue) - icSales, expense: sum((u) => u.expense) - icSales, net: sum((u) => u.net) }
+  return { units, eliminated, icSales, minority, unmatched: sum((u) => u.due) - sum((u) => u.owed), group }
 }
 
 /** Posted expense per cost centre: debits less credits on expense accounts for lines that name a centre. */

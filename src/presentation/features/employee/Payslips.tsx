@@ -1,4 +1,5 @@
-import { ChevronDown } from 'lucide-react'
+import { Link } from 'react-router'
+import { ChevronDown, Printer } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { terCategory, terRate } from '@/domain/payroll'
 import type { ErpRecord } from '@/domain/records'
@@ -51,6 +52,9 @@ export function Payslips({ all, me }: { all: AllRecords; me: ErpRecord }) {
                 <dd className="tabular">{money(Number(s.values.net))}</dd>
               </div>
             </dl>
+            <Link to={`/print/hrs.payslips/${s.id}`} className="mx-4 mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent-text hover:underline">
+              <Printer aria-hidden className="size-4" /> Cetak atau simpan PDF
+            </Link>
           </details>
         </li>
       ))}

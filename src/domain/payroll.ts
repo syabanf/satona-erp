@@ -43,10 +43,10 @@ export function overtimePay(hours: number, monthlyWage: number, restDay = false)
 }
 
 /** Flat deduction for each day clocked in late, past the shift's tolerance. */
-export const LATE_DEDUCTION = 25_000
+const LATE_DEDUCTION = 25_000
 
 /** Working days in a month, for the daily rate of absence deductions. */
-export const WORKING_DAYS = 21
+const WORKING_DAYS = 21
 
 /** Plant allowances: per afternoon or night shift worked, per day present, and a monthly hazard allowance for plant crews. */
 const ALLOWANCE = { shift: { Afternoon: 25_000, Night: 40_000 } as Record<string, number>, meal: 30_000, hazard: 750_000 } as const
@@ -89,8 +89,10 @@ type All = Readonly<Record<string, readonly ErpRecord[]>>
  */
 export function payslipFor(employee: ErpRecord, period: string, all: All): Values {
   const mine = (r: ErpRecord) => r.values.employee === employee.id && r.status === 'approved'
-  const base = n(employee.values.baseSalary)
-  const allowance = n(employee.values.allowance)
+  // Someone who joins or leaves during the month is paid for the calendar days they were employed.
+  const share = employedShare(employee, period, all)
+  const base = Math.round(n(employee.values.baseSalary) * share)
+  const allowance = Math.round(n(employee.values.allowance) * share)
   const ptkp = String(employee.values.ptkp ?? 'TK/0')
   const holidays = all['sys.holidays'] ?? []
   const extra = (all['hrs.overtime'] ?? []).filter((o) => mine(o) && String(o.values.date).startsWith(period)).reduce((s, o) => s + overtimePay(n(o.values.hours), base + allowance, isRestDay(employee, String(o.values.date), holidays)), 0)
@@ -115,7 +117,41 @@ export function payslipFor(employee: ErpRecord, period: string, all: All): Value
     bpjs: bpjsOf(base),
     pph21: period.endsWith('-12') ? settled : pph21(gross, ptkp),
     loan: (all['hrs.loans'] ?? []).filter(mine).reduce((s, l) => s + n(l.values.installment), 0),
+    ...severanceIn(employee, period, all),
   }
+}
+
+/** Days of the month the employee was employed, as a share: from the joining day, to the last working day of an offboarding. */
+function employedShare(employee: ErpRecord, period: string, all: All) {
+  const days = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).getUTCDate()
+  const joined = String(employee.values.joined ?? '')
+  const leaving = (all['hrs.offboarding'] ?? []).find((o) => o.values.employee === employee.id && String(o.values.lastDay).startsWith(period))
+  const first = joined.startsWith(period) ? Number(joined.slice(8, 10)) : 1
+  const last = leaving ? Number(String(leaving.values.lastDay).slice(8, 10)) : days
+  return Math.max(0, last - first + 1) / days
+}
+
+/** Final income tax on severance (PP 68/2009): nil up to Rp 50 million, then 5%, 15% and 25% by band. */
+export function severanceTax(amount: number) {
+  const bands: ReadonlyArray<[upTo: number, rate: number]> = [[50e6, 0], [100e6, 0.05], [500e6, 0.15], [Infinity, 0.25]]
+  let [tax, floor] = [0, 0]
+  for (const [upTo, rate] of bands) {
+    tax += Math.max(0, Math.min(amount, upTo) - floor) * rate
+    floor = upTo
+  }
+  return Math.round(tax)
+}
+
+/** Severance from an offboarding whose last day falls in the period, paid with the final payslip after its final tax. */
+function severanceIn(employee: ErpRecord, period: string, all: All) {
+  const amount = (all['hrs.offboarding'] ?? []).filter((o) => o.values.employee === employee.id && String(o.values.lastDay).startsWith(period)).reduce((s, o) => s + n(o.values.severance), 0)
+  return amount ? { severance: amount, severanceTax: severanceTax(amount) } : {}
+}
+
+/** A bonus payslip: a share of base pay, taxed at its TER rate, with no BPJS and no loan deduction. */
+export function bonusSlipFor(employee: ErpRecord, period: string, pct: number): Values {
+  const bonus = Math.round((n(employee.values.baseSalary) * pct) / 100)
+  return { employee: employee.id, period, kind: 'Bonus', entity: employee.values.entity, base: bonus, allowance: 0, overtime: 0, absence: 0, late: 0, bpjs: 0, pph21: pph21(bonus, String(employee.values.ptkp ?? 'TK/0')), loan: 0 }
 }
 
 /** The THR payslip of an employee: the bonus itself, taxed at its TER rate, with no BPJS and no loan deduction. */
@@ -150,4 +186,5 @@ export function severanceOf(wage: number, years: number, reason: string) {
 
 /** Earnings of the month: pay and allowances less what absence and unpaid leave took off. */
 export const slipGross = (v: Values) => n(v.base) + n(v.allowance) + n(v.overtime) + n(v.shiftAllowance) + n(v.meal) + n(v.hazard) - n(v.absence) - n(v.late)
-export const slipNet = (v: Values) => slipGross(v) - n(v.bpjs) - n(v.pph21) - n(v.loan)
+/** Take-home pay: earnings less BPJS, PPh 21 and loans, plus any severance after its final tax. */
+export const slipNet = (v: Values) => slipGross(v) - n(v.bpjs) - n(v.pph21) - n(v.loan) + n(v.severance) - n(v.severanceTax)

@@ -10,6 +10,7 @@ import { useServices } from '../../hooks/useServices'
 import { useSession } from '../../hooks/useSession'
 import { CardSkeleton } from '../../ui/States'
 import { ENTITY_NAME, fieldText, recordPath, recordTitle } from '../../records/text'
+import { DOCUMENTS } from './documents'
 
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -21,7 +22,7 @@ export default function PrintPage() {
   const { type: key = '', id = '' } = useParams()
   const { signedIn, role } = useSession()
   const all = useAllRecords()
-  const { erp } = useServices()
+  const { erp, clock } = useServices()
   const modules = useResource('erp.modules', () => erp.modules())
   const type = typeOf(key)
   if (!signedIn) return <Navigate to="/login" replace />
@@ -39,8 +40,10 @@ export default function PrintPage() {
     const rows = (data[ct.key] ?? []).filter((r) => r.values[field.key] === record.id)
     return rows.length ? [{ type: ct, field, rows }] : []
   })
+  const doc = DOCUMENTS[type.key]
   const signed = record.approvals ?? []
-  const boxes = signed.length ? signed.map((s) => ({ title: `Disetujui · level ${s.level}`, name: s.by, role: s.role, at: s.at })) : [{ title: 'Dibuat oleh', name: record.history[0]?.by ?? '', role: '', at: record.createdAt }, { title: 'Diperiksa', name: '', role: '', at: '' }, { title: 'Disetujui', name: '', role: '', at: '' }]
+  // A business document names its own signers when nobody approved it in the system.
+  const boxes = signed.length ? signed.map((s) => ({ title: `Disetujui · level ${s.level}`, name: s.by, role: s.role, at: s.at })) : doc ? doc.signatures.map((title) => ({ title, name: '', role: '', at: '' })) : [{ title: 'Dibuat oleh', name: record.history[0]?.by ?? '', role: '', at: record.createdAt }, { title: 'Diperiksa', name: '', role: '', at: '' }, { title: 'Disetujui', name: '', role: '', at: '' }]
 
   return (
     <div className="min-h-dvh bg-canvas py-6 print:bg-white print:py-0">
@@ -64,8 +67,8 @@ export default function PrintPage() {
 
         <div className="mt-5 flex items-end justify-between gap-6">
           <div>
-            <h1 className="text-xl font-bold tracking-wide uppercase">{type.singular}</h1>
-            <p className="mt-0.5 text-[13px] font-semibold">{recordTitle(type, record, data)}</p>
+            <h1 className="text-xl font-bold tracking-wide uppercase">{doc?.title ?? type.singular}</h1>
+            <p className="mt-0.5 text-[13px] font-semibold">{doc?.subtitle?.(record, data) ?? recordTitle(type, record, data)}</p>
           </div>
           <dl className="text-right text-[11px]">
             <div>
@@ -83,6 +86,8 @@ export default function PrintPage() {
           </dl>
         </div>
 
+        {doc ? doc.body({ record, all: data, today: clock.today() }) : (
+        <>
         <table className="mt-5 w-full border-collapse">
           <tbody>
             {Array.from({ length: Math.ceil(fields.length / 2) }, (_, i) => fields.slice(i * 2, i * 2 + 2)).map((pair) => (
@@ -148,8 +153,10 @@ export default function PrintPage() {
             <p className="mt-1 whitespace-pre-wrap">{String(record.values[f.key])}</p>
           </section>
         ))}
+        </>
+        )}
 
-        <section className="mt-10 grid grid-cols-3 gap-6 break-inside-avoid">
+        <section className={`mt-10 grid gap-6 break-inside-avoid ${boxes.length === 1 ? 'ml-auto w-1/3 grid-cols-1' : 'grid-cols-3'}`}>
           {boxes.map((b, i) => (
             <div key={i} className="text-center">
               <p className="text-[11px] text-[#555]">{b.title}</p>

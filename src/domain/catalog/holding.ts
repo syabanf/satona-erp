@@ -32,6 +32,7 @@ export const HOLDING: readonly RecordType[] = [
     text('name', 'Name', { required: true, list: true }),
     pick('b3Class', 'B3 class', B3_CLASSES, { required: true, list: true }),
     pick('uom', 'Unit', ['t', 'm³', 'kg', 'L'], { required: true, list: true }),
+    num('density', 'Density', 't/m³', { min: 0 }),
     text('unNumber', 'UN number', { list: true }),
     text('cas', 'CAS number'),
     pick('packingGroup', 'Packing group', ['I', 'II', 'III', 'None']),

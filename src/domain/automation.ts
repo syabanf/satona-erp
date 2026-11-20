@@ -69,6 +69,11 @@ export function missingAttendance(all: All, date: string) {
   })
 }
 
+/** Stock lots past their expiry date that are still free to use, oldest expiry first. */
+export function expiredLots(all: All, today: string) {
+  return (all['wms.lots'] ?? []).filter((l) => ['received', 'stored'].includes(l.status) && l.values.expiry && String(l.values.expiry) < today && (Number(l.values.qty) || 0) > 0).toSorted((a, b) => String(a.values.expiry).localeCompare(String(b.values.expiry)))
+}
+
 /** Records waiting at an approval step for `days` or more since their last change, oldest first. */
 export function staleApprovals(types: readonly RecordType[], all: All, today: string, days = 3) {
   return types

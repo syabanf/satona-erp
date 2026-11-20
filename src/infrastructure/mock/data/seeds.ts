@@ -588,7 +588,8 @@ const SEEDS: Record<string, { count: number; make: Make }> = {
     count: MATERIALS.length,
     make: ({ i }) => {
       const [code, name, b3Class] = MATERIALS[i] ?? MATERIALS[0]!
-      return { code, name, b3Class, uom: b3Class === 'Non-B3' ? 't' : 'm³', ...(MATERIAL_HAZARDS[code] ?? { unNumber: '', cas: '', packingGroup: 'None', signalWord: 'None' }) }
+      const density: Record<string, number> = { 'RM-AMM': 0.68, 'RM-PHA': 1.69, 'RM-SUL': 1.8, 'RM-H2SO4': 1.84, 'RM-NAOH': 1.52 }
+      return { code, name, b3Class, uom: b3Class === 'Non-B3' ? 't' : 'm³', density: density[code] ?? 1, ...(MATERIAL_HAZARDS[code] ?? { unNumber: '', cas: '', packingGroup: 'None', signalWord: 'None' }) }
     },
   },
   'mdm.employees': {

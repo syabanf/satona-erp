@@ -82,9 +82,13 @@ export const LOGISTICS: readonly RecordType[] = [
       ['stored', 'Stored', 'success'],
       ['picked', 'Picked', 'warning'],
       ['shipped', 'Shipped', 'neutral'],
+      ['expired', 'Expired, on hold', 'danger'],
     ],
     [
       ['received', 'stored', 'Put away'],
+      ['stored', 'expired', 'Hold as expired'],
+      ['received', 'expired', 'Hold as expired'],
+      ['expired', 'stored', 'Release after retest', 'approve'],
       ['stored', 'picked', 'Pick'],
       ['picked', 'shipped', 'Ship'],
     ],

@@ -1,7 +1,7 @@
 /** Group shared services carried over from the Habitat and NüHabit ERPs: HRIS, accounting, inventory control, purchasing execution, service desk and document control. */
 import type { RecordType } from '../records'
 import { slipGross, slipNet } from '../payroll'
-import { DOC_CURRENCIES, TAXES, WITHHOLDINGS, baseIdr, docTotal, ppnOf, pph23Of } from '../tax'
+import { DOC_CURRENCIES, TAXES, VAT_CREDIT, WITHHOLDINGS, baseIdr, docTotal, ppnOf, withheldOf } from '../tax'
 import { ACTIVE, APPROVAL, calc, date, entity, flow, money, n, note, num, pick, ref, round1, text, master, type } from './kit'
 
 export const GRADES = ['G1 Operator', 'G2 Technician', 'G3 Supervisor', 'G4 Superintendent', 'G5 Manager', 'G6 General manager'] as const
@@ -9,7 +9,7 @@ export const GRADES = ['G1 Operator', 'G2 Technician', 'G3 Supervisor', 'G4 Supe
 const CASH_KINDS = ['Cash in', 'Cash out', 'Transfer'] as const
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Yearly'] as const
 const DEPRECIATION_METHODS = ['Straight line', 'Declining balance'] as const
-const PAYROLL_KINDS = ['Regular', 'THR'] as const
+const PAYROLL_KINDS = ['Regular', 'THR', 'Bonus'] as const
 
 export const HRIS_MASTERS: readonly RecordType[] = [
   master('hrs', 'orgunits', ['Organisation units', 'Org unit', 'ORG'], 'name', [
@@ -72,6 +72,7 @@ export const HRIS: readonly RecordType[] = [
   type('hrs', 'payroll', ['Payroll runs', 'Payroll run', 'PAY'], 'period', [
     text('period', 'Period', { required: true, list: true }),
     pick('kind', 'Run type', PAYROLL_KINDS, { list: true }),
+    num('bonusPct', 'Bonus, % of base pay', '%', { min: 0, max: 600 }),
     entity('entity', 'Entity', { required: true, list: true }),
     num('headcount', 'Headcount', 'people', { required: true, min: 1, list: true }),
     money('gross', 'Gross pay', { required: true, list: true }),
@@ -96,6 +97,7 @@ export const HRIS: readonly RecordType[] = [
     pick('kind', 'Type', ['PKWTT (permanent)', 'PKWT (fixed term)', 'Outsourced', 'Internship'], { required: true, list: true }),
     date('start', 'Start', { required: true }),
     date('end', 'End', { list: true }),
+    money('compensation', 'PKWT compensation'),
   ], flow([['active', 'Active', 'success'], ['renewal', 'Due for renewal', 'warning'], ['ended', 'Ended', 'neutral']], [
     ['active', 'renewal', 'Flag for renewal'],
     ['renewal', 'active', 'Renew', 'approve'],
@@ -124,8 +126,8 @@ export const HRIS: readonly RecordType[] = [
   type('hrs', 'appraisals', ['KPI scorecards', 'Scorecard', 'APR'], 'period', [
     ref('employee', 'Employee', 'mdm.employees', { required: true, list: true }),
     text('period', 'Period', { required: true, list: true }),
-    num('kpi', 'KPI achievement', '%', { required: true, min: 0, max: 150 }),
-    num('safety', 'Safety behaviour', '%', { required: true, min: 0, max: 100 }),
+    num('kpi', 'KPI achievement', '%', { min: 0, max: 150 }),
+    num('safety', 'Safety behaviour', '%', { min: 0, max: 100 }),
     calc('score', 'Final score', (v) => round1(n(v, 'kpi') * 0.7 + n(v, 'safety') * 0.3), { unit: 'pts', list: true }),
   ], APPROVAL, { groupBy: 'period' }),
   type('hrs', 'trainings', ['Training records', 'Training', 'TRN'], 'course', [
@@ -155,6 +157,8 @@ export const HRIS: readonly RecordType[] = [
     money('loan', 'Loan installment'),
     money('absence', 'Absence and unpaid leave'),
     money('late', 'Late deduction'),
+    money('severance', 'Severance'),
+    money('severanceTax', 'Final tax on severance'),
     calc('gross', 'Gross pay', slipGross, { unit: 'Rp', list: true }),
     calc('net', 'Net pay', slipNet, { unit: 'Rp', list: true }),
   ], flow([['calculated', 'Calculated', 'info'], ['paid', 'Paid', 'success']], []), { sumField: 'net', groupBy: 'period' }),
@@ -212,7 +216,8 @@ export const FINANCE: readonly RecordType[] = [
     pick('currency', 'Currency', DOC_CURRENCIES),
     num('rate', 'Rate to IDR', 'IDR', { min: 0 }),
     calc('ppn', 'PPN', ppnOf, { unit: 'Rp' }),
-    calc('pph23', 'PPh 23 withheld', pph23Of, { unit: 'Rp' }),
+    pick('vatCredit', 'Input VAT credit', VAT_CREDIT),
+    calc('withheld', 'Tax withheld', withheldOf, { unit: 'Rp' }),
     calc('total', 'Payable', docTotal, { unit: 'Rp', list: true }),
     date('due', 'Due', { required: true, list: true }),
   ], flow([['received', 'Received', 'neutral'], ['matched', '3-way matched', 'info'], ['approved', 'Approved to pay', 'success'], ['paid', 'Paid', 'success'], ['disputed', 'Disputed', 'danger']], [
@@ -308,6 +313,12 @@ export const FINANCE: readonly RecordType[] = [
     money('amount', 'Amount', { required: true, list: true }),
     date('date', 'Date', { required: true, list: true }),
   ], flow([['draft', 'Draft', 'neutral'], ['posted', 'Posted', 'success']], [['draft', 'posted', 'Post', 'approve']]), { sumField: 'amount', groupBy: 'toCenter', dateField: 'date' }),
+  type('fin', 'assettransfers', ['Asset transfers', 'Asset transfer', 'FAT'], 'asset', [
+    ref('asset', 'Fixed asset', 'fin.assets', { required: true, parent: true, list: true }),
+    entity('toEntity', 'To entity', { required: true, list: true }),
+    date('date', 'Transfer date', { required: true, list: true }),
+    text('reason', 'Reason'),
+  ], APPROVAL, { dateField: 'date' }),
   type('fin', 'statementlines', ['Bank statement lines', 'Statement line', 'BSL'], 'description', [
     ref('bank', 'House bank', 'mdm.banks', { required: true, parent: true, list: true }),
     date('date', 'Date', { required: true, list: true }),
@@ -351,7 +362,8 @@ export const FINANCE: readonly RecordType[] = [
   master('fin', 'assets', ['Fixed assets', 'Fixed asset', 'FA'], 'name', [
     text('name', 'Name', { required: true, list: true }),
     entity('entity', 'Entity', { required: true, list: true }),
-    pick('class', 'Class', ['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment'], { required: true, list: true }),
+    pick('class', 'Class', ['Plant & machinery', 'Storage tanks', 'Vehicles', 'Buildings', 'IT equipment', 'Construction in progress'], { required: true, list: true }),
+    ref('invoice', 'Capitalised from invoice', 'fin.payables'),
     money('cost', 'Acquisition cost', { required: true, list: true }),
     num('life', 'Useful life', 'years', { required: true, min: 1, max: 40 }),
     date('acquired', 'Acquired', { required: true, list: true }),
@@ -420,6 +432,7 @@ export const INVENTORY: readonly RecordType[] = [
     num('qty', 'Quantity', 't', { required: true, min: 0.01, list: true }),
     pick('reason', 'Reason', ['Expired', 'Off-spec', 'Contaminated', 'Damaged packaging'], { required: true, list: true }),
     pick('b3', 'Hazardous waste (B3)', ['Yes', 'No'], { required: true, list: true }),
+    ref('plant', 'Plant', 'mdm.plants'),
   ], APPROVAL, { sumField: 'qty', groupBy: 'reason' }),
 ]
 

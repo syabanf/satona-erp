@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { BellRing, PackageMinus, Play, UserX, Wrench } from 'lucide-react'
+import { BellRing, FileClock, PackageMinus, Play, TimerOff, UserX, Wrench } from 'lucide-react'
 import { typeOf } from '@/domain/catalog'
 import { useAutomation, type Rule } from '../../hooks/useAutomation'
 import { recordPath } from '../../records/text'
@@ -99,6 +99,32 @@ export default function AutomationPage() {
               </li>
             ))}
             {pending.absent.length > 8 && <li className="py-2 text-xs text-muted">dan {pending.absent.length - 8} lainnya</li>}
+          </ul>
+        )}
+      </RuleCard>
+      <RuleCard rule="expired" icon={<TimerOff className="size-5" />} title="Lot kedaluwarsa ditahan" body="Lot bahan yang lewat tanggal kedaluwarsa ditahan, sehingga produksi tidak memakainya sampai diuji ulang dan dilepas." count={pending.expired.length} onRun={go('expired', 'lot ditahan')} auto={auto.expired} onAuto={(on) => toggle('expired', on)}>
+        {pending.expired.length === 0 ? empty('Tidak ada lot bebas yang lewat kedaluwarsa.') : (
+          <ul className="divide-y divide-line">
+            {pending.expired.slice(0, 8).map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                <Link to={recordPath(typeOf('wms.lots')!, l.id)} className="font-mono text-xs hover:underline">{String(l.values.lotNo)}</Link>
+                <span className="min-w-0 flex-1 truncate">{String(l.values.qty)} · kedaluwarsa {String(l.values.expiry)}</span>
+              </li>
+            ))}
+            {pending.expired.length > 8 && <li className="py-2 text-xs text-muted">dan {pending.expired.length - 8} lainnya</li>}
+          </ul>
+        )}
+      </RuleCard>
+      <RuleCard rule="contracts" icon={<FileClock className="size-5" />} title="Kontrak PKWT hampir habis" body="Kontrak PKWT yang berakhir dalam 30 hari ditandai untuk diperpanjang, agar HR memutuskan perpanjang, angkat menjadi PKWTT, atau mengakhiri." count={pending.contracts.length} onRun={go('contracts', 'kontrak ditandai')} auto={auto.contracts} onAuto={(on) => toggle('contracts', on)}>
+        {pending.contracts.length === 0 ? empty('Tidak ada kontrak PKWT yang berakhir dalam 30 hari.') : (
+          <ul className="divide-y divide-line">
+            {pending.contracts.slice(0, 8).map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                <Link to={recordPath(typeOf('hrs.contracts')!, c.id)} className="font-mono text-xs hover:underline">{c.id}</Link>
+                <span className="min-w-0 flex-1 truncate">{String(c.values.employee)}</span>
+                <span className="text-xs text-muted">berakhir {String(c.values.end)}</span>
+              </li>
+            ))}
           </ul>
         )}
       </RuleCard>

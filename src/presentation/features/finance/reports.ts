@@ -1,7 +1,8 @@
 import { aging } from '@/domain/kpi'
 import { assetBook, balanceSheet, budgetVsActual, consolidation, costCentreSpend, cashFlow, creditedOn, generalLedger, incomeStatement, ledgerLines, POSTING, subledgerTie, trialBalance, type Balance, type Scope } from '@/domain/ledger'
 import { cashForecast } from '@/domain/bank'
-import { baseIdr, docTotal, ppnOf, pph23Of } from '@/domain/tax'
+import { fiscalBook, OWNERSHIP } from '@/domain/controls'
+import { baseIdr, docTotal, ppnOf, WITHHOLDING, withheldOf } from '@/domain/tax'
 import type { ErpRecord } from '@/domain/records'
 import { money } from '@/lib/format'
 
@@ -20,9 +21,10 @@ export const REPORTS = [
   { value: 'partner', label: 'Saldo per mitra' },
   { value: 'equity', label: 'Perubahan ekuitas' },
   { value: 'vat', label: 'SPT Masa PPN' },
-  { value: 'wht', label: 'PPh 23' },
+  { value: 'wht', label: 'Pemotongan PPh' },
   { value: 'consol', label: 'Konsolidasi' },
   { value: 'cc', label: 'Pusat biaya' },
+  { value: 'fiscal', label: 'Penyusutan fiskal' },
   { value: 'var', label: 'Selisih produksi' },
   { value: 'forecast', label: 'Proyeksi kas' },
 ] as const
@@ -183,13 +185,22 @@ export function buildReport(id: ReportId, all: All, scope: Scope, opts: { accoun
     }
   }
   if (id === 'consol') {
-    const c = consolidation(all, { from: scope.from, to: scope.to })
+    const c = consolidation(all, { from: scope.from, to: scope.to }, OWNERSHIP)
     const unit: Record<string, string> = { holding: 'Kantor Pusat', logistics: 'Unit Logistik', fertiliser: 'Pabrik Pupuk', chemicals: 'Pabrik Kimia' }
     type Key = 'assets' | 'liabilities' | 'equity' | 'revenue' | 'expense' | 'net'
     const line = (label: string, key: Key, eliminated = 0, kind?: ReportRow['kind']): ReportRow => ({ cells: [label, ...c.units.map((u) => money(u[key])), eliminated ? money(-eliminated) : '', money(c.group[key])], kind })
     return {
       title: 'Laporan konsolidasi grup', note: `${period}. Piutang dan utang antarunit dieliminasi${c.unmatched ? `; selisih antarunit ${money(c.unmatched)} perlu ditelusuri` : ''}`, columns: ['Uraian', ...c.units.map((u) => unit[u.unit]!), 'Eliminasi', 'Konsolidasi'], numericFrom: 1,
-      rows: [line('Aset', 'assets', c.eliminated), line('Liabilitas', 'liabilities', c.eliminated), line('Ekuitas termasuk laba berjalan', 'equity'), line('Liabilitas dan ekuitas', 'assets', c.eliminated, 'total'), line('Pendapatan', 'revenue'), line('Beban', 'expense'), line('Laba bersih', 'net', 0, 'grand')],
+      rows: [line('Aset', 'assets', c.eliminated), line('Liabilitas', 'liabilities', c.eliminated), line('Ekuitas termasuk laba berjalan', 'equity'), { cells: ['  dari jumlah itu milik pemegang saham minoritas', ...c.units.map((u) => money(Math.round(u.equity * (1 - (OWNERSHIP[u.unit] ?? 1))))), '', money(c.minority.equity)] }, line('Liabilitas dan ekuitas', 'assets', c.eliminated, 'total'), line('Pendapatan', 'revenue', c.icSales), line('Beban', 'expense', c.icSales), line('Laba bersih', 'net', 0, 'grand'), { cells: ['Laba bersih milik pemegang saham minoritas', ...c.units.map((u) => money(Math.round(u.net * (1 - (OWNERSHIP[u.unit] ?? 1))))), '', money(c.minority.net)] }, { cells: ['Laba bersih milik grup', ...c.units.map((u) => money(Math.round(u.net * (OWNERSHIP[u.unit] ?? 1)))), '', money(c.group.net - c.minority.net)], kind: 'total' }],
+    }
+  }
+  if (id === 'fiscal') {
+    const assets = (all['fin.assets'] ?? []).filter((a) => a.status === 'active' && (!scope.entity || a.values.entity === scope.entity))
+    const rows = assets.map((a) => ({ a, book: assetBook(a.values, opts.today), tax: fiscalBook(a.values, opts.today) }))
+    const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0)
+    return {
+      title: 'Penyusutan komersial dan fiskal', note: `Per ${opts.today}. Selisih nilai buku menjadi dasar pajak tangguhan`, columns: ['Aset', 'Kelompok pajak', 'Harga perolehan', 'Nilai buku komersial', 'Nilai buku fiskal', 'Selisih'], numericFrom: 2,
+      rows: [...rows.map((r) => ({ cells: [`${r.a.id} ${String(r.a.values.name)}`, r.tax.group, money(Number(r.a.values.cost) || 0), money(r.book.book), money(r.tax.book), money(r.book.book - r.tax.book)], to: `/modules/fin/assets/${r.a.id}` })), { cells: ['Jumlah', '', money(sum((r) => Number(r.a.values.cost) || 0)), money(sum((r) => r.book.book)), money(sum((r) => r.tax.book)), money(sum((r) => r.book.book - r.tax.book))], kind: 'grand' }],
     }
   }
   if (id === 'cc') {
@@ -228,12 +239,13 @@ export function buildReport(id: ReportId, all: All, scope: Scope, opts: { accoun
   }
   if (id === 'wht') {
     const vendor = (pid: unknown) => String((all['mdm.partners'] ?? []).find((p) => p.id === pid)?.values.name ?? pid)
-    const rows = (all['fin.payables'] ?? []).filter((p) => pph23Of(p.values) > 0 && (!scope.entity || p.values.entity === scope.entity))
+    const rows = (all['fin.payables'] ?? []).filter((p) => withheldOf(p.values) > 0 && (!scope.entity || p.values.entity === scope.entity))
     return {
-      title: 'Daftar pemotongan PPh 23', note: 'Tagihan jasa dengan PPh 23 2%: dipotong saat tagihan disetujui, disetor ke kas negara', columns: ['Tagihan', 'Pemasok', 'Status', 'DPP', 'PPh 23'], numericFrom: 3,
-      rows: [...rows.map((p) => ({ cells: [`${p.id} ${String(p.values.invoiceNo)}`, vendor(p.values.vendor), ['approved', 'paid'].includes(p.status) ? 'Dipotong' : 'Belum dipotong', money(baseIdr(p.values)), money(pph23Of(p.values))], to: `/modules/fin/payables/${p.id}` })), { cells: ['Jumlah', '', '', money(rows.reduce((s, p) => s + baseIdr(p.values), 0)), money(rows.reduce((s, p) => s + pph23Of(p.values), 0))], kind: 'grand' }],
+      title: 'Daftar pemotongan PPh', note: 'PPh 23, PPh 22 dan PPh 4(2) yang dipotong saat tagihan disetujui, disetor ke kas negara', columns: ['Tagihan', 'Pemasok', 'Jenis', 'Status', 'DPP', 'Dipotong'], numericFrom: 4,
+      rows: [...rows.map((p) => ({ cells: [`${p.id} ${String(p.values.invoiceNo)}`, vendor(p.values.vendor), WITHHOLDING[String(p.values.withholding)]?.label ?? '-', ['approved', 'paid'].includes(p.status) ? 'Dipotong' : 'Belum dipotong', money(baseIdr(p.values)), money(withheldOf(p.values))], to: `/modules/fin/payables/${p.id}` })), { cells: ['Jumlah', '', '', '', money(rows.reduce((s, p) => s + baseIdr(p.values), 0)), money(rows.reduce((s, p) => s + withheldOf(p.values), 0))], kind: 'grand' }],
     }
   }
+
   const year = Number((scope.to ?? opts.today).slice(0, 4))
   const lines = budgetVsActual(all, year, scope.entity)
   const total = (f: (l: (typeof lines)[number]) => number) => lines.reduce((s, l) => s + f(l), 0)

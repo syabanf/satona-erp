@@ -50,7 +50,7 @@ const SUB_MODULES: Record<string, ReadonlyArray<[label: string, types: readonly 
     ['Telemetri dan keselamatan', ['telemetry', 'safety']],
   ],
   fin: [
-    ['Buku besar', ['journals', 'journallines', 'recurring', 'allocations', 'closing', 'assets']],
+    ['Buku besar', ['journals', 'journallines', 'recurring', 'allocations', 'closing', 'assets', 'assettransfers']],
     ['Utang dan piutang', ['payables', 'receivables', 'creditnotes', 'dunning', 'payments', 'paymentruns', 'taxinvoices']],
     ['Kas dan bank', ['cashmoves', 'reconciliations', 'statementlines', 'pettycash', 'advances']],
   ],

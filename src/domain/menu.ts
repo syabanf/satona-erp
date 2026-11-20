@@ -35,7 +35,7 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
   ],
   tfm: [{ label: 'Tank farm 3D', to: '/tank-farm?view=3d' }],
   mrp: [
-    { label: 'Scheduling board & capacity', to: '/mrp/planning' },
+    { label: 'Papan jadwal dan kapasitas', to: '/mrp/planning' },
     { label: 'MRP: kebutuhan bahan', to: '/mrp/run' },
   ],
   gtr: [{ label: 'Telusur lot', to: '/traceability/ledger' }],
@@ -54,6 +54,8 @@ const VIEWS: Record<string, ReadonlyArray<{ label: string; to: string }>> = {
   hrs: [
     { label: 'Kalkulator pesangon', to: '/hris/severance' },
     { label: 'Kalibrasi dan siklus 360', to: '/hris/performance' },
+    { label: 'Papan rekrutmen', to: '/modules/hrs/candidates?view=board' },
+    { label: 'Psikotes kandidat', to: '/hris/psikotes' },
   ],
   she: [
     { label: 'Permit to work board', to: '/she?view=permits' },

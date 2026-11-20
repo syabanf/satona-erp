@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { RECORD_TYPES } from '@/domain/catalog'
-import { duePlans, lowStock, missingAttendance, staleApprovals } from '@/domain/automation'
+import { duePlans, expiredLots, lowStock, missingAttendance, staleApprovals } from '@/domain/automation'
+import { expiringContracts } from '@/domain/hr'
 import { useAllRecords } from './useRecords'
 import { useServices } from './useServices'
 import { useSession } from './useSession'
 import { useStored } from './useStored'
 
-export type Rule = 'pm' | 'stock' | 'remind' | 'absent'
+export type Rule = 'pm' | 'stock' | 'remind' | 'absent' | 'expired' | 'contracts'
 const KEY = 'wit-automation'
 const RAN = 'wit-automation-ran'
 
@@ -19,12 +20,12 @@ export function useAutomation() {
   const { records, clock } = useServices()
   const { role } = useSession()
   const today = clock.today()
-  const [auto, setAuto] = useStored<Record<Rule, boolean>>(KEY, { pm: false, stock: false, remind: false, absent: false })
+  const [auto, setAuto] = useStored<Record<Rule, boolean>>(KEY, { pm: false, stock: false, remind: false, absent: false, expired: false, contracts: false })
   const pending = useMemo(() => {
     if (!all.data) return null
     // Yesterday is the last day whose shifts have all ended.
     const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
-    return { pm: duePlans(all.data, today), stock: lowStock(all.data, today), remind: staleApprovals(RECORD_TYPES, all.data, today), absent: missingAttendance(all.data, yesterday), yesterday }
+    return { pm: duePlans(all.data, today), stock: lowStock(all.data, today), remind: staleApprovals(RECORD_TYPES, all.data, today), absent: missingAttendance(all.data, yesterday), expired: expiredLots(all.data, today), contracts: expiringContracts(all.data, today), yesterday }
   }, [all.data, today])
 
   const run = useCallback(
@@ -49,6 +50,8 @@ export function useAutomation() {
           })
       if (rule === 'stock') for (const s of pending.stock) await attempt(() => records.create(role, 'vms.requisitions', s.requisition))
       if (rule === 'remind') for (const s of pending.remind.slice(0, 20)) await attempt(() => records.note(role, s.type.key, s.record.id, `Pengingat persetujuan: menunggu ${s.days} hari`))
+      if (rule === 'contracts') for (const c of pending.contracts) await attempt(() => records.transition(role, c.type, c.id, 'renewal'))
+      if (rule === 'expired') for (const lot of pending.expired) await attempt(() => records.transition(role, lot.type, lot.id, 'expired'))
       if (rule === 'absent' && pending.absent.length) await attempt(() => records.createMany(role, 'hrs.attendance', pending.absent.map((a) => a.record)))
       if (rule === 'absent' && done) done = pending.absent.length
       return { done, failed }
@@ -73,6 +76,6 @@ export function useAutomationRunner() {
     } catch {
       return
     }
-    for (const rule of ['pm', 'stock', 'remind', 'absent'] as const) if (auto[rule]) void run(rule)
+    for (const rule of ['pm', 'stock', 'remind', 'absent', 'expired', 'contracts'] as const) if (auto[rule]) void run(rule)
   }, [pending, run, auto])
 }

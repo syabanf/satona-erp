@@ -1,13 +1,16 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { ADMIN_ROLE } from '@/domain/erp'
 import { bankOnlyPosting, bankReconciliation, ebupotXml, efakturRows, fxRevaluation, latestPayrollPeriod, matchSuggestions, payrollTransfer, recurringDue, runTransfer } from '@/domain/bank'
-import { bomNeeds, effectsFor, licenceProblem, runInvoices, threeWayMatch } from '@/domain/effects'
+import { bomNeeds, effectsFor, licenceProblem, nextTaxSerial, runInvoices, threeWayMatch } from '@/domain/effects'
 import { assetBook, consolidation, costCentreSpend, incomeStatement, journalBalance, subledgerTie, trialBalance } from '@/domain/ledger'
 import { calibration, feedbackAssignments, feedbackSummary } from '@/domain/performance'
 import { capacityLoad, energyCostOf, finishedLots, finishedRevaluation, lotCleared, mrpRun, overheadCostOf, sampleFailures, traceLot } from '@/domain/plant'
-import { lowStock, missingAttendance } from '@/domain/automation'
+import { expiredLots, lowStock, missingAttendance } from '@/domain/automation'
+import { budgetBreaches, fiscalBook, OWNERSHIP } from '@/domain/controls'
+import { annualLeave, chargedDays, expiringContracts, kpiFor, periodRange, pkwtCompensation } from '@/domain/hr'
+import { fromTonnes, toTonnes } from '@/domain/units'
 import { cashForecast } from '@/domain/bank'
-import { annualPph21, bpjsOf, employerBpjsOf, overtimePay, payslipFor, pph21, ptkpOf, severanceOf, slipGross, terCategory, thrOf } from '@/domain/payroll'
+import { annualPph21, bpjsOf, employerBpjsOf, overtimePay, payslipFor, pph21, ptkpOf, severanceOf, severanceTax, slipGross, slipNet, terCategory, thrOf } from '@/domain/payroll'
 import type { ErpRecord, Values } from '@/domain/records'
 import { employeeOf, isRestDay } from '@/domain/selfService'
 import { createMockPorts } from '@/infrastructure/mock'
@@ -665,9 +668,10 @@ describe('planning and commercial controls', () => {
     expect(finishedRevaluation(seed, today).patches).toEqual([])
     const row = seed['inv.stock']!.find((s) => s.values.material === fg(seed).id && Number(s.values.onHand) > 0)!
     const old = put(seed, { ...row, values: { ...row.values, avgCost: std(seed) - 100_000 } })
-    const { posting, patches } = finishedRevaluation(old, today)
+    const { postings, patches } = finishedRevaluation(old, today)
     expect(patches).toEqual([expect.objectContaining({ id: row.id, values: { avgCost: std(seed) } })])
-    expect(codes(posting!)).toEqual({ '1330': Number(row.values.onHand) * 100_000, '5440': -Number(row.values.onHand) * 100_000 })
+    expect(postings).toHaveLength(1)
+    expect(codes(postings[0]!)).toEqual({ '1330': Number(row.values.onHand) * 100_000, '5440': -Number(row.values.onHand) * 100_000 })
   })
 
   it('reverses stock, lot and accrual when goods go back to the vendor', () => {
@@ -924,5 +928,247 @@ describe('finer corrections', () => {
     expect(missingAttendance({ ...base, 'hrs.attendance': [day('2026-11-02', 'On time')] }, '2026-11-02')).toEqual([])
     expect(missingAttendance({ ...base, 'hrs.leaves': [rec('hrs.leaves', 'LV-T', 'approved', { employee: me.id, from: '2026-10-30', days: 4 })] }, '2026-11-02')).toEqual([])
     expect(missingAttendance({ ...base, 'sys.holidays': [rec('sys.holidays', 'HOL-T', 'active', { date: '2026-11-02', kind: 'National holiday' })] }, '2026-11-02')).toEqual([])
+  })
+})
+
+describe('plants and units', () => {
+  const codes = (p: { lines: readonly Values[] }) => Object.fromEntries(p.lines.map((l) => [code(seed, l.account), Number(l.debit) || -Number(l.credit)]))
+  const plantOf = (entity: string) => seed['mdm.plants']!.find((p) => seed['mdm.companies']!.find((c) => c.id === p.values.company)?.values.entity === entity)!.id
+
+  it('converts between a material unit and tonnes through its density', () => {
+    const acid = { values: { uom: 'm³', density: 1.84 } }
+    expect(toTonnes(10, acid)).toBe(18.4)
+    expect(fromTonnes(18.4, acid)).toBe(10)
+    expect(toTonnes(500, { values: { uom: 'kg' } })).toBe(0.5)
+    expect(toTonnes(7, { values: { uom: 't' } })).toBe(7)
+    expect(fromTonnes(1, { values: { uom: 'L', density: 0.5 } })).toBe(2000)
+  })
+
+  it('needs a liquid in cubic metres from a BOM written in kilograms per tonne', () => {
+    const acid = seed['mdm.materials']!.find((m) => m.values.code === 'RM-PHA')!
+    const bom = rec('bpf.bom', 'BOM-T', 'active', { formula: 'FRM-T', material: acid.id, kgPerT: 169, scrap: 0 })
+    const order = rec('bpf.orders', 'PRD-T', 'released', { formula: 'FRM-T', qty: 10 })
+    expect(bomNeeds(put({ ...seed, 'bpf.bom': [] }, bom), order)[0]!.qty).toBe(1)
+  })
+
+  it('weighs a liquid receipt in tonnes against its cubic metres', () => {
+    const acid = seed['mdm.materials']!.find((m) => m.values.code === 'RM-H2SO4')!
+    const po = rec('vms.orders', 'PO-T', 'released', { vendor: 'BP-0001', material: acid.id, qty: 100, value: 1e9 })
+    const grn = rec('vms.receipts', 'GRN-T', 'quarantine', { po: po.id, qty: 10 })
+    const ticket = (net: number) => rec('wms.weighings', 'WBT-T', 'completed', { receipt: grn.id, gross: 30, tare: 30 - net, net })
+    expect(effectsFor(grn.type, grn, 'accepted', put(seed, po, grn, ticket(18.4)), today).blocker).toBeUndefined()
+    expect(effectsFor(grn.type, grn, 'accepted', put(seed, po, grn, ticket(10)), today).blocker).toMatch(/Berat bersih/)
+  })
+
+  it('books stock documents to the unit that owns the plant', () => {
+    const stock = seed['inv.stock']!.find((r) => r.values.plant === plantOf('chemicals'))!
+    const adj = rec('inv.adjustments', 'ADJ-T', 'submitted', { stock: stock.id, qty: -1, reason: 'Spillage', value: 100_000 })
+    expect(effectsFor(adj.type, adj, 'approved', seed, today).postings[0]!.journal.entity).toBe('chemicals')
+  })
+
+  it('moves stock between plants and books intercompany balances when the owner changes', () => {
+    const material = seed['inv.stock']!.find((r) => r.values.plant === plantOf('chemicals'))!.values.material
+    const from = plantOf('chemicals')
+    const to = plantOf('fertiliser')
+    const have = seed['inv.stock']!.filter((r) => r.values.material === material && r.values.plant === from).reduce((s, r) => s + Number(r.values.onHand), 0)
+    const trf = (qty: number, toPlant = to) => rec('inv.transfers', 'TRF-T', 'draft', { material, from, to: toPlant, qty })
+    expect(effectsFor('inv.transfers', trf(have + 1), 'transit', seed, today).blocker).toMatch(/kurang/)
+    expect(effectsFor('inv.transfers', trf(1, from), 'transit', seed, today).blocker).toMatch(/berbeda/)
+    expect(effectsFor('inv.transfers', trf(1), 'transit', seed, today).patches.length).toBeGreaterThan(0)
+    const received = effectsFor('inv.transfers', { ...trf(2), status: 'transit' }, 'received', seed, today)
+    expect(received.postings.map((p) => [p.journal.entity, Object.keys(codes(p)).sort()])).toEqual([['chemicals', ['1220', '1310']], ['fertiliser', ['1310', '2120']]])
+  })
+
+  it('scraps stock at its average cost and sends hazardous scrap to waste', () => {
+    const stock = seed['inv.stock']![0]!
+    const scr = (values: Values) => rec('inv.scrap', 'SCR-T', 'submitted', { material: stock.values.material, plant: stock.values.plant, qty: 1, reason: 'Expired', b3: 'Yes', ...values })
+    const fx = effectsFor('inv.scrap', scr({}), 'approved', seed, today)
+    expect(fx.patches[0]!.values.onHand).toBe(Number(stock.values.onHand) - 1)
+    expect(codes(fx.postings[0]!)['5450']).toBeGreaterThan(0)
+    expect(codes(fx.postings[0]!)['1310']).toBe(-codes(fx.postings[0]!)['5450']!)
+    expect(fx.creates[0]!.type).toBe('she.waste')
+    expect(effectsFor('inv.scrap', scr({ b3: 'No' }), 'approved', seed, today).creates).toEqual([])
+    expect(effectsFor('inv.scrap', scr({ qty: 1e9 }), 'approved', seed, today).blocker).toMatch(/kurang/)
+  })
+
+  it('holds expired lots and keeps them out of production', () => {
+    const material = String(seed['inv.stock']!.find((r) => Number(r.values.onHand) > 10)!.values.material)
+    const lot = (id: string, expiry: string) => rec('wms.lots', id, 'stored', { lotNo: id, material, qty: 5, expiry })
+    const all = { 'wms.lots': [lot('SL-OLD', '2026-10-01'), lot('SL-NEW', '2027-10-01')] }
+    expect(expiredLots(all, today).map((l) => l.id)).toEqual(['SL-OLD'])
+    const order = rec('bpf.orders', 'PRD-T', 'released', { formula: 'FRM-T', qty: 10 })
+    const bom = rec('bpf.bom', 'BOM-T', 'active', { formula: 'FRM-T', material, kgPerT: 100, scrap: 0 })
+    const taken = effectsFor('bpf.orders', order, 'running', put({ ...seed, 'wms.lots': [], 'bpf.bom': [] }, bom, ...all['wms.lots']), today).creates.filter((c) => c.type === 'gtr.movements')
+    expect(taken.map((c) => c.values.lotNo)).toEqual(['SL-NEW'])
+  })
+
+  it('closes a chemical campaign into a finished lot and journals for the chemicals unit', () => {
+    const cmp = rec('cfp.campaigns', 'CMP-T', 'running', { name: 'Uji', actual: 184, planned: 190 })
+    const fx = effectsFor(cmp.type, cmp, 'closed', seed, today)
+    expect(fx.postings.map((p) => p.journal.entity)).toEqual(['chemicals', 'chemicals'])
+    expect(codes(fx.postings[1]!)).toEqual({ '1330': 184 * 580_000, '1320': -184 * 580_000 })
+    expect(fx.creates[0]).toEqual(expect.objectContaining({ type: 'gtr.lots', values: expect.objectContaining({ lotNo: 'FG-CMP-T', qty: 100 }) }))
+    expect(effectsFor(cmp.type, { ...cmp, values: { ...cmp.values, actual: 0 } }, 'closed', seed, today).blocker).toMatch(/hasil aktual/)
+  })
+})
+
+describe('finance controls', () => {
+  const codes = (p: { lines: readonly Values[] }) => Object.fromEntries(p.lines.map((l) => [code(seed, l.account), Number(l.debit) || -Number(l.credit)]))
+  const acc = (c: string) => seed['mdm.accounts']!.find((a) => a.values.code === c)!.id
+
+  it('stops a manual journal that runs an expense account past its budget to date', () => {
+    const budget = rec('epm.budgets', 'BUD-T', 'approved', { entity: 'holding', year: 2026 })
+    const line = rec('epm.budgetlines', 'BGL-T', 'active', { budget: budget.id, account: acc('6600'), amount: 120_000_000 })
+    const journal = (amount: number) => [rec('fin.journals', 'JE-T', 'draft', { entity: 'holding', date: '2026-10-15', source: 'Manual', amount }), rec('fin.journallines', 'JL-T1', 'recorded', { journal: 'JE-T', account: acc('6600'), debit: amount, credit: 0 }), rec('fin.journallines', 'JL-T2', 'recorded', { journal: 'JE-T', account: acc('1120'), debit: 0, credit: amount })]
+    // No other 6600 spend in this scenario: October allows ten twelfths of the year, Rp 100 million.
+    const base = { ...seed, 'fin.journals': [], 'fin.journallines': [], 'epm.budgets': [budget], 'epm.budgetlines': [line] }
+    expect(budgetBreaches(put(base, ...journal(100e6)), journal(100e6)[0]!)).toEqual([])
+    expect(effectsFor('fin.journals', journal(101e6)[0]!, 'submitted', put(base, ...journal(101e6)), today).blocker).toMatch(/Melebihi anggaran: 6600/)
+  })
+
+  it('withholds PPh 22 and 4(2) to their own accounts and costs input VAT that cannot be credited', () => {
+    const inv = (values: Values) => rec('fin.payables', 'API-T', 'matched', { invoiceNo: 'T', vendor: 'BP-0001', entity: 'holding', amount: 100e6, tax: 'PPN 11%', ...values })
+    expect(codes(effectsFor('fin.payables', inv({ withholding: 'PPh 4(2) 10%' }), 'approved', seed, today).postings[0]!)['2240']).toBe(-10e6)
+    expect(codes(effectsFor('fin.payables', inv({ withholding: 'PPh 22 1,5%' }), 'approved', seed, today).postings[0]!)['2250']).toBe(-1.5e6)
+    const notCredited = codes(effectsFor('fin.payables', inv({ vatCredit: 'Not creditable' }), 'approved', seed, today).postings[0]!)
+    expect(notCredited['1310']).toBe(111e6)
+    expect(notCredited['1410']).toBeUndefined()
+    expect(codes(effectsFor('fin.payables', inv({ vatCredit: 'Deferred' }), 'approved', seed, today).postings[0]!)['1415']).toBe(11e6)
+  })
+
+  it('numbers tax invoices in sequence within the year', () => {
+    const invoice = rec('fin.receivables', 'ARI-T', 'issued', { due: '2026-12-01' })
+    const tax = (number: string) => rec('fin.taxinvoices', `EFK-${number}`, 'draft', { number })
+    expect(nextTaxSerial({ 'fin.taxinvoices': [tax('010.26.73100005'), tax('010.26.73100009'), tax('010.25.79999999')] }, invoice)).toBe('010.26.73100010')
+    expect(nextTaxSerial({}, invoice)).toBe('010.26.73100001')
+  })
+
+  it('capitalises a vendor invoice once and keeps construction in progress out of depreciation', () => {
+    const inv = rec('fin.payables', 'API-T', 'approved', { invoiceNo: 'T', amount: 50e6 })
+    const asset = (values: Values) => rec('fin.assets', 'FA-T', 'active', { name: 'Uji', entity: 'chemicals', class: 'Construction in progress', cost: 50e6, life: 10, acquired: '2025-01-01', invoice: inv.id, ...values })
+    const fx = effectsFor('fin.assets', asset({}), 'created', put(seed, inv), today)
+    expect(codes(fx.postings[0]!)).toEqual({ '1560': 50e6, '1310': -50e6 })
+    expect(effectsFor('fin.assets', asset({}), 'created', put(seed, inv, { ...asset({}), id: 'FA-U' }), today).blocker).toMatch(/sudah dikapitalisasi/)
+    expect(assetBook(asset({}).values, today)).toEqual(expect.objectContaining({ accumulated: 0, yearly: 0 }))
+  })
+
+  it('transfers an asset between units at book value through intercompany accounts', () => {
+    const asset = rec('fin.assets', 'FA-T', 'active', { name: 'Uji', entity: 'chemicals', class: 'Vehicles', cost: 100e6, life: 5, acquired: '2024-10-30', salvage: 0, method: 'Straight line' })
+    const trf = rec('fin.assettransfers', 'FAT-T', 'submitted', { asset: asset.id, toEntity: 'logistics' })
+    const fx = effectsFor(trf.type, trf, 'approved', put(seed, asset), today)
+    expect(fx.postings.map((p) => [p.journal.entity, codes(p)])).toEqual([
+      ['chemicals', { '1590': 40e6, '1220': 60e6, '1530': -100e6 }],
+      ['logistics', { '1530': 100e6, '1590': -40e6, '2120': -60e6 }],
+    ])
+    expect(fx.patches[0]!.values).toEqual({ entity: 'logistics' })
+  })
+
+  it('compares commercial and tax depreciation by tax group', () => {
+    expect(fiscalBook({ class: 'Vehicles', cost: 100e6, acquired: '2024-10-30' }, today)).toEqual({ group: 'Kelompok 2', accumulated: 43_750_000, book: 56_250_000 })
+    expect(fiscalBook({ class: 'Buildings', cost: 100e6, acquired: '2024-10-30' }, today).book).toBe(90e6)
+  })
+
+  it('keeps a period open while close tasks, unposted journals or bank lines are left', () => {
+    const company = seed['mdm.companies']!.find((c) => c.values.entity === 'holding')!
+    const period = rec('epm.periods', 'FP-T', 'closing', { period: '2026-10', company: company.id })
+    const empty = { ...seed, 'fin.closing': [], 'fin.journals': [], 'fin.statementlines': [] }
+    expect(effectsFor(period.type, period, 'closed', empty, today).blocker).toBeUndefined()
+    const blocked = put(empty, rec('fin.closing', 'PCL-T', 'open', { period: period.id }), rec('fin.journals', 'JE-T', 'draft', { entity: 'holding', date: '2026-10-20' }))
+    expect(effectsFor(period.type, period, 'closed', blocked, today).blocker).toMatch(/1 tugas tutup buku belum selesai; 1 jurnal belum diposting \(JE-T\)/)
+  })
+
+  it('books a dunning fee and checks the credit limit again at shipment', () => {
+    const invoice = rec('fin.receivables', 'ARI-T', 'overdue', { invoiceNo: 'T', entity: 'logistics', amount: 1e6 })
+    expect(codes(effectsFor('fin.dunning', rec('fin.dunning', 'DUN-T', 'draft', { invoice: invoice.id, fee: 500_000 }), 'sent', put(seed, invoice), today).postings[0]!)).toEqual({ '1250': 500_000, '4900': -500_000 })
+    const d = rec('dms.distributors', 'DST-T', 'active', { name: 'Uji', creditLimit: 100e6, outstanding: 80e6 })
+    const so = (qty: number) => rec('dms.orders', 'SO-T', 'confirmed', { distributor: d.id, product: 'NPK 15-15-15', scheme: 'Commercial', qty, value: qty * 9e6, date: today })
+    expect(effectsFor('dms.orders', so(3), 'shipped', put(seed, d), today).blocker).toMatch(/Limit kredit Uji terlampaui saat kirim/)
+    expect(effectsFor('dms.orders', so(2), 'shipped', put(seed, d), today).blocker).toBeUndefined()
+  })
+
+  it('drops intercompany sales and splits profit with minority shareholders', () => {
+    const ic = rec('epm.intercompany', 'ICE-T', 'matched', { from: 'fertiliser', to: 'logistics', amount: 2e9, date: '2026-06-01' })
+    const base = consolidation({ ...seed, 'epm.intercompany': [] }, {}, OWNERSHIP)
+    const withIc = consolidation(put({ ...seed, 'epm.intercompany': [] }, ic), {}, OWNERSHIP)
+    expect(base.group.revenue - withIc.group.revenue).toBe(2e9)
+    expect(withIc.group.net).toBe(base.group.net)
+    const fert = base.units.find((u) => u.unit === 'fertiliser')!
+    const chem = base.units.find((u) => u.unit === 'chemicals')!
+    expect(base.minority.net).toBe(Math.round(fert.net * 0.15 + chem.net * 0.3))
+  })
+})
+
+describe('people rules', () => {
+  const emp = (values: Values) => rec('mdm.employees', 'EMP-T', 'active', { name: 'Uji', entity: 'holding', baseSalary: 10_000_000, allowance: 1_500_000, ptkp: 'TK/0', joined: '2020-01-01', crew: 'Office', ...values })
+
+  it('hires an accepted candidate as employee with a first contract and onboarding tasks', () => {
+    const candidate = rec('hrs.candidates', 'CAN-T', 'offer', { name: 'Kandidat Uji', position: 'JOB-0001' })
+    const offer = rec('hrs.offers', 'OFR-T', 'sent', { candidate: candidate.id, position: 'JOB-0001', salary: 8e6, start: '2026-12-01' })
+    const fx = effectsFor(offer.type, offer, 'accepted', put(seed, candidate), today)
+    const [employee, contract, ...tasks] = fx.creates
+    expect(employee).toEqual(expect.objectContaining({ type: 'mdm.employees', values: expect.objectContaining({ name: 'Kandidat Uji', joined: '2026-12-01', baseSalary: 8e6 }) }))
+    const id = `EMP-${String(seed['mdm.employees']!.length + 1).padStart(4, '0')}`
+    expect(contract!.values).toEqual(expect.objectContaining({ employee: id, kind: 'PKWT (fixed term)', start: '2026-12-01', end: '2027-11-30' }))
+    expect(tasks.map((t) => t.values.task)).toEqual(['K3 induction', 'PPE issued', 'Site access card', 'Laptop and email', 'BPJS registration'])
+    expect(fx.moves).toEqual([expect.objectContaining({ id: candidate.id, status: 'hired' })])
+  })
+
+  it('holds fixed-term contracts to five years and computes their compensation', () => {
+    const contract = (id: string, start: string, end: string) => rec('hrs.contracts', id, 'active', { employee: 'EMP-T', kind: 'PKWT (fixed term)', start, end })
+    const all = put(seed, emp({}), contract('KTR-A', '2022-01-01', '2025-12-31'))
+    expect(effectsFor('hrs.contracts', contract('KTR-B', '2026-01-01', '2026-12-31'), 'created', all, today).blocker).toBeUndefined()
+    expect(effectsFor('hrs.contracts', contract('KTR-B', '2026-01-01', '2027-06-30'), 'created', all, today).blocker).toMatch(/melebihi batas 5 tahun/)
+    expect(effectsFor('hrs.contracts', { ...contract('KTR-B', '2026-01-01', ''), values: { employee: 'EMP-T', kind: 'PKWT (fixed term)', start: '2026-01-01' } }, 'created', all, today).blocker).toMatch(/tanggal berakhir/)
+    expect(pkwtCompensation(12e6, '2025-01-01', '2026-01-01')).toBe(12e6)
+    expect(effectsFor('hrs.contracts', contract('KTR-A', '2025-01-01', '2026-01-01'), 'ended', all, today).patches[0]!.values.compensation).toBe(11_500_000)
+    expect(expiringContracts({ 'hrs.contracts': [contract('KTR-C', '2026-01-01', '2026-11-20'), contract('KTR-D', '2026-01-01', '2027-03-01')] }, today).map((c) => c.id)).toEqual(['KTR-C'])
+  })
+
+  it('reads KPI from punctuality, logbooks and incidents of the period', () => {
+    const att = (date: string, result: string) => rec('hrs.attendance', `ATT-${date}`, 'verified', { employee: 'EMP-T', date, result })
+    const log = (date: string, score: number) => rec('hrs.logbook', `LOG-${date}`, 'approved', { employee: 'EMP-T', date, score })
+    const all = { 'hrs.attendance': [att('2026-08-03', 'On time'), att('2026-08-04', 'Late'), att('2026-08-05', 'On time'), att('2026-08-06', 'On time')], 'hrs.logbook': [log('2026-08-03', 80), log('2026-08-04', 90)], 'she.incidents': [rec('she.incidents', 'SIR-T', 'closed', { person: 'EMP-T', date: '2026-09-10' })] }
+    expect(periodRange('2026 Q3')).toEqual(['2026-07-01', '2026-09-30'])
+    expect(periodRange('2026 H1')).toEqual(['2026-01-01', '2026-06-30'])
+    expect(periodRange('2026-02')).toEqual(['2026-02-01', '2026-02-28'])
+    expect(kpiFor(all, 'EMP-T', '2026 Q3')).toEqual({ kpi: Math.round(75 * 0.5 + 85 * 0.5), safety: 75, days: 4, logs: 2, incidents: 1 })
+    const card = rec('hrs.appraisals', 'APR-T', 'draft', { employee: 'EMP-T', period: '2026 Q3' })
+    expect(effectsFor(card.type, card, 'created', { ...seed, ...all }, today).patches[0]!.values).toEqual({ kpi: 80, safety: 75 })
+  })
+
+  it('charges leave by working days and holds each leave type to its quota', () => {
+    const annual = seed['hrs.leavetypes']!.find((t) => /annual/i.test(String(t.values.name)))!
+    const marriage = seed['hrs.leavetypes']!.find((t) => /marriage/i.test(String(t.values.name)))!
+    const leave = (id: string, type: string, from: string, days: number, status = 'draft') => rec('hrs.leaves', id, status, { employee: 'EMP-T', leaveType: type, from, days })
+    const base = put({ ...seed, 'hrs.leaves': [], 'sys.holidays': [] }, emp({}))
+    // Friday 20 November for four calendar days covers Saturday and Sunday: two working days.
+    expect(chargedDays(base, leave('LV-T', annual.id, '2026-11-20', 4))).toBe(2)
+    expect(chargedDays(put(base, rec('sys.holidays', 'HOL-T', 'active', { date: '2026-11-23', kind: 'National holiday' })), leave('LV-T', annual.id, '2026-11-20', 4))).toBe(1)
+    expect(effectsFor('hrs.leaves', leave('LV-T', marriage.id, '2026-11-16', 4), 'created', base, today).blocker).toMatch(/Kuota Marriage leave 2026: 3 hari/)
+    expect(effectsFor('hrs.leaves', leave('LV-T', marriage.id, '2026-11-16', 3), 'created', base, today).blocker).toBeUndefined()
+  })
+
+  it('carries up to six unused annual days into a year until the end of March', () => {
+    const annual = seed['hrs.leavetypes']!.find((t) => /annual/i.test(String(t.values.name)))!
+    const leave = (id: string, from: string, days: number) => rec('hrs.leaves', id, 'approved', { employee: 'EMP-T', leaveType: annual.id, from, days: days < 1 ? days : days })
+    const all = put({ ...seed, 'hrs.leaves': [], 'sys.holidays': [] }, emp({}), leave('LV-A', '2025-03-03', 3), leave('LV-B', '2026-02-02', 2))
+    expect(annualLeave(all, 'EMP-T', '2026', '2026-02-10')).toEqual(expect.objectContaining({ carry: 6, usableCarry: 6, entitlement: 18, taken: 2, left: 16 }))
+    // After March only the carried days already used still count.
+    expect(annualLeave(all, 'EMP-T', '2026', '2026-11-18')).toEqual(expect.objectContaining({ usableCarry: 2, entitlement: 14, left: 12 }))
+  })
+
+  it('prorates a mid-month joiner, pays severance with the final slip and runs a bonus', () => {
+    const joiner = payslipFor(emp({ joined: '2026-11-16' }), '2026-11', {})
+    expect(joiner.base).toBe(Math.round(10e6 * (15 / 30)))
+    const off = rec('hrs.offboarding', 'OFB-T', 'completed', { employee: 'EMP-T', lastDay: '2026-11-10', severance: 120e6 })
+    const leaver = payslipFor(emp({}), '2026-11', { 'hrs.offboarding': [off] })
+    expect(leaver.base).toBe(Math.round(10e6 * (10 / 30)))
+    expect(leaver).toEqual(expect.objectContaining({ severance: 120e6, severanceTax: severanceTax(120e6) }))
+    expect(severanceTax(120e6)).toBe(2_500_000 + 3_000_000)
+    expect(slipNet(leaver)).toBe(slipGross(leaver) - Number(leaver.bpjs) - Number(leaver.pph21) + 120e6 - 5_500_000)
+    const run = rec('hrs.payroll', 'PAY-T', 'draft', { period: '2026-12', kind: 'Bonus', bonusPct: 50, entity: 'fertiliser' })
+    const slips = effectsFor('hrs.payroll', run, 'calculated', seed, today).creates
+    expect(slips.length).toBeGreaterThan(0)
+    for (const c of slips) expect(c.values).toEqual(expect.objectContaining({ kind: 'Bonus', bpjs: 0 }))
   })
 })

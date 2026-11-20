@@ -121,9 +121,11 @@ export const PEOPLE_SEEDS: Record<string, { count: number; make: Make }> = {
       return { employee: emp(i * 5 + 1), subject: emp(i * 5 + 13), relation: pick(['Manager', 'Peer', 'Peer', 'Direct report']), score: state === 'pending' ? undefined : int(3, 5), comment: state === 'pending' ? '' : pick(['Komunikatif dan bisa diandalkan.', 'Perlu lebih proaktif berbagi informasi.', 'Tegas dan adil terhadap tim.']), _status: state }
     },
   },
+  // Every employee has one course behind them and one still assigned, so the course screen always has work.
   'hrs.enrollments': {
-    count: 60,
+    count: 120,
     make: ({ i, int, day }) => {
+      if (i >= 60) return { employee: emp(i), course: id('CRS', (i + 3) % COURSES.length), progress: 0, _status: 'assigned' }
       const state = ['completed', 'completed', 'in_progress', 'assigned'][i % 4]!
       return { employee: emp(i), course: id('CRS', i % COURSES.length), progress: state === 'completed' ? 100 : state === 'in_progress' ? int(20, 80) : 0, score: state === 'completed' ? int(72, 98) : undefined, validUntil: state === 'completed' ? day(-20, 400) : undefined, _status: state }
     },

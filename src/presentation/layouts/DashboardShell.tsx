@@ -116,7 +116,7 @@ function Header({ alerts }: { alerts: readonly Alert[] }) {
   const folders = crumbs.slice(0, -1)
   const detail = leaf?.to ? pathname !== leaf.to.split('?')[0] : false
   const short = (label: string) => label.split(' · ')[0] ?? label
-  const self = areaOf(pathname) === 'employee' ? selfItem(pathname.slice(EMPLOYEE_HOME.length + 1)) : undefined
+  const self = areaOf(pathname) === 'employee' ? selfItem(pathname.slice(EMPLOYEE_HOME.length + 1).split('/')[0] ?? '') : undefined
 
   return (
     <header className="flex shrink-0 items-center gap-3 px-4 pt-4 pb-4 md:px-6 lg:px-8 lg:pt-6">

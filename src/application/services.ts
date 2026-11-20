@@ -131,6 +131,20 @@ export function createServices(ports: Ports) {
         await applyEffects(effects, role.name)
         return saved
       },
+      /**
+       * A candidate works through a psychometric test from its link, without an account: only that test, only the
+       * steps from pending to done, and only the answer fields change.
+       */
+      async candidateTest(id: string, patch: Values, to: 'in_progress' | 'done'): Promise<ErpRecord> {
+        const type = typeOf('hrs.psikotes')!
+        const current = await records.get(type.key, id)
+        const from = to === 'in_progress' ? 'pending' : 'in_progress'
+        if (current.status !== from) throw new ForbiddenError(`Tes ${id} tidak dalam status yang bisa dilanjutkan.`)
+        const allowed = Object.fromEntries(Object.entries(patch).filter(([k]) => k === 'score' || k === 'notes'))
+        const at = stamp()
+        const action = to === 'in_progress' ? 'Dimulai kandidat' : 'Diselesaikan kandidat'
+        return records.save({ ...current, status: to, values: checked(type, { ...current.values, ...allowed }), updatedAt: at, history: [...current.history, { at, by: 'Kandidat (tautan tes)', action }] }, { action, by: 'Kandidat (tautan tes)' })
+      },
       /** Creates several records of one type in a single pass, for cycles that open many at once. */
       async createMany(role: Role, typeKey: string, rows: readonly Values[]): Promise<number> {
         const { type, access } = await guard(role, typeKey, 'read')

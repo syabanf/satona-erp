@@ -178,7 +178,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
 
   'fin.payables': {
     count: 36,
-    make: ({ i, day, int, ref }) => ({ invoiceNo: `INV/${2026}/${String(4100 + i * 7)}`, vendor: ref('mdm.partners'), po: ref('vms.orders'), entity: ENTITIES[i % 4], ...(i % 9 === 4 ? { amount: int(20, 400) * 1000, currency: 'USD', rate: 15_900 } : { amount: int(80, 4200) * 1e6, currency: 'IDR' }), tax: i % 5 === 3 ? 'Tanpa PPN' : 'PPN 11%', withholding: i % 6 === 0 ? 'PPh 23 2%' : 'Tanpa PPh', due: day(-40, 60) }),
+    make: ({ i, day, int, ref }) => ({ invoiceNo: `INV/${2026}/${String(4100 + i * 7)}`, vendor: ref('mdm.partners'), po: ref('vms.orders'), entity: ENTITIES[i % 4], ...(i % 9 === 4 ? { amount: int(20, 400) * 1000, currency: 'USD', rate: 15_900 } : { amount: int(80, 4200) * 1e6, currency: 'IDR' }), tax: i % 5 === 3 ? 'Tanpa PPN' : 'PPN 11%', withholding: i % 6 === 0 ? 'PPh 23 2%' : i % 11 === 5 ? 'PPh 4(2) 10%' : i % 13 === 7 ? 'PPh 22 1,5%' : 'Tanpa PPh', vatCredit: i % 17 === 9 ? 'Not creditable' : 'Credited', due: day(-40, 60) }),
   },
   'fin.receivables': {
     count: 36,
@@ -190,6 +190,7 @@ export const SUPPORT_SEEDS: Record<string, { count: number; make: Make }> = {
   'fin.dunning': { count: 8, make: ({ i, day, ref }) => ({ invoice: ref('fin.receivables'), level: ['First reminder', 'Second reminder', 'Final notice'][i % 3], sent: day(-30, 0), fee: i % 3 === 2 ? 500_000 : 0, _status: i < 5 ? 'sent' : 'draft' }) },
   // Two runs already executed last month; the invoices they name are long paid.
   'fin.paymentruns': { count: 2, make: ({ i, day, int }) => ({ description: `Pembayaran pemasok minggu ${i + 1}`, bank: id('HB', 0), date: day(-30 + i * 7, -30 + i * 7), invoices: `${id('API', i)}, ${id('API', i + 2)}`, count: 2, total: int(900, 4200) * 1e6, _status: 'executed' }) },
+  'fin.assettransfers': { count: 3, make: ({ i, day }) => ({ asset: id('FA', i * 4), toEntity: ['logistics', 'chemicals', 'fertiliser'][i], date: day(-30 + i * 10, -30 + i * 10), reason: 'Relokasi aset antar unit', _status: i === 0 ? 'approved' : 'submitted' }) },
   'fin.allocations': { count: 6, make: ({ i, int, day, ref }) => ({ description: ['Alokasi sewa kantor', 'Alokasi listrik pabrik', 'Alokasi biaya TI'][i % 3], entity: ENTITIES[i % 4], account: '', fromCenter: ref('mdm.costcenters'), toCenter: ref('mdm.costcenters'), amount: int(5, 80) * 1e6, date: day(-20, 0), _status: 'draft' }) },
   'fin.reconciliations': {
     count: 16,

@@ -5,9 +5,12 @@
  */
 import { duePlans } from './automation'
 import { ASSET_ACCOUNT, assetBook, compose, creditedOn, POSTING, postingFor, signed, trialBalance, type Posting } from './ledger'
-import { employerBpjsOf, payslipFor, slipGross, thrSlipFor } from './payroll'
+import { bonusSlipFor, employerBpjsOf, payslipFor, slipGross, thrSlipFor } from './payroll'
+import { CONTROL_RULES } from './controls'
+import { HR_RULES } from './hr'
 import { energyCostOf, overheadCostOf, PLANT_RULES } from './plant'
 import type { ErpRecord, Values } from './records'
+import { fromTonnes } from './units'
 import { baseIdr, docTotal, ppnOf } from './tax'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
@@ -63,6 +66,16 @@ export function receiveStock(all: All, material: unknown, qty: number, price: nu
   return [{ type: 'inv.stock', id: row.id, values: { onHand: had + qty, avgCost }, action }]
 }
 
+/** The business unit that owns a plant, through the plant's company code. */
+export const entityOfPlant = (all: All, plant: unknown) => String(find(all, 'mdm.companies', find(all, 'mdm.plants', plant)?.values.company)?.values.entity ?? 'fertiliser')
+
+/** The business unit at a site named by city or plant name, as maintenance assets record it. */
+export const entityOfSite = (all: All, site: unknown) => {
+  const s = String(site ?? '').toLowerCase()
+  const plant = list(all, 'mdm.plants').find((p) => s && (String(p.values.city).toLowerCase() === s || String(p.values.name).toLowerCase().includes(s)))
+  return plant ? entityOfPlant(all, plant.id) : 'fertiliser'
+}
+
 /** Standard cost per tonne of the formula a product is made by. */
 function standardCost(all: All, product: string) {
   const token = product.startsWith('NPK') ? product : (product.split(' ')[0] ?? product)
@@ -113,7 +126,9 @@ export function bomNeeds(all: All, order: ErpRecord) {
   return list(all, 'bpf.bom')
     .filter((b) => b.values.formula === order.values.formula && b.status !== 'inactive')
     .map((b) => {
-      const qty = Math.round(((n(order.values.qty) * n(b.values.kgPerT)) / 1000) * (1 + n(b.values.scrap) / 100) * 1000) / 1000
+      // The BOM gives kilograms per tonne; stock of a liquid is kept in cubic metres, so the need converts to its unit.
+      const tonnes = ((n(order.values.qty) * n(b.values.kgPerT)) / 1000) * (1 + n(b.values.scrap) / 100)
+      const qty = fromTonnes(tonnes, find(all, 'mdm.materials', b.values.material))
       return { material: String(b.values.material), qty, available: onHand(stockOf(all, b.values.material)), cost: Math.round(qty * averageCost(all, b.values.material)) }
     })
 }
@@ -169,6 +184,16 @@ export function shipGoods(so: ErpRecord, qty: number, doc: ErpRecord, all: All, 
   const gap = so.values.scheme === 'Subsidised' ? Math.max(0, Math.round(cost * 1.1) - Math.round(unitPrice * qty)) : 0
   const subsidy = compose(all, head(doc, 'Receivable', `Piutang subsidi ${doc.id} ${product}`, 'fertiliser', today), [[POSTING.subsidyReceivable, gap, 0], [POSTING.subsidy, 0, gap]], doc.id)
   return { patches: stockMove, postings: [posting, subsidy].flatMap((p) => p ?? []) }
+}
+
+/**
+ * The next tax invoice serial (NSFP): transaction code 010, the two-digit year of the invoice, and the next number in
+ * the year's range after the highest one issued so far.
+ */
+export function nextTaxSerial(all: All, invoice: ErpRecord) {
+  const year = String(invoice.values.due || invoice.createdAt || '2026').slice(2, 4)
+  const used = list(all, 'fin.taxinvoices').map((t) => String(t.values.number)).filter((x) => x.startsWith(`010.${year}.`)).map((x) => Number(x.split('.').at(-1)) || 0)
+  return `010.${year}.${String((used.length ? Math.max(...used) : 73_100_000) + 1).padStart(8, '0')}`
 }
 
 type Rule = (record: ErpRecord, all: All, today: string) => Partial<Effects> | undefined
@@ -245,7 +270,7 @@ const RULES: Record<string, Rule> = {
       if (d) patches.push({ type: d.type, id: d.id, values: { outstanding: n(d.values.outstanding) + baseIdr(invoice.values) + ppnOf(invoice.values) }, action: `Piutang ${invoice.id}` })
     }
     const ppn = ppnOf(invoice.values)
-    return { patches, creates: ppn ? [{ type: 'fin.taxinvoices', values: { number: `010.26.${invoice.id.replace(/\D/g, '').padStart(8, '0')}`, invoice: invoice.id, tax: 'PPN 11%', base: baseIdr(invoice.values) } }] : [] }
+    return { patches, creates: ppn ? [{ type: 'fin.taxinvoices', values: { number: nextTaxSerial(all, invoice), invoice: invoice.id, tax: 'PPN 11%', base: baseIdr(invoice.values) } }] : [] }
   },
   'fin.receivables:paid': (invoice, all) => {
     const d = find(all, 'dms.distributors', find(all, 'dms.orders', invoice.values.salesOrder)?.values.distributor)
@@ -302,12 +327,12 @@ const RULES: Record<string, Rule> = {
     const qty = n(adj.values.qty)
     if (n(stock.values.onHand) + qty < 0) return { blocker: `Penyesuaian ${qty} melebihi stok ${n(stock.values.onHand)}.` }
     const value = Math.sign(qty) * n(adj.values.value)
-    const posting = compose(all, head(adj, 'Manual', `Penyesuaian stok ${adj.id}: ${String(adj.values.reason)}`, 'fertiliser', today), [signed(POSTING.inventory, value), signed(POSTING.countVariance, -value)], adj.id)
+    const posting = compose(all, head(adj, 'Manual', `Penyesuaian stok ${adj.id}: ${String(adj.values.reason)}`, entityOfPlant(all, stock.values.plant), today), [signed(POSTING.inventory, value), signed(POSTING.countVariance, -value)], adj.id)
     return { patches: [{ type: stock.type, id: stock.id, values: { onHand: n(stock.values.onHand) + qty }, action: `Disesuaikan ${qty} lewat ${adj.id}` }], postings: posting ? [posting] : [] }
   },
   'inv.counts:posted': (count, all, today) => {
     const value = n(count.values.value)
-    const posting = compose(all, head(count, 'Manual', `Selisih stok opname ${count.id} ${String(count.values.scope)}`, 'fertiliser', today), [signed(POSTING.inventory, value), signed(POSTING.countVariance, -value)], count.id)
+    const posting = compose(all, head(count, 'Manual', `Selisih stok opname ${count.id} ${String(count.values.scope)}`, entityOfPlant(all, count.values.plant), today), [signed(POSTING.inventory, value), signed(POSTING.countVariance, -value)], count.id)
     return { postings: posting ? [posting] : [] }
   },
   'cfp.coproducts:posted': (c, all, today) => {
@@ -348,7 +373,7 @@ const RULES: Record<string, Rule> = {
     const parts = n(wo.values.partsCost)
     const labour = n(wo.values.cost) - parts
     const asset = find(all, 'eam.assets', wo.values.asset)
-    const posting = compose(all, head(wo, 'Maintenance', `Biaya ${wo.id} ${String(wo.values.task)}`, 'fertiliser', today), [[POSTING.maintenance, parts + labour, 0], [POSTING.spares, 0, parts], [POSTING.accrual, 0, labour]], wo.id)
+    const posting = compose(all, head(wo, 'Maintenance', `Biaya ${wo.id} ${String(wo.values.task)}`, entityOfSite(all, asset?.values.site), today), [[POSTING.maintenance, parts + labour, 0], [POSTING.spares, 0, parts], [POSTING.accrual, 0, labour]], wo.id)
     return {
       patches: asset ? [{ type: asset.type, id: asset.id, values: { maintenanceCost: n(asset.values.maintenanceCost) + parts + labour }, action: `Biaya ${wo.id} ${rp(parts + labour)}` }] : [],
       postings: posting ? [posting] : [],
@@ -362,7 +387,7 @@ const RULES: Record<string, Rule> = {
     const ofRun = (p: ErpRecord) => p.values.period === period && String(p.values.kind || 'Regular') === kind
     const have = new Set(list(all, 'hrs.payslips').filter(ofRun).map((p) => p.values.employee))
     const staff = list(all, 'mdm.employees').filter((e) => e.status === 'active' && e.values.entity === run.values.entity)
-    const slips = staff.filter((e) => !have.has(e.id)).map((e) => (kind === 'THR' ? thrSlipFor(e, period, today) : payslipFor(e, period, all)))
+    const slips = staff.filter((e) => !have.has(e.id)).map((e) => (kind === 'THR' ? thrSlipFor(e, period, today) : kind === 'Bonus' ? bonusSlipFor(e, period, n(run.values.bonusPct)) : payslipFor(e, period, all)))
     const every = [...slips, ...list(all, 'hrs.payslips').filter((p) => ofRun(p) && p.values.entity === run.values.entity).map((p) => p.values)]
     const gross = every.reduce((s, v) => s + slipGross(v), 0)
     const deductions = every.reduce((s, v) => s + n(v.bpjs) + n(v.pph21) + n(v.loan), 0)
@@ -371,10 +396,12 @@ const RULES: Record<string, Rule> = {
   'hrs.payroll:paid': (run, all, today) => {
     const slips = list(all, 'hrs.payslips').filter((p) => p.values.period === run.values.period && String(p.values.kind || 'Regular') === String(run.values.kind || 'Regular') && p.values.entity === run.values.entity && p.status !== 'paid')
     // The employer's own BPJS share is a cost on top of gross pay; a THR run carries none.
-    const employer = slips.reduce((s, p) => s + (p.values.kind === 'THR' ? 0 : employerBpjsOf(n(p.values.base))), 0)
+    const employer = slips.reduce((s, p) => s + (['THR', 'Bonus'].includes(String(p.values.kind)) ? 0 : employerBpjsOf(n(p.values.base))), 0)
     const sum = (f: (v: Values) => number) => slips.reduce((s, p) => s + f(p.values), 0)
     const [gross, bpjs, tax, loan] = [sum(slipGross), sum((v) => n(v.bpjs)), sum((v) => n(v.pph21)), sum((v) => n(v.loan))]
-    const posting = compose(all, head(run, 'Payroll', `Gaji ${String(run.values.period)}`, run.values.entity, today), [[POSTING.payroll, gross + employer, 0], [POSTING.bank, 0, gross - bpjs - tax - loan], [POSTING.accrual, 0, bpjs + employer], [POSTING.pph21, 0, tax], [POSTING.advance, 0, loan]], run.id)
+    // Severance in a final payslip is paid with the run and its final tax is owed with PPh 21.
+    const [severance, finalTax] = [sum((v) => n(v.severance)), sum((v) => n(v.severanceTax))]
+    const posting = compose(all, head(run, 'Payroll', `Gaji ${String(run.values.period)}`, run.values.entity, today), [[POSTING.payroll, gross + employer + severance, 0], [POSTING.bank, 0, gross - bpjs - tax - loan + severance - finalTax], [POSTING.accrual, 0, bpjs + employer], [POSTING.pph21, 0, tax + finalTax], [POSTING.advance, 0, loan]], run.id)
     return { moves: slips.map((p) => ({ type: p.type, id: p.id, status: 'paid', action: `Dibayar lewat ${run.id}` })), postings: posting ? [posting] : [] }
   },
 
@@ -495,7 +522,7 @@ const RULES: Record<string, Rule> = {
 /** Everything a document step sets off, including the journal the ledger rules raise for it. */
 export function effectsFor(typeKey: string, record: ErpRecord, to: string, all: All, today: string): Effects {
   const step = `${typeKey}:${to}`
-  const rules = [RULES[step]?.(record, all, today), PLANT_RULES[step]?.(record, all, today)].flatMap((r) => r ?? [])
+  const rules = [RULES[step], PLANT_RULES[step], CONTROL_RULES[step], HR_RULES[step]].flatMap((rule) => rule?.(record, all, today) ?? [])
   const blocker = rules.find((r) => r.blocker)?.blocker
   if (blocker) return { blocker, patches: [], moves: [], creates: [], postings: [] }
   const posting = postingFor(typeKey, record, to, all, today)

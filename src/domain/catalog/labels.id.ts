@@ -1,5 +1,15 @@
 /** Indonesian labels for the catalogue: field labels and record type names, keyed by their English text. */
 export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
+  'Density': 'Massa jenis',
+  'Input VAT credit': 'Status kredit PPN masukan',
+  'Tax withheld': 'PPh dipotong',
+  'Capitalised from invoice': 'Dikapitalisasi dari tagihan',
+  'Fixed asset': 'Aset tetap',
+  'Transfer date': 'Tanggal transfer',
+  'PKWT compensation': 'Kompensasi PKWT',
+  'Bonus, % of base pay': 'Bonus (% gaji pokok)',
+  'Severance': 'Pesangon',
+  'Final tax on severance': 'PPh final pesangon',
   'Granules 2-4 mm': 'Granul 2-4 mm',
   'Hardness': 'Kekerasan',
   'Stock lot': 'Lot stok',
@@ -133,7 +143,6 @@ export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
   'Amount before tax': 'Nilai sebelum pajak (DPP)',
   'VAT': 'PPN',
   'Withholding': 'Pemotongan PPh',
-  'PPh 23 withheld': 'PPh 23 dipotong',
   'Payable': 'Nilai terutang',
   'Receivable': 'Nilai piutang',
   'Sales order': 'Pesanan penjualan',
@@ -846,6 +855,8 @@ export const FIELD_LABELS_ID: Readonly<Record<string, string>> = {
 }
 
 export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
+  'Asset transfers': 'Transfer aset',
+  'Asset transfer': 'Transfer aset',
   'Deliveries': 'Pengiriman sebagian',
   'Delivery': 'Pengiriman',
   'Stock count lines': 'Baris stok opname',
@@ -1326,6 +1337,7 @@ export const TYPE_NAMES_ID: Readonly<Record<string, string>> = {
 }
 
 export const STATE_LABELS_ID: Readonly<Record<string, string>> = {
+  'Expired, on hold': 'Kedaluwarsa, ditahan',
   'Counted': 'Sudah dihitung',
   'Received back': 'Diterima kembali',
   'Credited': 'Dikreditkan',
@@ -1491,6 +1503,8 @@ export const STATE_LABELS_ID: Readonly<Record<string, string>> = {
 }
 
 export const MOVE_LABELS_ID: Readonly<Record<string, string>> = {
+  'Hold as expired': 'Tahan karena kedaluwarsa',
+  'Release after retest': 'Lepas setelah uji ulang',
   'Reopen batch': 'Buka lagi batch',
   'Cancel delivery': 'Batalkan pengiriman ini',
   'Cancel shipment': 'Batalkan pengiriman',

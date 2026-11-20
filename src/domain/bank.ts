@@ -5,7 +5,7 @@
 import { compose, fxLine, ledgerLines, POSTING, trialBalance, type Posting } from './ledger'
 import { slipGross, slipNet } from './payroll'
 import type { ErpRecord } from './records'
-import { baseIdr, currentRate, isForeign, ppnOf, pph23Of } from './tax'
+import { baseIdr, currentRate, isForeign, ppnOf, withheldOf } from './tax'
 
 type All = Readonly<Record<string, readonly ErpRecord[]>>
 
@@ -162,9 +162,9 @@ export function ebupotXml(all: All, year: string) {
     const e = find(all, 'mdm.employees', id)
     return `  <Bupot21>${tag('NIK', String(e?.values.nik ?? id))}${tag('Nama', String(e?.values.name ?? ''))}${tag('StatusPTKP', String(e?.values.ptkp ?? 'TK/0'))}${tag('PenghasilanBruto', v.gross)}${tag('PPhDipotong', v.tax)}</Bupot21>`
   })
-  const pph23 = (all['fin.payables'] ?? []).filter((p) => ['approved', 'paid'].includes(p.status) && pph23Of(p.values) > 0).map((p) => {
+  const pph23 = (all['fin.payables'] ?? []).filter((p) => ['approved', 'paid'].includes(p.status) && p.values.withholding === 'PPh 23 2%').map((p) => {
     const vendor = find(all, 'mdm.partners', p.values.vendor)
-    return `  <Bupot23>${tag('NPWP', String(vendor?.values.npwp ?? ''))}${tag('Nama', String(vendor?.values.name ?? ''))}${tag('NomorDokumen', String(p.values.invoiceNo))}${tag('DPP', baseIdr(p.values))}${tag('Tarif', 2)}${tag('PPhDipotong', pph23Of(p.values))}</Bupot23>`
+    return `  <Bupot23>${tag('NPWP', String(vendor?.values.npwp ?? ''))}${tag('Nama', String(vendor?.values.name ?? ''))}${tag('NomorDokumen', String(p.values.invoiceNo))}${tag('DPP', baseIdr(p.values))}${tag('Tarif', 2)}${tag('PPhDipotong', withheldOf(p.values))}</Bupot23>`
   })
   return { xml: `<?xml version="1.0" encoding="UTF-8"?>\n<Bupot tahun="${year}">\n${[...pph21, ...pph23].join('\n')}\n</Bupot>\n`, pph21: pph21.length, pph23: pph23.length }
 }
@@ -189,7 +189,7 @@ export function cashForecast(all: All, today: string, weeks = 8) {
     const [from, to] = [day(i * 7), day(i * 7 + 6)]
     const days = Array.from({ length: 7 }, (_, d) => day(i * 7 + d))
     const receipts = due('fin.receivables', ['issued', 'overdue'], from, to, i === 0, (r) => baseIdr(r.values) + ppnOf(r.values))
-    const payables = due('fin.payables', ['received', 'matched', 'approved'], from, to, i === 0, (r) => baseIdr(r.values) + ppnOf(r.values) - pph23Of(r.values))
+    const payables = due('fin.payables', ['received', 'matched', 'approved'], from, to, i === 0, (r) => baseIdr(r.values) + ppnOf(r.values) - withheldOf(r.values))
     const monthEnd = days.some((d) => day(i * 7 + days.indexOf(d) + 1).slice(8) === '01')
     const row = { from, to, opening: cash, receipts, payables, payroll: days.some((d) => d.slice(8) === '25') ? payroll : 0, tax: monthEnd && i < 5 ? vat : 0 }
     cash = row.opening + row.receipts - row.payables - row.payroll - row.tax

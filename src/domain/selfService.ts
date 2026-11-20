@@ -59,7 +59,7 @@ export const SELF_MENU: ReadonlyArray<[group: string, items: readonly SelfItem[]
     { id: 'logbook', label: 'Logbook harian', type: 'hrs.logbook', create: true },
   ]],
   ['Pelatihan', [
-    { id: 'courses', label: 'Kursus saya', type: 'hrs.enrollments' },
+    { id: 'courses', label: 'Kursus saya', type: 'hrs.enrollments', clock: true },
     { id: 'trainings', label: 'Riwayat pelatihan', type: 'hrs.trainings' },
   ]],
   ['K3', [
@@ -99,21 +99,6 @@ export function employeeOf(role: Pick<Role, 'id' | 'entity'>, employees: readonl
 
 /** The records of `list` that belong to the employee. */
 export const ownRecords = (list: readonly ErpRecord[], employeeId: string) => list.filter((r) => r.values.employee === employeeId)
-
-const ANNUAL_LEAVE_DAYS = 12
-
-/**
- * Annual leave this year: the entitlement less approved days, and the days still waiting for a decision. Someone who
- * joined during the year earns one day per month from the month they joined. With `annualType`, only leave of that
- * type counts against the entitlement; sick, maternity and other leave have their own limits.
- */
-export function leaveBalance(leaves: readonly ErpRecord[], year: string, opts: { joined?: string; annualType?: string } = {}) {
-  const counts = (l: ErpRecord) => String(l.values.from).startsWith(year) && (!opts.annualType || l.values.leaveType === opts.annualType)
-  const days = (status: string) => leaves.filter((l) => l.status === status && counts(l)).reduce((s, l) => s + (Number(l.values.days) || 0), 0)
-  const entitlement = opts.joined?.startsWith(year) ? Math.min(ANNUAL_LEAVE_DAYS, 13 - Number(opts.joined.slice(5, 7))) : ANNUAL_LEAVE_DAYS
-  const taken = days('approved')
-  return { entitlement, taken, waiting: days('submitted'), left: Math.max(0, entitlement - taken) }
-}
 
 /** Colleagues in the employee's org unit, the employee included. */
 export const teamOf = (me: ErpRecord, employees: readonly ErpRecord[]) => employees.filter((e) => e.status === 'active' && e.values.orgunit === me.values.orgunit)

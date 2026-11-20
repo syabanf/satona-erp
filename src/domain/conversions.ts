@@ -124,6 +124,14 @@ export const CONVERSIONS: readonly Conversion[] = [
     map: (so, _all, today) => ({ direction: 'Outbound', plate: '', order: so.id, gross: 0, date: today }),
   },
   {
+    from: 'fin.payables',
+    to: 'fin.assets',
+    label: 'Kapitalisasi jadi aset tetap',
+    when: ['approved', 'paid'],
+    link: 'invoice',
+    map: (inv, _all, today) => ({ name: `Aset dari ${String(inv.values.invoiceNo)}`, entity: inv.values.entity, class: 'Plant & machinery', cost: inv.values.amount, life: 8, acquired: today, salvage: 0, method: 'Straight line', invoice: inv.id }),
+  },
+  {
     from: 'fin.receivables',
     to: 'fin.creditnotes',
     label: 'Buat nota kredit',
